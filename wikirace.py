@@ -32,6 +32,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# The interface lives in docs/ so GitHub Pages can serve the very same file
+# this script does - one copy, no drift. Older layouts kept it alongside.
+UI_CANDIDATES = [
+    os.path.join(HERE, "docs", "index.html"),
+    os.path.join(HERE, "ui.html"),
+]
+
+
+def ui_path():
+    for candidate in UI_CANDIDATES:
+        if os.path.exists(candidate):
+            return candidate
+    return UI_CANDIDATES[0]
+
 MCAST_GRP = "239.255.42.99"
 DISCOVERY_PORT = 8421
 DEFAULT_HTTP_PORT = 8420
@@ -1000,10 +1014,11 @@ def make_handler(state, net, hub):
                 return
             if path in ("/", "/index.html"):
                 try:
-                    with open(os.path.join(HERE, "ui.html"), "rb") as f:
+                    with open(ui_path(), "rb") as f:
                         body = f.read()
                 except OSError:
-                    self._send(500, b"ui.html missing next to wikirace.py", "text/plain")
+                    self._send(500, b"docs/index.html is missing next to wikirace.py",
+                               "text/plain")
                     return
                 # Hand a fresh browser its own seat at the table, and remember
                 # the join code so the link only has to carry it once.
@@ -1324,6 +1339,10 @@ def main():
                     help="join code required to enter (auto-generated for --internet)")
     ap.add_argument("--no-code", action="store_true",
                     help="with --internet, let anyone who has the link straight in")
+    ap.add_argument("--pages", default=None, metavar="URL",
+                    help="your GitHub Pages address, e.g. https://you.github.io/WikiRace/ "
+                         "- the shared link then goes through it, so friends open a "
+                         "page that stays put between games")
     ap.add_argument("--no-browser", action="store_true", help="don't open a browser window")
     args = ap.parse_args()
 
@@ -1369,7 +1388,17 @@ def main():
         log("  Opening a public link (this takes a few seconds)...")
 
         def announce(public):
-            link = public + ("/?code=" + state.join_code if state.join_code else "/")
+            direct = public + ("/?code=" + state.join_code if state.join_code else "/")
+            link = direct
+            if args.pages:
+                # Send friends through the published page instead: it's a URL
+                # they can bookmark once, while the game address changes every
+                # session.
+                from urllib.parse import quote
+                base = args.pages if args.pages.endswith("/") else args.pages + "/"
+                link = base + "?server=" + quote(public, safe="")
+                if state.join_code:
+                    link += "&code=" + state.join_code
             with state.lock:
                 state.public_url = link
                 state.bump()
@@ -1382,6 +1411,8 @@ def main():
             log("")
             if state.join_code:
                 log(f"  (the code {state.join_code} is already in the link)")
+            if args.pages:
+                log(f"  Direct link, if the page above ever misbehaves: {direct}")
             log("  It stays up while this window is open.")
             log("  ==================================================================")
             log("")

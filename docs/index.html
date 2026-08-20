@@ -1505,9 +1505,10 @@ async function fillShortest(race, fin) {
       msg = "The shortest route was <b>2 clicks</b>, e.g. via <b>" +
             esc(r.via[0]) + "</b>" +
             (r.via.length > 1 ? " (also " + r.via.slice(1).map(esc).join(", ") + ")" : "") + ".";
-      if (best != null) {
-        msg += best === 2 ? " Somebody found it." : " Best anyone managed was " + best + ".";
-      }
+      // Never claim a run beat the optimum: if the numbers disagree the
+      // enumeration was incomplete, so say nothing rather than nonsense.
+      if (best === 2) msg += " Somebody found it.";
+      else if (best != null && best > 2) msg += " Best anyone managed was " + best + ".";
     } else if (r.complete) {
       msg = "No route in 2 clicks exists" +
             (best != null ? " — the best run took " + best + "." : ".");
