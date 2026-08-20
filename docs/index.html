@@ -469,10 +469,19 @@
   .step .ti { flex: 1; font-weight: 600; font-size: 14px; }
   .step .at { font-family: var(--mono); font-size: 12px; color: var(--fg-dim); }
   .step .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-faint); }
-  .step .tag.goal { background: #14261a; color: var(--good); border-color: #2d6b3a; }
-  .step .tag.cp { background: #14261a; color: var(--good); border-color: #2d6b3a; }
-  .step.checkpoint { border-color: #3fb950; box-shadow: inset 3px 0 0 #3fb950; }
-  .step.checkpoint:hover { border-color: #56d364; }
+  /* The three steps that mean something get the same treatment - a coloured
+     edge and a matching tag - so they read as one family: where you set off,
+     what you had to touch on the way, and where you arrived. */
+  .step .tag.begin { background: #16222f; color: var(--accent); border-color: #2b4a6b; }
+  .step .tag.cp    { background: #33270c; color: #f2cc60;      border-color: #8a6d1f; }
+  .step .tag.goal  { background: #14261a; color: var(--good);  border-color: #2d6b3a; }
+
+  .step.start      { border-color: #2b4a6b; box-shadow: inset 3px 0 0 var(--accent); }
+  .step.checkpoint { border-color: #8a6d1f; box-shadow: inset 3px 0 0 #f2cc60; }
+  .step.target     { border-color: #2d6b3a; box-shadow: inset 3px 0 0 var(--good); }
+  .step.start:hover      { border-color: var(--accent); }
+  .step.checkpoint:hover { border-color: #f2cc60; }
+  .step.target:hover     { border-color: #56d364; }
 
   /* replay */
   .replay-ctl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -1973,10 +1982,13 @@ function renderMyRun() {
     const at = times[i] != null ? fmtTime(times[i]) : "";
     const isGoal = norm(t) === target;
     const isStop = stops.has(norm(t));
-    return '<div class="step' + (isStop ? " checkpoint" : "") + '" data-i="' + i + '">' +
+    // Arrival outranks a stop, which outranks setting off, when one page
+    // happens to be more than one of them.
+    const kind = isGoal ? " target" : isStop ? " checkpoint" : i === 0 ? " start" : "";
+    return '<div class="step' + kind + '" data-i="' + i + '">' +
       '<span class="n">' + (i + 1) + "</span>" +
       '<span class="ti">' + esc(t) + "</span>" +
-      (i === 0 ? '<span class="tag">start</span>' : "") +
+      (i === 0 ? '<span class="tag begin">start</span>' : "") +
       (isStop ? '<span class="tag cp">checkpoint</span>' : "") +
       (isGoal ? '<span class="tag goal">target</span>' : "") +
       '<span class="at">' + at + "</span></div>";
@@ -2205,6 +2217,12 @@ function drawReplay() {
   const h = top + lanes.length * rowH + 10;
   const x = (t) => padL + (t / replay.maxT) * (w - padL - padR);
 
+  // The pages that carry meaning, marked the same way as in My run:
+  // amber for a required stop, green for the target.
+  const race = S.snap && S.snap.race;
+  const checkKeys = new Set(raceCheckpoints(race).map(norm));
+  const targetKey = norm((race && race.target) || "");
+
   // Pages that more than one player set foot on.
   const counts = new Map();
   for (const l of lanes) {
@@ -2246,11 +2264,21 @@ function drawReplay() {
     for (const s of l.steps) {
       const shared = !l.ghost && (counts.get(s.title) || 0) > 1;
       const dim = s.t > replay.t;
-      svg += '<circle class="tl-dot" data-art="' + esc(norm(s.title)) +
-             '" data-label="' + esc(s.title + " · " + fmtTime(s.t)) +
-             '" cx="' + x(s.t) + '" cy="' + y + '" r="' + (shared ? 5.5 : 4) +
-             '" fill="' + (dim ? "#1b232e" : l.color) + '" stroke="' + l.color +
-             '" stroke-width="1.5" opacity="' + (l.ghost ? .55 : 1) + '"/>';
+      const key = norm(s.title);
+      const isCheck = checkKeys.has(key);
+      const isGoal = key === targetKey;
+      // The ring says what the page is; the fill still says whose dot it is.
+      const ring = isGoal ? "#3fb950" : isCheck ? "#f2cc60" : l.color;
+      const rad = isGoal || isCheck ? 6.5 : shared ? 5.5 : 4;
+      const label = s.title + " · " + fmtTime(s.t) +
+                    (isGoal ? " · target" : isCheck ? " · checkpoint" : "");
+      svg += '<circle class="tl-dot" data-art="' + esc(key) +
+             '" data-label="' + esc(label) +
+             '" cx="' + x(s.t) + '" cy="' + y + '" r="' + rad +
+             '" fill="' + (dim ? "#1b232e" : l.color) + '" stroke="' + ring +
+             '" stroke-width="' + (isGoal || isCheck ? 2.5 : 1.5) + '"' +
+             (isCheck ? ' stroke-dasharray="4 3"' : "") +
+             ' opacity="' + (l.ghost ? .55 : 1) + '"/>';
     }
     if (l.finished && l.elapsed <= replay.t) {
       svg += '<text x="' + (x(l.elapsed) + 9) + '" y="' + (y + 4) +
