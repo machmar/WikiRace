@@ -654,6 +654,22 @@
 
   /* routes view */
   .rp-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
+  .rp-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .rp-tools input[type=range] { flex: 1; max-width: 260px; accent-color: var(--accent); }
+  .tiny-btn { padding: 4px 11px; font-size: 12px; }
+  .leg.pick.latched { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  /* instant label for a timeline point, rather than the browser's slow one */
+  #rp-chart { position: relative; }
+  .rp-tip {
+    position: absolute; z-index: 5; transform: translateX(-50%);
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 6px;
+    padding: 3px 9px; font-size: 12px; white-space: nowrap; pointer-events: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  }
+  .tl-hit { cursor: pointer; }
+  .tl-dot { cursor: pointer; }
+  #rp-chart svg [class^="tl-"] { transition: opacity .1s; }
   .rp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12.5px; }
   .leg { display: inline-flex; align-items: center; gap: 6px; }
   .leg .sw { width: 16px; height: 3px; border-radius: 2px; }
@@ -1972,7 +1988,8 @@ function renderMyRun() {
  * ------------------------------------------------------------------ */
 
 const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null,
-                 raceId: null, view: "timeline", sig: null, ghost: null };
+                 raceId: null, view: "timeline", sig: null, ghost: null,
+                 locked: null, colWidth: 168 };
 
 /* What the replay is drawn from. If this hasn't moved, neither has the
    picture, so there's no reason to rebuild it. */
@@ -2180,10 +2197,16 @@ function drawReplay() {
       const s = l.steps.find(s => s.title === title);
       if (s && !l.ghost) pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2 });
     });
+    const key = norm(title);
     for (let i = 1; i < pts.length; i++) {
-      svg += '<line x1="' + pts[i - 1].x + '" y1="' + pts[i - 1].y +
-             '" x2="' + pts[i].x + '" y2="' + pts[i].y +
-             '" stroke="#3a4757" stroke-width="1" stroke-dasharray="2 3"/>';
+      // A wide transparent line underneath gives the thin dotted one a
+      // hit area you can actually land on.
+      const geom = 'x1="' + pts[i - 1].x + '" y1="' + pts[i - 1].y +
+                   '" x2="' + pts[i].x + '" y2="' + pts[i].y + '"';
+      svg += "<line " + geom + ' stroke="transparent" stroke-width="12" ' +
+             'data-art="' + esc(key) + '" class="tl-hit"/>';
+      svg += "<line " + geom + ' stroke="#3a4757" stroke-width="1" ' +
+             'stroke-dasharray="2 3" data-art="' + esc(key) + '" class="tl-link"/>';
     }
   }
 
@@ -2199,10 +2222,11 @@ function drawReplay() {
     for (const s of l.steps) {
       const shared = !l.ghost && (counts.get(s.title) || 0) > 1;
       const dim = s.t > replay.t;
-      svg += '<circle cx="' + x(s.t) + '" cy="' + y + '" r="' + (shared ? 5.5 : 4) +
+      svg += '<circle class="tl-dot" data-art="' + esc(norm(s.title)) +
+             '" data-label="' + esc(s.title + " · " + fmtTime(s.t)) +
+             '" cx="' + x(s.t) + '" cy="' + y + '" r="' + (shared ? 5.5 : 4) +
              '" fill="' + (dim ? "#1b232e" : l.color) + '" stroke="' + l.color +
-             '" stroke-width="1.5" opacity="' + (l.ghost ? .55 : 1) + '">' +
-             "<title>" + esc(s.title) + " — " + fmtTime(s.t) + "</title></circle>";
+             '" stroke-width="1.5" opacity="' + (l.ghost ? .55 : 1) + '"/>';
     }
     if (l.finished && l.elapsed <= replay.t) {
       svg += '<text x="' + (x(l.elapsed) + 9) + '" y="' + (y + 4) +
@@ -2215,6 +2239,7 @@ function drawReplay() {
          '" stroke="#58a6ff" stroke-width="1.5"/>';
   svg += "</svg>";
   chart.innerHTML = svg;
+  wireTimelineHover(chart);
 
   const scrub = $("rp-scrub");
   if (scrub) scrub.value = String(Math.round((replay.t / replay.maxT) * 1000));
@@ -2606,7 +2631,7 @@ function drawRoutes() {
   const g = race && routeGraph(race);
   if (!g) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
 
-  const COL = 168, ROW = 74, PAD = 62;
+  const COL = replay.colWidth, ROW = 74, PAD = 62;
   const w = PAD * 2 + (g.cols - 1) * COL;
   const h = PAD * 2 + Math.max(1, g.rows - 1) * ROW;
   const xy = (k, dy) => {
@@ -2692,6 +2717,12 @@ function drawRoutes() {
     esc(r.name) + '<span class="sub">' + r.clicks + "c</span></span>").join("");
 
   host.innerHTML =
+    '<div class="rp-tools">' +
+    '<label class="tiny muted" for="rp-space">Spacing</label>' +
+    '<input type="range" id="rp-space" min="80" max="380" step="4" value="' +
+    replay.colWidth + '">' +
+    '<button id="rp-fit" class="tiny-btn">Fit to screen</button>' +
+    "</div>" +
     '<div class="rp-legend">' + legend +
     '<span class="leg muted"><span class="sw dash"></span>revisited a page</span></div>' +
     '<div class="rp-scroll">' + svg + "</div>" +
@@ -2703,10 +2734,84 @@ function drawRoutes() {
   const scroller = host.querySelector(".rp-scroll");
   if (scroller && keepLeft) scroller.scrollLeft = keepLeft;
   wireRouteHover(host);
+
+  const space = host.querySelector("#rp-space");
+  if (space) {
+    space.oninput = (e) => { replay.colWidth = +e.target.value; drawRoutes(); };
+  }
+  const fit = host.querySelector("#rp-fit");
+  if (fit) {
+    fit.onclick = () => {
+      // Work back from the room available to the gap that would just fill it.
+      const box = host.querySelector(".rp-scroll");
+      const room = (box ? box.clientWidth : host.clientWidth) - PAD * 2;
+      const gaps = Math.max(1, g.cols - 1);
+      replay.colWidth = Math.max(60, Math.min(380, Math.floor(room / gaps)));
+      drawRoutes();
+    };
+  }
+}
+
+/* Hovering a dot names the page it is; hovering one of the dotted links
+   between lanes picks out everywhere that page was reached and fades the rest
+   of the race away. */
+function wireTimelineHover(chart) {
+  const svg = chart.querySelector("svg");
+  if (!svg) return;
+  let tip = chart.querySelector(".rp-tip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.className = "rp-tip";
+    tip.hidden = true;
+    chart.appendChild(tip);
+  }
+
+  const dots = [...svg.querySelectorAll(".tl-dot")];
+  const links = [...svg.querySelectorAll(".tl-link")];
+  const all = dots.concat(links);
+
+  const focusArticle = (key) => {
+    for (const el of all) {
+      el.style.opacity = key == null ? "" : (el.dataset.art === key ? "1" : "0.12");
+    }
+    for (const el of links) {
+      el.style.stroke = key != null && el.dataset.art === key ? "#58a6ff" : "";
+      el.style.strokeWidth = key != null && el.dataset.art === key ? "2" : "";
+    }
+  };
+
+  const showTip = (el, text) => {
+    const cr = chart.getBoundingClientRect(), er = el.getBoundingClientRect();
+    tip.textContent = text;
+    tip.hidden = false;
+    const left = er.left - cr.left + er.width / 2;
+    tip.style.left = Math.max(4, Math.min(left, cr.width - 8)) + "px";
+    tip.style.top = (er.top - cr.top - 30) + "px";
+  };
+
+  for (const d of dots) {
+    d.addEventListener("mouseenter", () => {
+      showTip(d, d.dataset.label);
+      focusArticle(d.dataset.art);
+    });
+    d.addEventListener("mouseleave", () => { tip.hidden = true; focusArticle(null); });
+  }
+
+  // The invisible wide lines are what the pointer actually catches.
+  for (const hit of svg.querySelectorAll(".tl-hit")) {
+    hit.addEventListener("mouseenter", () => {
+      const key = hit.dataset.art;
+      const shown = dots.find(d => d.dataset.art === key);
+      if (shown) showTip(hit, (shown.dataset.label || "").split(" · ")[0] + " — shared");
+      focusArticle(key);
+    });
+    hit.addEventListener("mouseleave", () => { tip.hidden = true; focusArticle(null); });
+  }
 }
 
 /* Following one line through a tangle is hard, so hovering any part of a run -
-   or its name in the legend - fades everybody else out of the way. */
+   or its name in the legend - fades everybody else out of the way. Clicking
+   latches it, so you can let go of the mouse and study the route. */
 function wireRouteHover(host) {
   const svg = host.querySelector("svg");
   if (!svg) return;
@@ -2726,18 +2831,36 @@ function wireRouteHover(host) {
     });
     legends.forEach(el => {
       el.classList.toggle("faded", idx != null && el.dataset.run !== String(idx));
+      el.classList.toggle("latched", replay.locked != null &&
+                                     el.dataset.run === String(replay.locked));
     });
   };
 
+  // A latched run stays picked out after the pointer leaves.
+  const apply = () => focus(replay.locked);
+  const enter = (i) => { if (replay.locked == null) focus(i); };
+  const leave = () => { if (replay.locked == null) focus(null); };
+  const toggle = (i) => {
+    replay.locked = replay.locked === i ? null : i;
+    apply();
+  };
+
   strokes.forEach(el => {
+    const i = +el.dataset.run;
     el.style.cursor = "pointer";
-    el.addEventListener("mouseenter", () => focus(+el.dataset.run));
-    el.addEventListener("mouseleave", () => focus(null));
+    el.addEventListener("mouseenter", () => enter(i));
+    el.addEventListener("mouseleave", leave);
+    el.addEventListener("click", (e) => { e.stopPropagation(); toggle(i); });
   });
   legends.forEach(el => {
-    el.addEventListener("mouseenter", () => focus(+el.dataset.run));
-    el.addEventListener("mouseleave", () => focus(null));
+    const i = +el.dataset.run;
+    el.addEventListener("mouseenter", () => enter(i));
+    el.addEventListener("mouseleave", leave);
+    el.addEventListener("click", (e) => { e.stopPropagation(); toggle(i); });
   });
+  svg.addEventListener("click", () => { replay.locked = null; apply(); });
+
+  apply();
 }
 
 /* ------------------------------------------------------------------ *
