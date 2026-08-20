@@ -82,6 +82,35 @@ def norm_name(name):
     return " ".join((name or "").split()).lower()
 
 
+def rank_finishers(race):
+    """Finishers in winning order for this race's mode.
+
+    Speed races rank on the clock, click races on the number of links, and
+    each uses the other as the tie-break.
+    """
+    finishers = [r for r in (race.get("results") or {}).values() if r.get("finished")]
+    if race.get("mode") == "clicks":
+        return sorted(finishers, key=lambda r: (r.get("clicks", 999), r.get("elapsed", 9e9)))
+    return sorted(finishers, key=lambda r: (r.get("elapsed", 9e9), r.get("clicks", 999)))
+
+
+def race_checkpoints(race):
+    """Checkpoints as a list, tolerating the older single-checkpoint field."""
+    if not race:
+        return []
+    many = race.get("checkpoints")
+    if isinstance(many, list):
+        return [c for c in many if c]
+    one = race.get("checkpoint")
+    return [one] if one else []
+
+
+def missing_checkpoints(race, path):
+    """Which required stops this route never made."""
+    seen = {norm_name(p) for p in (path or [])}
+    return [c for c in race_checkpoints(race) if norm_name(c) not in seen]
+
+
 # --------------------------------------------------------------------------
 # Shared game state.  Guarded by one lock; every mutation bumps `version` so
 # the HTTP layer can tell connected browsers that something changed.
@@ -236,11 +265,15 @@ class GameState:
             results = race.get("results", {})
             if not results:
                 continue
-            finishers = sorted(
-                [r for r in results.values() if r.get("finished")],
-                key=lambda r: (r.get("elapsed", 9e9), r.get("clicks", 999)),
-            )
-            fewest = min((r.get("clicks", 999) for r in finishers), default=None)
+            finishers = rank_finishers(race)
+            # The bonus rewards whichever measure the race isn't scored on,
+            # so the losing style of play is still worth something.
+            if race.get("mode") == "clicks":
+                bonus_key, bonus_best = "elapsed", min(
+                    (r.get("elapsed", 9e9) for r in finishers), default=None)
+            else:
+                bonus_key, bonus_best = "clicks", min(
+                    (r.get("clicks", 999) for r in finishers), default=None)
 
             for r in results.values():
                 e = slot(r.get("name", "?"))
@@ -251,7 +284,7 @@ class GameState:
                 e["finished"] += 1
                 e["clicks"] += r.get("clicks", 0)
                 e["points"] += POINTS_BY_RANK[i] if i < len(POINTS_BY_RANK) else POINTS_FINISH_OTHER
-                if fewest is not None and r.get("clicks") == fewest:
+                if bonus_best is not None and r.get(bonus_key) == bonus_best:
                     e["points"] += POINTS_FEWEST_CLICKS
                 if i == 0:
                     e["wins"] += 1
@@ -639,7 +672,8 @@ class PeerNet:
                 "allow_back": incoming.get("allow_back", True),
                 "time_limit": incoming.get("time_limit", 0),
                 "ban_hubs": incoming.get("ban_hubs", False),
-                "checkpoint": incoming.get("checkpoint", ""),
+                "checkpoints": list(race_checkpoints(incoming)),
+                "mode": incoming.get("mode", "time"),
                 "handicaps": dict(incoming.get("handicaps", {})),
             }
             st.races[rid] = race
@@ -1227,7 +1261,10 @@ def make_handler(state, net, hub):
                 "allow_back": bool(body.get("allow_back", True)),
                 "time_limit": int(limit) if limit else 0,
                 "ban_hubs": bool(body.get("ban_hubs", False)),
-                "checkpoint": (body.get("checkpoint") or "").strip(),
+                "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])
+                                if isinstance(c, str) and c.strip()][:6],
+                # What decides the winner: the clock, or the number of links.
+                "mode": "clicks" if body.get("mode") == "clicks" else "time",
                 "handicaps": {},
             }
             with state.lock:
@@ -1281,6 +1318,20 @@ def make_handler(state, net, hub):
                 race = state.active_race()
                 if not race:
                     return {"ok": False, "error": "no active race"}
+                # A win has to be earned here, not just claimed. The browser
+                # checks too, for a quicker message, but that check is only a
+                # courtesy - this one is the rule.
+                if finished:
+                    claimed = body.get("path")
+                    route = claimed if isinstance(claimed, list) else \
+                        ((me.run or {}).get("path") or [])
+                    skipped = missing_checkpoints(race, route)
+                    if skipped:
+                        return {"ok": False, "error": "checkpoints missed",
+                                "missing": skipped}
+                    if norm_name(route[-1] if route else "") != norm_name(race.get("target")):
+                        return {"ok": False, "error": "not at the target"}
+
                 run = me.run or {"clicks": 0, "path": [], "times": [],
                                  "race_id": race["race_id"]}
                 run["finished"] = finished
