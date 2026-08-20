@@ -507,6 +507,12 @@
     .awards { grid-template-columns: 1fr; }
   }
 
+  #lostbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 90;
+    background: var(--warn); color: #1b1200; text-align: center;
+    font-size: 12.5px; font-weight: 600; padding: 4px;
+  }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: #2a3441; border-radius: 5px; border: 2px solid var(--bg); }
@@ -719,9 +725,58 @@ function toast(msg, ms = 2000) {
   toast._t = setTimeout(() => t.classList.remove("show"), ms);
 }
 
+/* ------------------------------------------------------------------ *
+ * Where the game lives
+ *
+ * Normally the page is served by the game itself, so the API is same-origin.
+ * But this same file is also published to GitHub Pages, where it has to reach
+ * a game running on somebody's machine behind an HTTPS tunnel. Hence a
+ * configurable base, and a session id carried in the query string - a cookie
+ * would be a third-party cookie there, and browsers increasingly drop those.
+ * ------------------------------------------------------------------ */
+
+const conn = {
+  base: "",          // "" = same origin, else e.g. https://xxxx.lhr.life
+  code: "",          // join code, when the game asks for one
+  sid: "",           // this browser's seat
+};
+
+function loadConn() {
+  try {
+    conn.sid = localStorage.getItem("wr_sid") || "";
+    if (!conn.sid) {
+      conn.sid = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).replace(/-/g, "").slice(0, 24);
+      localStorage.setItem("wr_sid", conn.sid);
+    }
+    const q = new URLSearchParams(location.search);
+    // A link someone shared wins; otherwise fall back to the last game joined.
+    const server = q.get("server") || localStorage.getItem("wr_server") || "";
+    const code = q.get("code") || localStorage.getItem("wr_code") || "";
+    conn.base = server.replace(/\/+$/, "");
+    conn.code = code;
+  } catch (e) { /* private mode: stay same-origin with a throwaway id */ }
+}
+
+function rememberConn() {
+  try {
+    if (conn.base) localStorage.setItem("wr_server", conn.base);
+    else localStorage.removeItem("wr_server");
+    if (conn.code) localStorage.setItem("wr_code", conn.code);
+    else localStorage.removeItem("wr_code");
+  } catch (e) { /* ignore */ }
+}
+
+function apiUrlFor(path, extra) {
+  const q = new URLSearchParams(extra || {});
+  if (conn.sid) q.set("sid", conn.sid);
+  if (conn.code) q.set("code", conn.code);
+  const qs = q.toString();
+  return conn.base + "/api" + path + (qs ? (path.includes("?") ? "&" : "?") + qs : "");
+}
+
 async function post(path, body) {
   try {
-    const r = await fetch("/api" + path, {
+    const r = await fetch(apiUrlFor(path), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
@@ -1565,7 +1620,7 @@ async function findGhost(snap) {
     .sort((a, b) => (b.created || 0) - (a.created || 0));
   for (const row of prior.slice(0, 4)) {
     try {
-      const full = await (await fetch("/api/race?id=" + encodeURIComponent(row.race_id))).json();
+      const full = await (await fetch(apiUrlFor("/race", { id: row.race_id }))).json();
       const mine = Object.values(full.results || {}).find(r => norm(r.name) === me && r.finished);
       if (mine) {
         const path = mine.path || [];
@@ -2585,17 +2640,138 @@ $("btn-reset").onclick = () => {
   }
 };
 
-// Live updates from our local peer process.
-function connect() {
-  const es = new EventSource("/api/stream");
+/* ------------------------------------------------------------------ *
+ * Connecting
+ * ------------------------------------------------------------------ */
+
+let stream = null, streamFails = 0;
+
+function startLive() {
+  if (stream) { stream.close(); stream = null; }
+  const es = new EventSource(apiUrlFor("/stream"));
+  stream = es;
   es.onmessage = (ev) => {
+    streamFails = 0;
+    hideLostBanner();
     try { renderSnapshot(JSON.parse(ev.data)); } catch (e) { /* ignore a bad frame */ }
   };
-  es.onerror = () => { es.close(); setTimeout(connect, 1200); };
+  es.onerror = () => {
+    es.close();
+    if (stream === es) stream = null;
+    streamFails++;
+    // A brief blip just reconnects; a game that has genuinely gone away
+    // shouldn't leave you staring at a frozen lobby forever.
+    if (streamFails >= 5 && conn.base) {
+      showConnect("Lost the game — has the host closed it?");
+      return;
+    }
+    if (streamFails >= 3) showLostBanner();
+    setTimeout(startLive, Math.min(1200 * streamFails, 5000));
+  };
+  fetch(apiUrlFor("/state")).then(r => r.json()).then(renderSnapshot).catch(() => {});
 }
-connect();
 
-fetch("/api/state").then(r => r.json()).then(renderSnapshot).catch(() => {});
+function showLostBanner() {
+  let b = document.getElementById("lostbar");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "lostbar";
+    b.textContent = "Reconnecting…";
+    document.body.appendChild(b);
+  }
+  b.hidden = false;
+}
+
+function hideLostBanner() {
+  const b = document.getElementById("lostbar");
+  if (b) b.hidden = true;
+}
+
+async function probe() {
+  try {
+    const r = await fetch(apiUrlFor("/state"), { cache: "no-store" });
+    if (r.status === 403) return "code";
+    if (!r.ok) return "down";
+    await r.json();
+    return "ok";
+  } catch (e) { return "down"; }
+}
+
+/* Accepts anything a host might paste: a full share link with the code in it,
+   or just the address on its own. */
+function parseJoin(text) {
+  const t = (text || "").trim();
+  if (!t) return null;
+  let u;
+  try { u = new URL(t.includes("://") ? t : "https://" + t); }
+  catch (e) { return null; }
+  if (!/^https?:$/.test(u.protocol)) return null;
+  return { base: u.origin, code: u.searchParams.get("code") || "" };
+}
+
+function showConnect(message) {
+  document.querySelectorAll("#connect-overlay").forEach(o => o.remove());
+  const ov = document.createElement("div");
+  ov.className = "overlay";
+  ov.id = "connect-overlay";
+  ov.innerHTML =
+    '<div class="card">' +
+    '<div style="text-align:center;font-size:40px;line-height:1">&#127937;</div>' +
+    '<h2 style="text-align:center">Join a game</h2>' +
+    '<p class="lede" style="text-align:center">Paste the link the host sent you.</p>' +
+    (message ? '<div class="tiny" style="color:var(--warn);text-align:center;margin-bottom:12px">' +
+       esc(message) + "</div>" : "") +
+    '<div class="field"><input type="text" id="join-link" autocomplete="off" ' +
+    'placeholder="https://something.lhr.life/?code=ABC123"></div>' +
+    '<div class="actions"><button class="primary" id="join-go" style="flex:1">Join</button></div>' +
+    '<p class="tiny muted" style="margin-top:18px;text-align:center;line-height:1.7">' +
+    "Want to host instead? Download the game, then run<br>" +
+    '<code style="font-family:var(--mono);color:var(--accent)">python wikirace.py --internet</code><br>' +
+    "and share the link it prints.</p>" +
+    "</div>";
+  $("stage").appendChild(ov);
+
+  const input = ov.querySelector("#join-link");
+  const go = ov.querySelector("#join-go");
+  if (conn.base) input.value = conn.base + (conn.code ? "/?code=" + conn.code : "");
+
+  const attempt = async () => {
+    const parsed = parseJoin(input.value);
+    if (!parsed) { toast("That doesn't look like a link"); return; }
+    go.disabled = true; go.textContent = "Connecting…";
+    const prev = { base: conn.base, code: conn.code };
+    conn.base = parsed.base;
+    conn.code = parsed.code;
+    const status = await probe();
+    if (status === "ok") {
+      rememberConn();
+      ov.remove();
+      streamFails = 0;
+      startLive();
+      toast("Connected");
+      return;
+    }
+    conn.base = prev.base;
+    conn.code = prev.code;
+    go.disabled = false;
+    go.textContent = "Join";
+    toast(status === "code" ? "That link's code was rejected" : "Couldn't reach that game");
+  };
+  go.onclick = attempt;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
+  setTimeout(() => input.focus(), 40);
+}
+
+async function boot() {
+  loadConn();
+  const status = await probe();
+  if (status === "ok") { rememberConn(); startLive(); return; }
+  // Same-origin with nothing answering means this is the static copy on the
+  // web, so ask which game to join.
+  showConnect(status === "code" ? "This game needs a code." : "");
+}
+
+boot();
 </script>
 </body>
 </html>

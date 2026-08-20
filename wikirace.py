@@ -894,8 +894,16 @@ def make_handler(state, net, hub):
         # -- who is this request from? -------------------------------------
 
         def at_console(self):
-            """True for a browser on the machine actually running this."""
-            return self.client_address[0] in ("127.0.0.1", "::1", "localhost")
+            """True only for a browser on the machine actually running this.
+
+            The peer address alone can't tell you: an ssh tunnel terminates
+            locally, so somebody on the other side of the world also arrives
+            from 127.0.0.1. The Host header still says which door they used.
+            """
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                return False
+            host = (self.headers.get("Host") or "").split(":")[0].strip("[]").lower()
+            return host in ("localhost", "127.0.0.1", "::1")
 
         def session_id(self):
             """Identify the browser behind this request.
@@ -943,11 +951,21 @@ def make_handler(state, net, hub):
 
         # -- plumbing -------------------------------------------------------
 
+        def _cors(self):
+            # Wide open on purpose: the front-end may be served from GitHub
+            # Pages while the game runs on someone's laptop. There are no
+            # credentials to leak - the session id travels in the query string
+            # precisely so no cookie has to cross origins.
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
         def _send(self, code, body=b"", ctype="application/json", cookies=()):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self._cors()
             for name, value in cookies:
                 self.send_header(
                     "Set-Cookie",
@@ -1016,6 +1034,14 @@ def make_handler(state, net, hub):
             else:
                 self._send(404, b"not found", "text/plain")
 
+        def do_OPTIONS(self):
+            # Preflight for cross-origin POSTs from a Pages-hosted front-end.
+            self.send_response(204)
+            self._cors()
+            self.send_header("Content-Length", "0")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.end_headers()
+
         def do_POST(self):
             if not self.code_ok():
                 self._send(403, b"join code required", "text/plain")
@@ -1060,6 +1086,7 @@ def make_handler(state, net, hub):
             # An HTTP/1.1 body needs explicit framing, and a stream has no
             # length up front - so chunk it, or the browser drops the socket.
             self.send_header("Transfer-Encoding", "chunked")
+            self._cors()
             self.end_headers()
             sid = self.session_id()
             sub = hub.subscribe(sid)
