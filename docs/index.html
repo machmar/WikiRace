@@ -106,9 +106,18 @@
 
   /* ---------- layout ---------- */
 
-  #app { display: grid; grid-template-columns: 1fr 330px; grid-template-rows: auto 1fr; height: 100%; }
-  #topbar { grid-column: 1 / -1; }
-  #stage { overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  /* minmax(0, 1fr) rather than 1fr: a plain 1fr refuses to go narrower than
+     its content, and one wide Wikipedia table is enough to push the whole
+     layout past the edge of a phone screen. */
+  #app {
+    display: grid; grid-template-columns: minmax(0, 1fr) 330px;
+    grid-template-rows: auto 1fr; height: 100%;
+  }
+  #topbar { grid-column: 1 / -1; min-width: 0; }
+  #stage {
+    overflow: hidden; position: relative; display: flex; flex-direction: column;
+    min-width: 0;
+  }
   #side {
     border-left: 1px solid var(--line); background: var(--bg-2);
     overflow-y: auto; overflow-x: hidden;
@@ -482,18 +491,53 @@
   }
 
   /* ---------- phones and small windows ----------
-     Browser-only players will turn up on whatever device is in their hand,
-     so the sidebar stacks under the article instead of squeezing it. */
+     On a phone the article should have the screen almost to itself, so the
+     sidebar becomes a drawer and the other players shrink to one thin strip. */
+  #btn-menu { display: none; }
+  #miniplayers { display: none; }
+  #scrim { display: none; }
+
   @media (max-width: 760px) {
-    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; }
+
+    /* The sidebar slides in over the article instead of stealing space. */
     #side {
-      border-left: none; border-top: 1px solid var(--line);
-      max-height: 45vh;
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 80;
+      width: min(330px, 86vw); border-left: 1px solid var(--line);
+      transform: translateX(101%); transition: transform .22s ease;
+      box-shadow: -14px 0 44px rgba(0, 0, 0, .55);
     }
-    #topbar { flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
-    #goal { order: 3; width: 100%; font-size: 13px; }
-    #hud { margin-left: auto; }
-    .chip { max-width: 42vw; }
+    #side.open { transform: translateX(0); }
+    #scrim {
+      display: block; position: fixed; inset: 0; z-index: 70;
+      background: rgba(6, 10, 15, .6); backdrop-filter: blur(2px);
+    }
+    #btn-menu {
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 17px; line-height: 1; padding: 6px 10px; flex: none;
+    }
+
+    #topbar { gap: 8px; padding: 7px 10px; min-height: 46px; }
+    .brandname { display: none; }
+    #roomtag { display: none; }
+    #goal { font-size: 12.5px; gap: 6px; }
+    .chip { max-width: 34vw; padding: 3px 9px; }
+    .cp { padding: 2px 8px; }
+    #hud { gap: 10px; }
+    .stat .v { font-size: 16px; }
+    .stat .k { font-size: 9px; letter-spacing: .6px; }
+    #btn-new { display: none; }          /* the lobby has its own, larger one */
+    #btn-back, #btn-giveup { padding: 6px 10px; font-size: 12.5px; }
+
+    /* Everyone else's progress: full width, one line, no horizontal cost. */
+    #miniplayers {
+      display: flex; gap: 6px; align-items: center;
+      padding: 5px 10px; background: var(--bg-2);
+      border-bottom: 1px solid var(--line-soft);
+      overflow-x: auto; scrollbar-width: none; white-space: nowrap;
+    }
+    #miniplayers::-webkit-scrollbar { display: none; }
+    #miniplayers:empty { display: none; }
 
     #article { padding: 16px 14px 60px; }
     #article h1.title { font-size: 23px; }
@@ -572,6 +616,20 @@
      stroke itself is enough at this line width */
   #rp-routes svg path { stroke-linecap: round; }
 
+  /* compact per-player pill for the mobile strip */
+  .mp {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    font-size: 11.5px; padding: 2px 8px 2px 6px; border-radius: 999px;
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg-dim);
+    max-width: 42vw;
+  }
+  .mp .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .mp .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp .n { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+  .mp.done { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
+  .mp.near { border-color: var(--bad); background: #40202a; color: #ff9b95; font-weight: 700; }
+  .mp.out { opacity: .45; }
+
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
     background: var(--warn); color: #1b1200; text-align: center;
@@ -588,8 +646,9 @@
 
 <div id="app">
   <div id="topbar">
+    <button id="btn-menu" aria-label="Menu">☰</button>
     <div class="brand">
-      <span class="dot" id="netdot"></span> WikiRace
+      <span class="dot" id="netdot"></span><span class="brandname">WikiRace</span>
       <span id="roomtag" class="tiny muted" style="font-weight:400" hidden></span>
     </div>
 
@@ -608,6 +667,8 @@
       <button id="btn-new" class="primary">Set up race</button>
     </div>
   </div>
+
+  <div id="miniplayers"></div>
 
   <div id="stage">
     <!-- ---------- lobby: what you see between races ---------- -->
@@ -693,6 +754,8 @@
 
     <div id="toast"></div>
   </div>
+
+  <div id="scrim" hidden></div>
 
   <div id="side">
     <div class="panel">
@@ -1372,8 +1435,12 @@ async function enterRace(race, myRun) {
     S.loadMs = 0;
     S.startedAt = performance.now() - Math.max(0, mine.elapsed || 0) * 1000;
     $("btn-giveup").hidden = false;
+    // Without this a refresh mid-race drops you back to the lobby while your
+    // clock keeps running behind it.
+    setStage("race");
     renderCrumbs(); updateHud();
     await navigate(mine.article || race.start, false);
+    renderGoalBar(race);
     return;
   }
 
@@ -2995,6 +3062,30 @@ function renderRacers(snap) {
       (near ? '<span class="pip">1 away</span>' : "") + "</div>" + where + "</div>" +
       '<div class="n">' + (r.active ? r.clicks : "") + "</div></div>";
   }).join(""));
+
+  renderMiniPlayers(rows, reveal);
+}
+
+/* The phone version of the racer list: everyone else on one thin line, so the
+   article keeps the screen. Same rules as the sidebar - including never
+   telling you that you're the one a click from home. */
+function renderMiniPlayers(rows, reveal) {
+  const host = $("miniplayers");
+  if (!host) return;
+  const others = rows.filter(r => !r.me && r.active);
+  if (!others.length) { setHTML(host, ""); return; }
+
+  setHTML(host, others.map(r => {
+    const near = reveal && !r.finished && !r.gave_up && r.article &&
+                 S.nearSet && S.nearSet.has(norm(r.article));
+    const cls = r.finished ? "done" : r.gave_up ? "out" : near ? "near" : "";
+    const tail = r.finished ? "&#127937;" : r.gave_up ? "&mdash;" : r.clicks;
+    return '<span class="mp ' + cls + '" title="' +
+      esc(r.name + (reveal && r.article ? " — " + r.article : "")) + '">' +
+      '<span class="d" style="background:' + r.color + '"></span>' +
+      '<span class="nm">' + esc(r.name) + "</span>" +
+      '<span class="n">' + tail + "</span></span>";
+  }).join(""));
 }
 
 function renderBoard(board, hostEl) {
@@ -3111,6 +3202,18 @@ $("share-copy").onclick = async () => {
   }
 };
 
+// -- the sidebar is a drawer on a phone, and always on screen on a desktop --
+function setDrawer(open) {
+  $("side").classList.toggle("open", open);
+  setFlag($("scrim"), "hidden", !open);
+}
+$("btn-menu").onclick = () => setDrawer(!$("side").classList.contains("open"));
+$("scrim").onclick = () => setDrawer(false);
+// Widening past the breakpoint puts the sidebar back for good.
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 760) setDrawer(false);
+});
+
 $("lobby-start").onclick = openConfigurator;
 $("lobby-ready").onclick = () => post("/ready", { value: !(S.snap && S.snap.ready) });
 $("lobby-rematch").onclick = async () => {
@@ -3170,6 +3273,7 @@ $("btn-back").onclick = async () => {
 $("btn-savename").onclick = () => {
   const v = $("myname").value.trim();
   if (!v) return;
+  setDrawer(false);
   rememberName(v);
   conn.named = true;          // this is now the name to reclaim on reconnect
   post("/name", { name: v });
