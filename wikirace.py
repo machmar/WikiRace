@@ -862,40 +862,94 @@ background:#1f6feb;color:#fff;font-weight:600;cursor:pointer}
 </div></body></html>"""
 
 
-def open_tunnel(port, on_url):
-    """Give the game a public HTTPS address using ssh, which is already on
-    every modern Windows, macOS and Linux box - no account, no install."""
-    cmd = ["ssh",
-           "-o", "StrictHostKeyChecking=accept-new",
-           "-o", "UserKnownHostsFile=" + os.devnull,
-           "-o", "ServerAliveInterval=30",
-           "-o", "ExitOnForwardFailure=yes",
-           "-R", f"80:localhost:{port}", "nokey@localhost.run"]
-    try:
-        proc = subprocess.Popen(
+class Tunnel:
+    """A public HTTPS address for the game, forwarded over ssh.
+
+    Two things decide whether this survives a game night.
+
+    ssh has to keep its session open. Given stdin at EOF it finishes
+    immediately and takes the forward down with it, so the link dies the
+    moment somebody tries to use it. Holding an stdin pipe open - and never
+    writing to it - is what keeps the session up. (Passing -N would be the
+    tidy way to say "just forward", but the address only arrives as part of
+    the session banner, so it has to stay.)
+
+    And free tunnels drop from time to time. Rather than leave the host
+    holding a dead link, this reopens one and announces the new address.
+    """
+
+    RETRY_DELAYS = [3, 5, 10, 20, 30]
+
+    def __init__(self, port, on_url):
+        self.port = port
+        self.on_url = on_url
+        self.proc = None
+        self.running = True
+
+    def start(self):
+        threading.Thread(target=self._loop, daemon=True).start()
+        return self
+
+    def stop(self):
+        self.running = False
+        proc, self.proc = self.proc, None
+        if proc:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+
+    def _spawn(self):
+        cmd = ["ssh",
+               "-o", "StrictHostKeyChecking=accept-new",
+               "-o", "UserKnownHostsFile=" + os.devnull,
+               "-o", "ServerAliveInterval=20",
+               "-o", "ServerAliveCountMax=3",
+               "-o", "ExitOnForwardFailure=yes",
+               "-R", f"80:localhost:{self.port}", "nokey@localhost.run"]
+        return subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL, text=True, bufsize=1,
-            encoding="utf-8", errors="replace")
-    except OSError as e:
-        log("could not start ssh, so no public link:", e)
-        log("install ssh, or forward port %d on your router yourself." % port)
-        return None
+            stdin=subprocess.PIPE,          # kept open on purpose - see above
+            text=True, bufsize=1, encoding="utf-8", errors="replace")
 
-    def watch():
+    def _loop(self):
         pattern = re.compile(r"https://[a-z0-9-]+\.lhr\.life")
-        found = False
-        for line in proc.stdout:
-            m = pattern.search(line)
-            if m and not found:
-                found = True
-                on_url(m.group(0))
-        if not found:
-            log("the tunnel closed without giving us a link.")
-        else:
-            log("public link closed.")
+        attempt = 0
+        first = True
+        while self.running:
+            try:
+                self.proc = self._spawn()
+            except OSError as e:
+                log("could not start ssh, so there's no public link:", e)
+                log(f"either install ssh, or forward port {self.port} on your router.")
+                return
 
-    threading.Thread(target=watch, daemon=True).start()
-    return proc
+            got = None
+            for line in self.proc.stdout:
+                if not self.running:
+                    break
+                match = pattern.search(line)
+                if match and not got:
+                    got = match.group(0)
+                    attempt = 0
+                    self.on_url(got, first)
+                    first = False
+
+            if not self.running:
+                return
+
+            # ssh exited on its own.
+            if got:
+                log("")
+                log("  The public link just dropped. Reconnecting...")
+            else:
+                log("  Couldn't get a public link that time. Trying again...")
+            delay = self.RETRY_DELAYS[min(attempt, len(self.RETRY_DELAYS) - 1)]
+            attempt += 1
+            for _ in range(delay * 10):
+                if not self.running:
+                    return
+                time.sleep(0.1)
 
 
 def make_handler(state, net, hub):
@@ -1319,6 +1373,22 @@ class GameServer(ThreadingHTTPServer):
     allow_reuse_address = False
     daemon_threads = True
 
+    # Errors that just mean "the browser went away".
+    BENIGN = (ConnectionResetError, ConnectionAbortedError,
+              BrokenPipeError, TimeoutError)
+
+    def handle_error(self, request, client_address):
+        """Closing a tab is not an incident worth a stack trace.
+
+        Every player holds an open event stream, and each refresh, tab close
+        or sleeping laptop ends one. The default handler prints a full
+        traceback for each, which makes a working game look like it's falling
+        over - the host sees a wall of red exactly when a friend joins.
+        """
+        if isinstance(sys.exc_info()[1], self.BENIGN):
+            return
+        super().handle_error(request, client_address)
+
 
 def main():
     ap = argparse.ArgumentParser(description="WikiRace LAN - serverless multiplayer Wikipedia racing")
@@ -1387,7 +1457,7 @@ def main():
         log("")
         log("  Opening a public link (this takes a few seconds)...")
 
-        def announce(public):
+        def announce(public, first):
             direct = public + ("/?code=" + state.join_code if state.join_code else "/")
             link = direct
             if args.pages:
@@ -1405,7 +1475,10 @@ def main():
             hub.publish()
             log("")
             log("  ==================================================================")
-            log("  PLAY OVER THE INTERNET - send this one link to anyone, anywhere:")
+            if first:
+                log("  PLAY OVER THE INTERNET - send this one link to anyone, anywhere:")
+            else:
+                log("  BACK UP - but the address changed. Send out this new link:")
             log("")
             log(f"      {link}")
             log("")
@@ -1413,11 +1486,14 @@ def main():
                 log(f"  (the code {state.join_code} is already in the link)")
             if args.pages:
                 log(f"  Direct link, if the page above ever misbehaves: {direct}")
-            log("  It stays up while this window is open.")
+            if first:
+                log("  It stays up while this window is open.")
+            else:
+                log("  Anyone still on the old link needs this one instead.")
             log("  ==================================================================")
             log("")
 
-        tunnel = open_tunnel(port, announce)
+        tunnel = Tunnel(port, announce).start()
 
     if args.host and not args.internet:
         log("")
@@ -1445,7 +1521,7 @@ def main():
     finally:
         net.stop()
         if tunnel:
-            tunnel.terminate()
+            tunnel.stop()
         save_history(state)
 
 
