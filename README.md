@@ -176,6 +176,18 @@ race history, so every player's scoreboard agrees without anyone owning it.
 **Your name is your scoreboard identity.** Two players using the same name pool
 their points — the sidebar warns you if that happens.
 
+Your name is saved in your own browser, not on the host, so restarting the game
+doesn't cost anyone their name — each player's browser simply reclaims it on
+reconnect.
+
+One wrinkle worth knowing: browsers file that memory under the address you're
+visiting. Open the game through a **fixed** address — your GitHub Pages link, or
+a LAN address that doesn't move — and your name sticks forever, however often
+the game itself restarts or changes port. Open a **fresh tunnel link** each
+session instead and every one is a new address to the browser, so you'll be
+asked for your name again. This is the practical reason to send friends the
+Pages link rather than the raw one.
+
 ## Seeing each other
 
 While a race runs, the sidebar shows everyone's current article and click count,

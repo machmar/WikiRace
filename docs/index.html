@@ -819,6 +819,8 @@ const conn = {
   base: "",          // "" = same origin, else e.g. https://xxxx.lhr.life
   code: "",          // join code, when the game asks for one
   sid: "",           // this browser's seat
+  name: "",          // what you call yourself, kept on this machine
+  named: false,      // whether we've told the current game about it
 };
 
 function loadConn() {
@@ -828,6 +830,7 @@ function loadConn() {
       conn.sid = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).replace(/-/g, "").slice(0, 24);
       localStorage.setItem("wr_sid", conn.sid);
     }
+    conn.name = localStorage.getItem("wr_name") || "";
     const q = new URLSearchParams(location.search);
     // A link someone shared wins; otherwise fall back to the last game joined.
     const server = q.get("server") || localStorage.getItem("wr_server") || "";
@@ -835,6 +838,25 @@ function loadConn() {
     conn.base = server.replace(/\/+$/, "");
     conn.code = code;
   } catch (e) { /* private mode: stay same-origin with a throwaway id */ }
+}
+
+/* The name belongs to the person, not to the game they happen to be in, so
+   it lives here rather than on whichever machine is hosting. A host restart,
+   a new tunnel address, a different port - none of them should cost you your
+   name. */
+function rememberName(name) {
+  conn.name = name;
+  try {
+    if (name) localStorage.setItem("wr_name", name);
+    else localStorage.removeItem("wr_name");
+  } catch (e) { /* private mode: it just won't persist */ }
+}
+
+/* Tell this game who we are, once per connection. */
+function claimName(snap) {
+  if (conn.named || !conn.name || !snap || !snap.me) return;
+  conn.named = true;
+  if (norm(snap.me.name) !== norm(conn.name)) post("/name", { name: conn.name });
 }
 
 function rememberConn() {
@@ -2867,6 +2889,7 @@ function renderSnapshot(snap) {
   S.snap = snap;
   S.showOpponents = snap.show_opponents;
 
+  claimName(snap);
   if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
 
   const ready = $("btn-ready");
@@ -3146,7 +3169,11 @@ $("btn-back").onclick = async () => {
 
 $("btn-savename").onclick = () => {
   const v = $("myname").value.trim();
-  if (v) { post("/name", { name: v }); toast("Name saved"); }
+  if (!v) return;
+  rememberName(v);
+  conn.named = true;          // this is now the name to reclaim on reconnect
+  post("/name", { name: v });
+  toast("Name saved on this device");
 };
 $("myname").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-savename").click(); });
 
@@ -3163,6 +3190,7 @@ $("btn-reset").onclick = () => {
 let stream = null, streamFails = 0;
 
 function startLive() {
+  conn.named = false;         // a different game won't know us yet
   if (stream) { stream.close(); stream = null; }
   const es = new EventSource(apiUrlFor("/stream"));
   stream = es;
