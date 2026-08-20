@@ -314,6 +314,12 @@
   .actions button { flex: 1; }
 
   #countdown { font-size: 130px; font-weight: 800; font-family: var(--mono); letter-spacing: -6px; animation: pop .45s ease-out; }
+  .cd-warn {
+    margin-top: 16px; padding: 9px 16px; border-radius: 9px;
+    background: #3a2d10; border: 1px solid #6b5320; color: #f2cc60;
+    font-size: 13.5px; max-width: 420px;
+  }
+  .cd-warn b { color: #fff; }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .cd-wrap { text-align: center; }
   .cd-wrap .goal-big { font-size: 19px; margin-bottom: 8px; }
@@ -1634,15 +1640,25 @@ function servePenalty(seconds) {
 
 function countdown(race) {
   return new Promise(resolve => {
+    // A little longer when find is off, so there's time to read the notice
+    // and actually close the bar.
+    const from = race.allow_find === false ? 5 : 3;
     const ov = document.createElement("div");
     ov.className = "overlay";
     ov.innerHTML =
       '<div class="cd-wrap">' +
       '<div class="goal-big">' + esc(race.start) + ' &nbsp;→&nbsp; <b>' + esc(race.target) + "</b></div>" +
-      '<div id="countdown">3</div>' +
-      '<div class="muted tiny">only in-article links count</div></div>';
+      '<div id="countdown">' + from + "</div>" +
+      '<div class="muted tiny">only in-article links count</div>' +
+      // A page can't close the browser's find bar, so the only moment to deal
+      // with one that's already open is before anybody starts reading.
+      (race.allow_find === false
+        ? '<div class="cd-warn">Find is off this race — if your find bar is ' +
+          "open, press <b>Esc</b> now to close it</div>"
+        : "") +
+      "</div>";
     $("stage").appendChild(ov);
-    let n = 3;
+    let n = from;
     const tick = () => {
       n--;
       const el = ov.querySelector("#countdown");
