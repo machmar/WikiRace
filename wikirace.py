@@ -689,6 +689,7 @@ class PeerNet:
                 "ban_hubs": incoming.get("ban_hubs", False),
                 "checkpoints": list(race_checkpoints(incoming)),
                 "mode": incoming.get("mode", "time"),
+                "toc": incoming.get("toc", 0),
                 "handicaps": dict(incoming.get("handicaps", {})),
             }
             st.races[rid] = race
@@ -1280,6 +1281,10 @@ def make_handler(state, net, hub):
                                 if isinstance(c, str) and c.strip()][:6],
                 # What decides the winner: the clock, or the number of links.
                 "mode": "clicks" if body.get("mode") == "clicks" else "time",
+                # How deep a contents list players may see: 0 none, 1 sections,
+                # 2 subsections, 3 everything. Off by default - being handed the
+                # shape of an article is a real advantage.
+                "toc": max(0, min(3, int(body.get("toc") or 0))),
                 "handicaps": {},
             }
             with state.lock:

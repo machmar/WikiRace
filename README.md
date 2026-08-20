@@ -123,6 +123,7 @@ everyone plays the same game rather than each machine applying its own settings.
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
 | **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
 | **Checkpoints** | Up to six articles you must pass through, in any order. They show in a strip above the article and tick off as you reach them; the target won't accept you until they're all done. Enforced by the game itself, not just your browser. |
+| **Table of contents** | A contents list beside the article: *Off*, *Main sections only*, *Sections and subsections*, or *Everything*. Genuinely useful for skimming a long page for the link you want — which is exactly why it's off by default and set for the whole race. |
 | **Time limit** | None, 2, 5 or 10 minutes. Anyone still going is a DNF. |
 
 **Ready check.** Everyone hits *Mark me ready* in the sidebar; the setup screen

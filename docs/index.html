@@ -159,7 +159,26 @@
   #crumbs .c:last-child { color: var(--fg); font-weight: 600; }
   #crumbs .sep { color: var(--fg-faint); }
 
-  #article-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+  #readrow { flex: 1; display: flex; min-height: 0; min-width: 0; }
+  #article-wrap { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+
+  /* Contents list, when the race allows one. */
+  #toc-panel {
+    width: 236px; flex: none; overflow-y: auto; background: var(--bg-2);
+    border-right: 1px solid var(--line); padding: 14px 0 40px;
+  }
+  #toc-panel h4 {
+    margin: 0 14px 10px; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1.1px; color: var(--fg-faint); font-weight: 700;
+  }
+  #toc-panel a {
+    display: block; padding: 5px 14px; font-size: 12.5px; line-height: 1.35;
+    color: var(--fg-dim); cursor: pointer; border-left: 2px solid transparent;
+  }
+  #toc-panel a:hover { color: var(--accent); background: #19222d; border-left-color: var(--accent); }
+  #toc-panel a.lv3 { padding-left: 26px; font-size: 12px; }
+  #toc-panel a.lv4 { padding-left: 38px; font-size: 11.5px; color: var(--fg-faint); }
+  #toc-panel .empty { padding: 0 14px; }
   #article { max-width: 860px; margin: 0 auto; padding: 26px 34px 90px; }
   #article h1.title {
     font-size: 30px; margin: 0 0 4px; font-weight: 700; letter-spacing: -.5px;
@@ -494,6 +513,7 @@
      On a phone the article should have the screen almost to itself, so the
      sidebar becomes a drawer and the other players shrink to one thin strip. */
   #btn-menu { display: none; }
+  #btn-toc { display: none; }
   #miniplayers { display: none; }
   #scrim { display: none; }
 
@@ -512,10 +532,20 @@
       display: block; position: fixed; inset: 0; z-index: 70;
       background: rgba(6, 10, 15, .6); backdrop-filter: blur(2px);
     }
-    #btn-menu {
+    #btn-menu, #btn-toc:not([hidden]) {
       display: inline-flex; align-items: center; justify-content: center;
       font-size: 17px; line-height: 1; padding: 6px 10px; flex: none;
     }
+
+    /* No room for a column beside the article, so contents slides in too -
+       from the left, so the race stays fair on a phone. */
+    #toc-panel {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 80;
+      width: min(290px, 82vw); border-right: 1px solid var(--line);
+      transform: translateX(-101%); transition: transform .22s ease;
+      box-shadow: 14px 0 44px rgba(0, 0, 0, .55); padding-top: 18px;
+    }
+    #toc-panel.open { transform: translateX(0); }
 
     #topbar { gap: 8px; padding: 7px 10px; min-height: 46px; }
     .brandname { display: none; }
@@ -646,6 +676,7 @@
 
 <div id="app">
   <div id="topbar">
+    <button id="btn-toc" aria-label="Contents" hidden>☰&#xFE0E;</button>
     <button id="btn-menu" aria-label="Menu">☰</button>
     <div class="brand">
       <span class="dot" id="netdot"></span><span class="brandname">WikiRace</span>
@@ -718,7 +749,10 @@
     <!-- ---------- racing ---------- -->
     <div id="cpwarn" hidden></div>
     <div id="crumbs" hidden><span class="muted tiny">Your trail will appear here</span></div>
-    <div id="article-wrap" hidden><div id="article"></div></div>
+    <div id="readrow" hidden>
+      <aside id="toc-panel" hidden></aside>
+      <div id="article-wrap"><div id="article"></div></div>
+    </div>
 
     <!-- ---------- post-race hub ---------- -->
     <div id="hub" hidden>
@@ -1184,6 +1218,7 @@ async function navigate(title, countsAsClick) {
     showArticle(canon, html);
     renderCrumbs();
     renderGoalBar(S.race);
+    renderToc();
     reportProgress();
     if (norm(canon) === S.targetCanon) win();
   } catch (e) {
@@ -1202,6 +1237,63 @@ async function navigate(title, countsAsClick) {
     updateHud();
   }
 }
+
+const TOC_LABELS = ["Off", "Main sections only", "Sections and subsections", "Everything"];
+
+function raceToc(race) {
+  const d = race && race.toc;
+  return Math.max(0, Math.min(3, parseInt(d, 10) || 0));
+}
+
+/* A contents list for the page you're on, cut to whatever depth the race
+   allows. Built from the article we already rendered - Wikipedia's own list is
+   hidden, and this way the depth rule is ours to enforce. */
+function renderToc() {
+  const panel = $("toc-panel");
+  const depth = raceToc(S.race);
+  const btn = $("btn-toc");
+  if (!depth || stageMode !== "race") {
+    setFlag(panel, "hidden", true);
+    setFlag(btn, "hidden", true);
+    panel.classList.remove("open");
+    return;
+  }
+  setFlag(panel, "hidden", false);
+  setFlag(btn, "hidden", false);
+
+  const body = document.querySelector("#article .wiki");
+  if (!body) { setHTML(panel, ""); return; }
+
+  const want = depth >= 3 ? "h2, h3, h4" : depth === 2 ? "h2, h3" : "h2";
+  const heads = [...body.querySelectorAll(want)].filter(h => h.textContent.trim());
+
+  if (!heads.length) {
+    setHTML(panel, '<h4>Contents</h4><div class="empty muted tiny">' +
+                   "This page has no sections.</div>");
+    return;
+  }
+
+  heads.forEach((h, i) => { if (!h.id) h.id = "wr-sec-" + i; });
+  setHTML(panel, "<h4>Contents</h4>" + heads.map(h =>
+    '<a class="lv' + h.tagName[1] + '" data-to="' + h.id + '">' +
+    esc(h.textContent.trim()) + "</a>").join(""));
+}
+
+$("toc-panel").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a[data-to]");
+  if (!a) return;
+  const el = document.getElementById(a.dataset.to);
+  if (el) {
+    // Scroll the reading pane itself rather than asking the heading to bring
+    // itself into view - scrollIntoView also moves ancestors, and this way the
+    // pane's own smooth-scroll applies.
+    const wrap = $("article-wrap");
+    const top = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top
+                + wrap.scrollTop;
+    wrap.scrollTop = Math.max(0, top - 10);
+  }
+  $("toc-panel").classList.remove("open");   // on a phone, get out of the way
+});
 
 function renderCrumbs() {
   const c = $("crumbs");
@@ -1400,6 +1492,7 @@ function renderRules(race) {
   if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
   bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
   if (race.ban_hubs) bits.push("no hub pages");
+  if (raceToc(race)) bits.push("contents: " + TOC_LABELS[raceToc(race)].toLowerCase());
   for (const c of raceCheckpoints(race)) bits.push("via " + c);
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
   setHTML(host, bits.map(b => '<span class="rule">' + esc(b) + "</span>").join(""));
@@ -2182,7 +2275,8 @@ function setStage(mode) {
   $("lobby").hidden = mode !== "lobby";
   $("crumbs").hidden = mode !== "race";
   if (mode !== "race") $("cpwarn").hidden = true;
-  $("article-wrap").hidden = mode !== "race";
+  renderToc();
+  $("readrow").hidden = mode !== "race";
   $("hub").hidden = mode !== "hub";
   spec.on = mode === "hub" && hubTab === "watch";
   if (mode === "lobby") renderLobby(S.snap);
@@ -2624,7 +2718,7 @@ function wireRouteHover(host) {
 /* Settings survive between races, so a rematch is one click. */
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
-  ban_hubs: false, handicap: false, checkpoints: [], mode: "time",
+  ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0,
 };
 
 /* A text box that suggests real article titles, so nobody has to guess exact
@@ -2757,6 +2851,12 @@ function openConfigurator() {
     'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
     '<button id="c-check-add">Add</button></div></div>' +
 
+    '<div class="field"><label>Table of contents ' +
+    '<span class="muted tiny">(a real help — and arguably a cheat)</span></label>' +
+    '<select id="c-toc">' +
+    TOC_LABELS.map((t, i) => '<option value="' + i + '">' + esc(t) + "</option>").join("") +
+    "</select></div>" +
+
     '<div class="field"><label>Time limit</label>' +
     '<select id="c-limit">' +
     '<option value="0">No limit</option>' +
@@ -2783,6 +2883,8 @@ function openConfigurator() {
   // -- restore last-used settings --------------------------------------
   q("#c-lang").value = cfg.lang;
   q("#c-limit").value = String(cfg.time_limit);
+  q("#c-toc").value = String(cfg.toc || 0);
+  q("#c-toc").onchange = () => { cfg.toc = parseInt(q("#c-toc").value, 10) || 0; };
   q("#c-positions").classList.toggle("on", cfg.show_positions);
   q("#c-back").classList.toggle("on", cfg.allow_back);
 
@@ -2910,6 +3012,7 @@ function openConfigurator() {
         handicap: cfg.handicap,
         checkpoints: cfg.checkpoints,
         mode: cfg.mode,
+        toc: cfg.toc,
       });
     } catch (e) {
       toast("Wikipedia unreachable");
@@ -3208,6 +3311,7 @@ function setDrawer(open) {
   setFlag($("scrim"), "hidden", !open);
 }
 $("btn-menu").onclick = () => setDrawer(!$("side").classList.contains("open"));
+$("btn-toc").onclick = () => $("toc-panel").classList.toggle("open");
 $("scrim").onclick = () => setDrawer(false);
 // Widening past the breakpoint puts the sidebar back for good.
 window.addEventListener("resize", () => {
@@ -3225,6 +3329,7 @@ $("lobby-rematch").onclick = async () => {
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
     handicap: cfg.handicap, checkpoints: cfg.checkpoints, mode: cfg.mode,
+    toc: cfg.toc,
   });
 };
 
