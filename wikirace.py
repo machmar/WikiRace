@@ -359,6 +359,10 @@ class GameState:
                     "scroll": run.get("scroll", 0),
                     "path": (run.get("path") or [])[-LIVE_PATH_STEPS:],
                     "times": (run.get("times") or [])[-LIVE_PATH_STEPS:],
+                    # Counted against the whole route, not the trimmed trail.
+                    "cp_done": (len(race_checkpoints(race)) -
+                                len(missing_checkpoints(race, run.get("path") or []))
+                                ) if race else 0,
                     "race_id": run.get("race_id") or self.active_race_id,
                     "path_len": len(run.get("path", [])),
                     "in_this_race": bool(race) and (
@@ -374,6 +378,7 @@ class GameState:
                     "gave_up": p.get("gave_up", False), "ready": p.get("ready", False),
                     "scroll": p.get("scroll", 0),
                     "path": p.get("path", []), "times": p.get("times", []),
+                    "cp_done": p.get("cp_done", 0),
                     "race_id": p.get("race_id"), "path_len": p.get("path_len", 0),
                     "in_this_race": bool(race) and p.get("race_id") == race["race_id"],
                 })
@@ -584,10 +589,11 @@ class PeerNet:
                 # would keep showing where that player was in the last race.
                 if msg.get("race_id") != peer.get("race_id"):
                     for k in ("article", "clicks", "finished", "gave_up", "elapsed",
-                              "path", "times", "path_len", "scroll"):
+                              "path", "times", "path_len", "scroll", "cp_done"):
                         peer.pop(k, None)
                 for k in ("article", "clicks", "finished", "elapsed", "race_id",
-                          "gave_up", "path_len", "ready", "scroll", "path", "times"):
+                          "gave_up", "path_len", "ready", "scroll", "path", "times",
+                          "cp_done"):
                     if k in msg:
                         peer[k] = msg[k]
                 changed = True
@@ -730,6 +736,8 @@ class PeerNet:
     def send_state(self):
         st = self.state
         with st.lock:
+            race = st.active_race()
+            stops = len(race_checkpoints(race))
             msgs = []
             for p in st.locals.values():
                 if not p.run:
@@ -750,6 +758,10 @@ class PeerNet:
                     # Trimmed to keep the datagram inside a typical MTU.
                     "path": run.get("path", [])[-LIVE_PATH_STEPS:],
                     "times": run.get("times", [])[-LIVE_PATH_STEPS:],
+                    # Counted here against the whole route: the trail above is
+                    # trimmed, so a checkpoint reached early would otherwise
+                    # drop off it and look unvisited.
+                    "cp_done": stops - len(missing_checkpoints(race, run.get("path", []))),
                 })
         for m in msgs:
             self.send(m)

@@ -235,6 +235,14 @@
   .racer.done .nm { color: var(--good); }
   .racer.gone .nm { color: var(--fg-faint); }
   .racer.near .nm { color: var(--bad); font-weight: 700; }
+  .racer .pip.cp {
+    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
+    padding: 1px 6px; border-radius: 999px; vertical-align: 1px;
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    font-family: var(--mono);
+  }
+  .racer .pip.cp.all { border-color: #4a5563; color: #fff; background: #2a3441; }
+
   .racer.near .pip {
     margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
     text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
@@ -3347,6 +3355,9 @@ function renderRacers(snap) {
     finished: !!mine.finished,
     gave_up: !!mine.gave_up,
     ready: !!snap.ready,
+    // Our own progress is known exactly, no need to wait for a broadcast.
+    cp_done: raceCheckpoints(race).filter(
+      c => S.path.some(t => norm(t) === norm(c))).length,
     me: true,
     active: !!race,
   });
@@ -3359,6 +3370,7 @@ function renderRacers(snap) {
       finished: p.in_this_race && p.finished,
       gave_up: p.in_this_race && p.gave_up,
       ready: !!p.ready,
+      cp_done: p.cp_done || 0,
       me: false,
       active: p.in_this_race,
     });
@@ -3370,6 +3382,8 @@ function renderRacers(snap) {
       '<div class="at">waiting for others…</div></div></div>';
     return;
   }
+
+  const stops = raceCheckpoints(race).length;
 
   // Visibility is a race rule, set once for everyone in the setup screen.
   const reveal = !(snap.race && snap.race.show_positions === false);
@@ -3389,10 +3403,17 @@ function renderRacers(snap) {
     const near = !r.me && r.active && reveal && !r.finished && !r.gave_up &&
                  r.article && S.nearSet && S.nearSet.has(norm(r.article));
 
+    // Checkpoint progress is progress, not position - the same kind of thing
+    // as the click count, which shows even when positions are hidden - so it
+    // stays visible either way.
+    const showCp = stops && r.active && !r.finished && !r.gave_up;
+
     return '<div class="racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
       (r.gave_up ? " gone" : "") + (near ? " near" : "") + '">' +
       '<div class="swatch" style="background:' + r.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(r.name) +
+      (showCp ? '<span class="pip cp' + (r.cp_done >= stops ? " all" : "") + '">' +
+                r.cp_done + "/" + stops + "</span>" : "") +
       (near ? '<span class="pip">1 away</span>' : "") + "</div>" + where + "</div>" +
       '<div class="n">' + (r.active ? r.clicks : "") + "</div></div>";
   }).join(""));
