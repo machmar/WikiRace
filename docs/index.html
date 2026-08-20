@@ -62,6 +62,29 @@
   }
   select:focus { outline: none; border-color: var(--accent); }
 
+  /* Our own dropdown. A native <select> pops its list directly over the
+     pointer, so the mouseup that ends the opening click can land on an option
+     and choose it before you've seen the list. This one opens below the
+     button, where the pointer isn't. */
+  .dd { position: relative; }
+  .dd-btn {
+    width: 100%; text-align: left; display: flex; align-items: center;
+    justify-content: space-between; gap: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  .dd-btn:hover:not(:disabled) { background: var(--bg); border-color: #38424f; }
+  .dd.open .dd-btn { border-color: var(--accent); }
+  .dd-btn .caret { color: var(--fg-faint); font-size: 10px; }
+  .dd-list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 75;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
+    max-height: 250px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  }
+  .dd-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
+  .dd-item:hover { background: #23303f; color: var(--accent); }
+  .dd-item.on { color: var(--accent); font-weight: 600; }
+  .dd-item.on::after { content: " ✓"; }
+
   /* typeahead */
   .ta { position: relative; }
   .ta-list {
@@ -457,7 +480,7 @@
     display: flex; align-items: center; gap: 11px; padding: 9px 16px;
     background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
   }
-  #spec-who { width: auto; min-width: 170px; }
+  #spec-who { width: 190px; flex: none; }
 
   .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
   .seg button { border: none; border-radius: 0; background: transparent; padding: 6px 13px; font-size: 13px; }
@@ -777,7 +800,7 @@
               <button data-view="tiles" class="on">Tiled</button>
               <button data-view="one">Single</button>
             </div>
-            <select id="spec-who" hidden></select>
+            <div id="spec-who" hidden></div>
             <span id="spec-note" class="tiny muted"></span>
           </div>
           <div id="spec-body"></div>
@@ -2407,9 +2430,14 @@ function renderSpectate(snap) {
   const wanted = all.map(p => p.id + ":" + p.name).join("|");
   if (sel.dataset.built !== wanted) {
     sel.dataset.built = wanted;
-    sel.innerHTML = all.map(p => '<option value="' + p.id + '">' + esc(p.name) + "</option>").join("");
     if (!all.some(p => p.id === spec.who)) spec.who = all[0].id;
-    sel.value = spec.who;
+    spec.whoDD = makeDropdown(sel, all.map(p => [p.id, p.name]), spec.who, (v) => {
+      spec.who = v;
+      spec.signature = "";
+      renderSpectate(S.snap);
+    });
+  } else if (spec.whoDD && spec.whoDD.value !== spec.who) {
+    spec.whoDD.value = spec.who;
   }
 
   const shown = spec.view === "one"
@@ -2721,6 +2749,78 @@ const cfg = {
   ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0,
 };
 
+/* A dropdown that behaves itself.
+
+   The native control opens its list on top of the pointer, so on some
+   browsers the mouseup that finishes the opening click immediately picks
+   whatever landed under it. This opens below the button instead, and ignores
+   clicks for a moment after opening, so one click can only ever open it. */
+function makeDropdown(mount, options, initial, onChange) {
+  let value = initial;
+  let openedAt = 0;
+
+  const label = (v) => {
+    const hit = options.find(o => String(o[0]) === String(v));
+    return hit ? hit[1] : String(v);
+  };
+
+  mount.classList.add("dd");
+  mount.innerHTML =
+    '<button type="button" class="dd-btn"><span class="dd-cur"></span>' +
+    '<span class="caret">▼</span></button><div class="dd-list" hidden></div>';
+
+  const btn = mount.querySelector(".dd-btn");
+  const list = mount.querySelector(".dd-list");
+  const cur = mount.querySelector(".dd-cur");
+
+  const paint = () => {
+    setText(cur, label(value));
+    setHTML(list, options.map(o =>
+      '<div class="dd-item' + (String(o[0]) === String(value) ? " on" : "") +
+      '" data-v="' + esc(String(o[0])) + '">' + esc(o[1]) + "</div>").join(""));
+  };
+
+  const close = () => { list.hidden = true; mount.classList.remove("open"); };
+  const open = () => {
+    openedAt = Date.now();
+    list.hidden = false;
+    mount.classList.add("open");
+    const chosen = list.querySelector(".dd-item.on");
+    if (chosen) chosen.scrollIntoView({ block: "nearest" });
+  };
+
+  btn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (list.hidden) open(); else close();
+  };
+
+  list.onclick = (e) => {
+    const item = e.target.closest(".dd-item");
+    if (!item) return;
+    // Belt and braces: a stray event in the same instant as opening can't pick.
+    if (Date.now() - openedAt < 150) return;
+    value = item.dataset.v;
+    paint();
+    close();
+    if (onChange) onChange(value);
+  };
+
+  document.addEventListener("click", (e) => {
+    if (!mount.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+  });
+
+  paint();
+  return {
+    get value() { return value; },
+    set value(v) { value = v; paint(); },
+    close,
+  };
+}
+
 /* A text box that suggests real article titles, so nobody has to guess exact
    spelling - and in a language they may not read fluently. */
 function attachTypeahead(input, list, getLang) {
@@ -2806,10 +2906,7 @@ function openConfigurator() {
     '<p class="lede">These rules apply to everyone — they travel with the race.</p>' +
 
     '<div class="field"><label>Wikipedia edition</label>' +
-    '<select id="c-lang">' +
-    LANGS.map(([code, name]) =>
-      '<option value="' + code + '">' + esc(name) + " (" + code + ")</option>").join("") +
-    "</select></div>" +
+    '<div id="c-lang"></div></div>' +
 
     '<div class="two">' +
       '<div class="field"><label>Start article</label>' +
@@ -2853,17 +2950,10 @@ function openConfigurator() {
 
     '<div class="field"><label>Table of contents ' +
     '<span class="muted tiny">(a real help — and arguably a cheat)</span></label>' +
-    '<select id="c-toc">' +
-    TOC_LABELS.map((t, i) => '<option value="' + i + '">' + esc(t) + "</option>").join("") +
-    "</select></div>" +
+    '<div id="c-toc"></div></div>' +
 
     '<div class="field"><label>Time limit</label>' +
-    '<select id="c-limit">' +
-    '<option value="0">No limit</option>' +
-    '<option value="120">2 minutes</option>' +
-    '<option value="300">5 minutes</option>' +
-    '<option value="600">10 minutes</option>' +
-    "</select></div>" +
+    '<div id="c-limit"></div></div>' +
 
     '<div class="field"><label>Players</label><div id="c-ready"></div></div>' +
 
@@ -2881,10 +2971,28 @@ function openConfigurator() {
   ov.addEventListener("click", e => { if (e.target === ov) close(); });
 
   // -- restore last-used settings --------------------------------------
-  q("#c-lang").value = cfg.lang;
-  q("#c-limit").value = String(cfg.time_limit);
-  q("#c-toc").value = String(cfg.toc || 0);
-  q("#c-toc").onchange = () => { cfg.toc = parseInt(q("#c-toc").value, 10) || 0; };
+  const startIn = q("#c-start"), targetIn = q("#c-target");
+
+  const langDD = makeDropdown(
+    q("#c-lang"),
+    LANGS.map(([code, name]) => [code, name + " (" + code + ")"]),
+    cfg.lang,
+    (v) => {
+      // Titles are per-edition, so anything already typed is meaningless now.
+      cfg.lang = v;
+      startIn.value = ""; targetIn.value = ""; q("#c-check").value = "";
+      cfg.checkpoints = [];
+      renderCheckpointChips(ov);
+      toast("Switched to " + (LANGS.find(l => l[0] === v) || [, v])[1]);
+    });
+
+  makeDropdown(q("#c-toc"), TOC_LABELS.map((t, i) => [i, t]), cfg.toc || 0,
+               (v) => { cfg.toc = parseInt(v, 10) || 0; });
+
+  makeDropdown(q("#c-limit"),
+               [[0, "No limit"], [120, "2 minutes"], [300, "5 minutes"], [600, "10 minutes"]],
+               cfg.time_limit,
+               (v) => { cfg.time_limit = parseInt(v, 10) || 0; });
   q("#c-positions").classList.toggle("on", cfg.show_positions);
   q("#c-back").classList.toggle("on", cfg.allow_back);
 
@@ -2910,17 +3018,9 @@ function openConfigurator() {
   bindToggle("#c-back", "allow_back");
   bindToggle("#c-hubs", "ban_hubs");
   bindToggle("#c-handicap", "handicap");
-  q("#c-limit").onchange = () => { cfg.time_limit = parseInt(q("#c-limit").value, 10) || 0; };
 
-  const startIn = q("#c-start"), targetIn = q("#c-target");
-  const getLang = () => q("#c-lang").value;
 
-  q("#c-lang").onchange = () => {
-    // Titles are per-edition, so anything already typed is meaningless now.
-    cfg.lang = getLang();
-    startIn.value = ""; targetIn.value = "";
-    toast("Switched to " + (LANGS.find(l => l[0] === cfg.lang) || [, cfg.lang])[1]);
-  };
+  const getLang = () => langDD.value;
 
   attachTypeahead(startIn, q("#c-start-list"), getLang);
   attachTypeahead(targetIn, q("#c-target-list"), getLang);
@@ -3341,12 +3441,6 @@ $("hub-lobby").onclick = () => setStage("lobby");
 // -- spectator controls --
 document.querySelectorAll("#spec-bar .seg button")
   .forEach(b => b.onclick = () => setSpecView(b.dataset.view));
-$("spec-who").onchange = (e) => {
-  spec.who = e.target.value;
-  spec.signature = "";
-  renderSpectate(S.snap);
-};
-
 /* Broadcast how far down the page we are, so spectators mirror the view and
    not just the title. Throttled - this fires constantly while scrolling. */
 let scrollTimer = null, lastScrollSent = -1;
