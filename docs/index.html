@@ -182,7 +182,14 @@
   .racer .at.hidden-pos { color: var(--fg-faint); font-style: italic; }
   .racer .n { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
   .racer.done .nm { color: var(--good); }
-  .racer.gone .nm { color: var(--bad); }
+  .racer.gone .nm { color: var(--fg-faint); }
+  .racer.near .nm { color: var(--bad); font-weight: 700; }
+  .racer.near .pip {
+    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
+    background: #40202a; border: 1px solid var(--bad); color: #ff9b95;
+    vertical-align: 1px;
+  }
   .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
 
   /* leaderboard */
@@ -754,6 +761,8 @@ const S = {
   loading: false,
   lang: "en",              // edition this race is played on
   badPrefixes: null,       // namespace prefixes that don't count as articles
+  proximity: null,         // article -> promise of "does this link to the target?"
+  nearSet: null,           // articles confirmed to be one click from it
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1189,6 +1198,7 @@ async function showGoal(race) {
   S.badPrefixes = await namespacePrefixes(S.lang);
   S.bannedSet = race.ban_hubs ? await bannedSet(S.lang) : null;
   S.proximity = new Map();
+  S.nearSet = new Set();
 
   // Resolve the target through redirects so "USA" and "United States" match.
   S.targetCanon = norm(race.target);
@@ -1226,7 +1236,9 @@ async function isOneAway(article, target, lang) {
     try {
       const d = await wiki({ action: "query", titles: article, prop: "links",
                              pltitles: target, pllimit: "max" }, lang, 8000);
-      return Object.values(d?.query?.pages || {}).some(p => (p.links || []).length);
+      const near = Object.values(d?.query?.pages || {}).some(p => (p.links || []).length);
+      if (near && S.nearSet) S.nearSet.add(key);
+      return near;
     } catch (e) { return false; }
   })();
   if (S.proximity) S.proximity.set(key, job);
@@ -2948,10 +2960,16 @@ function renderRacers(snap) {
     else if (!r.me && !reveal) where = '<span class="at hidden-pos">position hidden</span>';
     else where = '<span class="at">' + esc(r.article || "loading…") + "</span>";
 
+    // Never about yourself: knowing you're one link away would hand you the
+    // race. It's a warning to everyone else, not a hint to you.
+    const near = !r.me && r.active && reveal && !r.finished && !r.gave_up &&
+                 r.article && S.nearSet && S.nearSet.has(norm(r.article));
+
     return '<div class="racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
-      (r.gave_up ? " gone" : "") + '">' +
+      (r.gave_up ? " gone" : "") + (near ? " near" : "") + '">' +
       '<div class="swatch" style="background:' + r.color + '"></div>' +
-      '<div class="who"><div class="nm">' + esc(r.name) + "</div>" + where + "</div>" +
+      '<div class="who"><div class="nm">' + esc(r.name) +
+      (near ? '<span class="pip">1 away</span>' : "") + "</div>" + where + "</div>" +
       '<div class="n">' + (r.active ? r.clicks : "") + "</div></div>";
   }).join(""));
 }
@@ -3010,6 +3028,15 @@ function updateTicker(snap) {
           if (!S.done) toast(p.name + " is one click from " + race.target + "!", 2600);
           renderTicker();
         });
+      }
+    }
+    // Ask about wherever they are now, not only when they move - otherwise
+    // opening the page mid-race never notices someone already poised.
+    if (p.article && !p.finished && !p.gave_up) {
+      const key = norm(p.article);
+      if (S.proximity && !S.proximity.has(key)) {
+        isOneAway(p.article, race.target, race.lang || "en")
+          .then(near => { if (near) renderRacers(S.snap); });
       }
     }
     ticker.seen.set(p.id, trail.length);
