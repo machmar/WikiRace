@@ -507,6 +507,37 @@
     .awards { grid-template-columns: 1fr; }
   }
 
+  /* checkpoint strip above the article */
+  #cpbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 16px; background: var(--bg-2);
+    border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+  }
+  #cpbar .lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--fg-faint); font-weight: 700;
+  }
+  .cp {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 11px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-3); color: var(--fg-dim);
+  }
+  .cp .mark { font-size: 11px; }
+  .cp.hit { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
+  .cp.goal { border-style: dashed; }
+  .cp.goal.hit { border-style: solid; }
+
+  /* checkpoint chips in the configurator */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 22px; align-items: center; }
+  .chip.pick { display: inline-flex; align-items: center; gap: 6px; max-width: none; }
+  .chip.pick button {
+    border: none; background: none; color: var(--fg-faint); padding: 0 0 0 2px;
+    font-size: 15px; line-height: 1; cursor: pointer;
+  }
+  .chip.pick button:hover { color: var(--bad); background: none; }
+  .seg.wide { width: 100%; }
+  .seg.wide button { flex: 1; }
+
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
     background: var(--warn); color: #1b1200; text-align: center;
@@ -594,6 +625,7 @@
     </div>
 
     <!-- ---------- racing ---------- -->
+    <div id="cpbar" hidden></div>
     <div id="crumbs" hidden><span class="muted tiny">Your trail will appear here</span></div>
     <div id="article-wrap" hidden><div id="article"></div></div>
 
@@ -1018,6 +1050,7 @@ async function navigate(title, countsAsClick) {
     }
     showArticle(canon, html);
     renderCrumbs();
+    renderCheckpointBar(S.race);
     reportProgress();
     if (norm(canon) === S.targetCanon) win();
   } catch (e) {
@@ -1164,6 +1197,40 @@ async function isOneAway(article, target, lang) {
   return job;
 }
 
+/* The required stops, shown above the article so you can see at a glance
+   what you still owe the race. */
+function renderCheckpointBar(race) {
+  const bar = $("cpbar");
+  const stops = raceCheckpoints(race);
+  if (!race || !stops.length || stageMode !== "race") { bar.hidden = true; return; }
+  bar.hidden = false;
+
+  const visited = new Set(S.path.map(norm));
+  const done = stops.filter(c => visited.has(norm(c))).length;
+  const atGoal = visited.has(S.targetCanon);
+
+  bar.innerHTML =
+    '<span class="lbl">Checkpoints ' + done + "/" + stops.length + "</span>" +
+    stops.map(c => {
+      const hit = visited.has(norm(c));
+      return '<span class="cp' + (hit ? " hit" : "") + '">' +
+        '<span class="mark">' + (hit ? "✓" : "○") + "</span>" + esc(c) + "</span>";
+    }).join("") +
+    '<span class="arrow">→</span>' +
+    '<span class="cp goal' + (atGoal && done === stops.length ? " hit" : "") + '">' +
+    '<span class="mark">🏁</span>' + esc(race.target) + "</span>";
+}
+
+function raceCheckpoints(race) {
+  if (!race) return [];
+  if (Array.isArray(race.checkpoints)) return race.checkpoints.filter(Boolean);
+  return race.checkpoint ? [race.checkpoint] : [];
+}
+
+function raceMode(race) {
+  return race && race.mode === "clicks" ? "clicks" : "time";
+}
+
 function renderRules(race) {
   const host = $("rules");
   if (!race) { host.innerHTML = ""; return; }
@@ -1172,8 +1239,9 @@ function renderRules(race) {
   bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
   bits.push(race.allow_back === false ? "no going back" : "back allowed");
   if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
+  bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
   if (race.ban_hubs) bits.push("no hub pages");
-  if (race.checkpoint) bits.push("via " + race.checkpoint);
+  for (const c of raceCheckpoints(race)) bits.push("via " + c);
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
   host.innerHTML = bits.map(b => '<span class="rule">' + esc(b) + "</span>").join("");
 }
@@ -1235,6 +1303,7 @@ async function enterRace(race, myRun) {
   renderCrumbs();
   reportProgress();
   updateHud();
+  renderCheckpointBar(race);
 }
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -1289,10 +1358,12 @@ function countdown(race) {
 
 async function win() {
   if (S.done) return;
-  // A checkpoint race isn't won until you've actually been through it.
-  const cp = S.race && S.race.checkpoint;
-  if (cp && !S.path.some(t => norm(t) === norm(cp))) {
-    toast("You still have to pass through " + cp);
+  // A checkpoint race isn't won until every stop has been made. The server
+  // enforces this too; this is just the faster, friendlier message.
+  const visited = new Set(S.path.map(norm));
+  const owed = raceCheckpoints(S.race).filter(c => !visited.has(norm(c)));
+  if (owed.length) {
+    toast("Still to visit: " + owed.join(", "));
     return;
   }
   S.done = true;
@@ -1300,7 +1371,20 @@ async function win() {
   const secs = elapsed();
   S.finalElapsed = secs;
   updateHud();
-  await post("/finish", { elapsed: secs, clicks: S.clicks, path: S.path, times: S.stepTimes });
+  const res = await post("/finish", { elapsed: secs, clicks: S.clicks,
+                                     path: S.path, times: S.stepTimes });
+  if (res && res.ok === false) {
+    // The game refused the win, so put the player back in the race rather
+    // than stranding them on a results screen that records nothing.
+    S.done = false;
+    S.running = true;
+    S.finalElapsed = null;
+    updateHud();
+    toast(res.missing && res.missing.length
+      ? "Still to visit: " + res.missing.join(", ")
+      : "That didn't count — " + (res.error || "try again"));
+    return;
+  }
   openHub("results");
 }
 
@@ -1348,16 +1432,34 @@ function colorFor(name) {
 
 /* Superlatives computed from the finished results - cheap, and they give the
    people who didn't win something to have done. */
+/* Mirrors rank_finishers() on the server so the screen and the scoreboard
+   never disagree about who won. */
+function rankFinishers(race) {
+  const fin = Object.values(race.results || {}).filter(r => r.finished);
+  return raceMode(race) === "clicks"
+    ? fin.sort((a, b) => (a.clicks - b.clicks) || (a.elapsed - b.elapsed))
+    : fin.sort((a, b) => (a.elapsed - b.elapsed) || (a.clicks - b.clicks));
+}
+
 function computeAwards(race) {
   const all = Object.values(race.results || {});
-  const fin = all.filter(r => r.finished).sort((a, b) => a.elapsed - b.elapsed);
+  const fin = rankFinishers(race);
   if (!fin.length) return [];
   const out = [];
 
-  out.push({ ic: "🏆", t: "Winner", v: fin[0].name, d: fmtTime(fin[0].elapsed) });
+  const byClicks = raceMode(race) === "clicks";
+  out.push({ ic: "🏆", t: "Winner", v: fin[0].name,
+             d: byClicks ? fin[0].clicks + " clicks" : fmtTime(fin[0].elapsed) });
 
+  // The bonus honours whichever measure the race wasn't scored on.
+  if (byClicks) {
+    const quickest = fin.reduce((a, b) => (b.elapsed < a.elapsed ? b : a));
+    out.push({ ic: "⏱", t: "Fastest time", v: quickest.name, d: fmtTime(quickest.elapsed) });
+  } else {
+    const fewest = fin.reduce((a, b) => (b.clicks < a.clicks ? b : a));
+    out.push({ ic: "✂️", t: "Fewest clicks", v: fewest.name, d: fewest.clicks + " clicks" });
+  }
   const fewest = fin.reduce((a, b) => (b.clicks < a.clicks ? b : a));
-  out.push({ ic: "✂️", t: "Fewest clicks", v: fewest.name, d: fewest.clicks + " clicks" });
 
   if (fin.length > 1) {
     const most = fin.reduce((a, b) => (b.clicks > a.clicks ? b : a));
@@ -1445,7 +1547,7 @@ function renderResults(snap) {
   if (!race) { host.innerHTML = '<div class="empty">No race to show.</div>'; return; }
 
   const all = Object.values(race.results || {});
-  const fin = all.filter(r => r.finished).sort((a, b) => a.elapsed - b.elapsed);
+  const fin = rankFinishers(race);
   const out = all.filter(r => !r.finished);
   const medals = ["🥇", "🥈", "🥉"];
   const mine = all.find(r => norm(r.name) === norm(snap.me.name));
@@ -1458,9 +1560,11 @@ function renderResults(snap) {
   let html =
     '<h2 class="hub-h2">' + head + "</h2>" +
     '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) +
-    (race.checkpoint ? " · via " + esc(race.checkpoint) : "") + "</p>";
+    (raceCheckpoints(race).length ? " · via " + raceCheckpoints(race).map(esc).join(", ") : "") +
+    " · " + (raceMode(race) === "clicks" ? "fewest clicks" : "fastest time") + "</p>";
 
-  html += '<div class="hub-sec"><h4>Finishing order</h4>';
+  html += '<div class="hub-sec"><h4>Finishing order — ' +
+    (raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins") + "</h4>";
   html += fin.map((r, i) =>
     '<div class="result-row"><span class="medal">' + (medals[i] || (i + 1) + ".") + "</span>" +
     '<span class="rn" style="color:' + colorFor(r.name) + '">' + esc(r.name) + "</span>" +
@@ -1849,6 +1953,7 @@ function setStage(mode) {
   stageMode = mode;
   $("lobby").hidden = mode !== "lobby";
   $("crumbs").hidden = mode !== "race";
+  if (mode !== "race") $("cpbar").hidden = true;
   $("article-wrap").hidden = mode !== "race";
   $("hub").hidden = mode !== "hub";
   spec.on = mode === "hub" && hubTab === "watch";
@@ -2077,7 +2182,7 @@ function mirrorScroll(pane, fraction) {
 /* Settings survive between races, so a rematch is one click. */
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
-  ban_hubs: false, handicap: false, checkpoint: "",
+  ban_hubs: false, handicap: false, checkpoints: [], mode: "time",
 };
 
 /* A text box that suggests real article titles, so nobody has to guess exact
@@ -2140,6 +2245,21 @@ async function randomPair(lang, hard) {
   return out;
 }
 
+function renderCheckpointChips(ov) {
+  const host = ov.querySelector("#c-chips");
+  if (!host) return;
+  if (!cfg.checkpoints.length) {
+    host.innerHTML = '<span class="muted tiny">None — the route is free.</span>';
+    return;
+  }
+  host.innerHTML = cfg.checkpoints.map((c, i) =>
+    '<span class="chip pick">' + esc(c) +
+    '<button data-i="' + i + '" title="remove">×</button></span>').join("");
+  host.querySelectorAll("button").forEach(b => {
+    b.onclick = () => { cfg.checkpoints.splice(+b.dataset.i, 1); renderCheckpointChips(ov); };
+  });
+}
+
 function openConfigurator() {
   const ov = document.createElement("div");
   ov.className = "overlay";
@@ -2182,9 +2302,18 @@ function openConfigurator() {
       '<span>Handicap the session leaders</span></div>' +
     "</div>" +
 
-    '<div class="field"><label>Checkpoint <span class="muted tiny">(optional — must pass through)</span></label>' +
-    '<div class="ta"><input type="text" id="c-check" autocomplete="off" placeholder="leave empty for none">' +
-    '<div class="ta-list" id="c-check-list" hidden></div></div></div>' +
+    '<div class="field"><label>Who wins</label>' +
+    '<div class="seg wide" id="c-mode">' +
+    '<button data-mode="time">Fastest time</button>' +
+    '<button data-mode="clicks">Fewest clicks</button>' +
+    "</div></div>" +
+
+    '<div class="field"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
+    '<div id="c-chips" class="chips"></div>' +
+    '<div class="row">' +
+    '<div class="ta" style="flex:1"><input type="text" id="c-check" autocomplete="off" ' +
+    'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
+    '<button id="c-check-add">Add</button></div></div>' +
 
     '<div class="field"><label>Time limit</label>' +
     '<select id="c-limit">' +
@@ -2217,7 +2346,15 @@ function openConfigurator() {
 
   q("#c-hubs").classList.toggle("on", cfg.ban_hubs);
   q("#c-handicap").classList.toggle("on", cfg.handicap);
-  q("#c-check").value = cfg.checkpoint || "";
+  renderCheckpointChips(ov);
+  ov.querySelectorAll("#c-mode button").forEach(b => {
+    b.classList.toggle("on", b.dataset.mode === cfg.mode);
+    b.onclick = () => {
+      cfg.mode = b.dataset.mode;
+      ov.querySelectorAll("#c-mode button")
+        .forEach(x => x.classList.toggle("on", x.dataset.mode === cfg.mode));
+    };
+  });
 
   const bindToggle = (id, key) => {
     q(id).onclick = () => {
@@ -2244,6 +2381,34 @@ function openConfigurator() {
   attachTypeahead(startIn, q("#c-start-list"), getLang);
   attachTypeahead(targetIn, q("#c-target-list"), getLang);
   attachTypeahead(q("#c-check"), q("#c-check-list"), getLang);
+
+  const addCheckpoint = async () => {
+    const raw = q("#c-check").value.trim();
+    if (!raw) return;
+    if (cfg.checkpoints.length >= 6) { toast("Six checkpoints is plenty"); return; }
+    const btn = q("#c-check-add");
+    btn.disabled = true;
+    try {
+      // Confirm it's a real article, or the race would be unwinnable.
+      const canon = await canonicalTitle(raw, getLang());
+      if (!canon) { toast('No article called "' + raw + '"'); return; }
+      if (cfg.checkpoints.some(c => norm(c) === norm(canon))) {
+        toast("Already on the list"); return;
+      }
+      cfg.checkpoints.push(canon);
+      q("#c-check").value = "";
+      renderCheckpointChips(ov);
+    } catch (e) {
+      toast("Wikipedia unreachable");
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  q("#c-check-add").onclick = addCheckpoint;
+  q("#c-check").addEventListener("keydown", e => {
+    // Enter picks a suggestion when the list is open; otherwise it adds.
+    if (e.key === "Enter" && q("#c-check-list").hidden) { e.preventDefault(); addCheckpoint(); }
+  });
 
   q("#c-swap").onclick = () => {
     const a = startIn.value; startIn.value = targetIn.value; targetIn.value = a;
@@ -2282,17 +2447,17 @@ function openConfigurator() {
         toast("Those are the same article!");
         go.disabled = false; go.textContent = "Start race"; return;
       }
-      // A checkpoint has to be a real article too, or the race is unwinnable.
-      let checkpoint = "";
-      const rawCheck = q("#c-check").value.trim();
-      if (rawCheck) {
-        checkpoint = await canonicalTitle(rawCheck, lang);
-        if (!checkpoint) {
-          toast('No article called "' + rawCheck + '"');
+      // Anything left in the box counts as added, so a typed-but-not-added
+      // checkpoint isn't silently dropped.
+      const pending = q("#c-check").value.trim();
+      if (pending) {
+        const canon = await canonicalTitle(pending, lang);
+        if (!canon) {
+          toast('No article called "' + pending + '"');
           go.disabled = false; go.textContent = "Start race"; return;
         }
+        if (!cfg.checkpoints.some(c => norm(c) === norm(canon))) cfg.checkpoints.push(canon);
       }
-      cfg.checkpoint = checkpoint;
       close();
       await post("/start_race", {
         start: cs, target: ct, lang: lang,
@@ -2301,7 +2466,8 @@ function openConfigurator() {
         time_limit: cfg.time_limit,
         ban_hubs: cfg.ban_hubs,
         handicap: cfg.handicap,
-        checkpoint: checkpoint,
+        checkpoints: cfg.checkpoints,
+        mode: cfg.mode,
       });
     } catch (e) {
       toast("Wikipedia unreachable");
@@ -2573,7 +2739,7 @@ $("lobby-rematch").onclick = async () => {
     start: last.start, target: last.target, lang: cfg.lang,
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
-    handicap: cfg.handicap, checkpoint: cfg.checkpoint,
+    handicap: cfg.handicap, checkpoints: cfg.checkpoints, mode: cfg.mode,
   });
 };
 
