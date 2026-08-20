@@ -121,7 +121,8 @@ everyone plays the same game rather than each machine applying its own settings.
 | **Allow the Back button** | Off makes it a one-way trip. |
 | **Ban hub pages** | Blocks *United States*, *World War II* and two dozen other giants. Nearly every lazy route runs through one of them, so this is the setting that stops repeat games feeling identical. |
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
-| **Checkpoint** | An article you must pass through on the way. Reaching the target without it doesn't count. |
+| **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
+| **Checkpoints** | Up to six articles you must pass through, in any order. They show in a strip above the article and tick off as you reach them; the target won't accept you until they're all done. Enforced by the game itself, not just your browser. |
 | **Time limit** | None, 2, 5 or 10 minutes. Anyone still going is a DNF. |
 
 **Ready check.** Everyone hits *Mark me ready* in the sidebar; the setup screen
@@ -222,11 +223,19 @@ window. Panels follow live as people click through and scroll. Links are dead so
 you can't wander off. Article text never crosses the network — peers broadcast
 only *which* page and *how far down*, and your copy fetches it from Wikipedia.
 
-**Replay** — the whole race as swimlanes, one per player, on a scrubber. Press
-play and watch it unfold. Dotted links mark pages more than one player visited,
-so you can see where routes converged — and scrub to the moment two people were
-on the same page at the same time without knowing it. Race the same pair twice
-and your previous run appears as a dashed ghost lane.
+**Replay** — two ways to look at the same race, switchable at the top.
+
+*Timeline* is the race as it happened: one swimlane per player on a scrubber.
+Press play and watch it unfold, or scrub to the moment two people were on the
+same page at the same time without knowing it. Race the same pair twice and your
+previous run appears as a dashed ghost lane.
+
+*Routes* is the shape of the race instead. Every article is one dot, shared by
+everyone who saw it, so players taking the same way through run side by side; a
+detour is a line that leaves the pack and rejoins it further on; and going back
+to a page you'd already visited draws a dashed loop to it. Arrows show which way
+each player went, start and target are pinned to either end, and a dot grows
+with the number of players who passed through it.
 
 If the race hid opponent positions, watching stays shut until everyone has
 finished — otherwise finishing early would be a way to scout for whoever's still
