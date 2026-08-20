@@ -2321,8 +2321,14 @@ function renderInert(host, title, html) {
   body.querySelectorAll("a").forEach(a => { a.removeAttribute("href"); a.style.cursor = "default"; });
 }
 
-function spectatable(snap) {
+function inThisRace(snap) {
   return (snap.peers || []).filter(p => p.in_this_race);
+}
+
+/* Watching is for people still going. Somebody who has finished is a frozen
+   page, so their tile leaves once they're home. */
+function spectatable(snap) {
+  return inThisRace(snap).filter(p => !p.finished);
 }
 
 /* If the race hid positions, spectating stays shut until nobody is still
@@ -2332,7 +2338,7 @@ function spectateAllowed(snap) {
   const race = snap.race;
   if (!race) return false;
   if (race.show_positions !== false) return true;
-  return !spectatable(snap).some(p => !p.finished && !p.gave_up);
+  return !inThisRace(snap).some(p => !p.finished && !p.gave_up);
 }
 
 /* ------------------------------------------------------------------ *
@@ -2468,8 +2474,11 @@ function renderSpectate(snap) {
 
   const all = spectatable(snap);
   if (!all.length) {
+    const anyone = inThisRace(snap).length;
     body.className = "";
-    body.innerHTML = '<div class="spec-empty">Nobody else is in this race.</div>';
+    body.innerHTML = '<div class="spec-empty">' + (anyone
+      ? "Everyone's home — nothing left to watch.<br>The Replay tab has the whole race."
+      : "Nobody else is in this race.") + "</div>";
     spec.panes.clear(); spec.signature = "";
     note.textContent = "";
     return;
@@ -2494,7 +2503,7 @@ function renderSpectate(snap) {
     ? all.filter(p => p.id === spec.who)
     : all;
 
-  const stillGoing = all.filter(p => !p.finished && !p.gave_up).length;
+  const stillGoing = all.filter(p => !p.gave_up).length;
   note.textContent = stillGoing ? stillGoing + " still racing" : "everyone's done";
 
   // Rebuild the panes only when the cast changes, so we don't thrash the DOM.

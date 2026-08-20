@@ -781,11 +781,18 @@ class PeerNet:
             st = self.state
             with st.lock:
                 racing = any(p.run and not p.run.get("done") for p in st.locals.values())
+            # Push to our own browsers on every tick, not just when a
+            # remote packet happens to arrive. Everyone sharing this process
+            # is a local player, so without this their positions and scrolling
+            # only reached each other on the digest tick - once every few
+            # seconds, which makes spectating look frozen.
             if racing:
                 self.send_state()
+                self.on_change()
                 time.sleep(RACE_TICK_INTERVAL)
             else:
                 self.send_hello()
+                self.on_change()
                 time.sleep(HEARTBEAT_INTERVAL)
 
             if now() - last_digest > DIGEST_INTERVAL:
