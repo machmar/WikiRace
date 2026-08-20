@@ -398,6 +398,9 @@
   .step .at { font-family: var(--mono); font-size: 12px; color: var(--fg-dim); }
   .step .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-faint); }
   .step .tag.goal { background: #14261a; color: var(--good); border-color: #2d6b3a; }
+  .step .tag.cp { background: #14261a; color: var(--good); border-color: #2d6b3a; }
+  .step.checkpoint { border-color: #3fb950; box-shadow: inset 3px 0 0 #3fb950; }
+  .step.checkpoint:hover { border-color: #56d364; }
 
   /* replay */
   .replay-ctl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -507,16 +510,23 @@
     .awards { grid-template-columns: 1fr; }
   }
 
-  /* checkpoint strip above the article */
-  #cpbar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 8px 16px; background: var(--bg-2);
-    border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+  /* the goal line scrolls rather than wrapping, so the bar keeps its height */
+  #goal { overflow-x: auto; scrollbar-width: none; }
+  #goal::-webkit-scrollbar { display: none; }
+  #goal > * { flex: none; }
+  .cpcount {
+    font-family: var(--mono); font-size: 11px; color: var(--fg-faint);
+    padding: 0 2px;
   }
-  #cpbar .lbl {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--fg-faint); font-weight: 700;
+  .cpcount.done { color: var(--good); }
+
+  /* only appears when you're standing on the target still owing a stop */
+  #cpwarn {
+    padding: 9px 16px; background: #3a2d10; border-bottom: 1px solid #6b5320;
+    color: #f2cc60; font-size: 13px; font-weight: 600;
   }
+  #cpwarn .sub { font-weight: 400; color: #d9c08a; }
+
   .cp {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 3px 11px; border-radius: 999px;
@@ -548,6 +558,12 @@
     border-top: 3px dashed var(--fg-faint);
   }
   .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
+  .leg.pick { cursor: pointer; transition: opacity .12s; }
+  .leg.pick.faded { opacity: .3; }
+  #rp-routes svg [data-run], #rp-routes svg [data-seen] { transition: opacity .12s; }
+  /* a fatter invisible hit area would be nicer, but pointer-events on the
+     stroke itself is enough at this line width */
+  #rp-routes svg path { stroke-linecap: round; }
 
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
@@ -572,10 +588,6 @@
 
     <div id="goal">
       <span class="muted tiny" id="goal-idle">no race yet — set one up, or wait for someone else</span>
-      <span class="chip lang" id="goal-lang" hidden></span>
-      <span class="chip" id="goal-start" hidden></span>
-      <span class="arrow" id="goal-arrow" hidden>→</span>
-      <span class="chip target" id="goal-target" hidden></span>
     </div>
 
     <div id="hud">
@@ -636,7 +648,7 @@
     </div>
 
     <!-- ---------- racing ---------- -->
-    <div id="cpbar" hidden></div>
+    <div id="cpwarn" hidden></div>
     <div id="crumbs" hidden><span class="muted tiny">Your trail will appear here</span></div>
     <div id="article-wrap" hidden><div id="article"></div></div>
 
@@ -1061,7 +1073,7 @@ async function navigate(title, countsAsClick) {
     }
     showArticle(canon, html);
     renderCrumbs();
-    renderCheckpointBar(S.race);
+    renderGoalBar(S.race);
     reportProgress();
     if (norm(canon) === S.targetCanon) win();
   } catch (e) {
@@ -1152,12 +1164,7 @@ async function showGoal(race) {
   S.race = race;
   S.lang = race.lang || "en";
 
-  $("goal-idle").hidden = true;
-  for (const id of ["goal-start", "goal-arrow", "goal-target"]) $(id).hidden = false;
-  $("goal-start").textContent = race.start;
-  $("goal-target").textContent = race.target;
-  $("goal-lang").textContent = S.lang.toUpperCase();
-  $("goal-lang").hidden = false;
+  renderGoalBar(race);
   renderRules(race);
 
   // Namespace names are per-edition, so the link filter needs this wiki's set.
@@ -1208,28 +1215,54 @@ async function isOneAway(article, target, lang) {
   return job;
 }
 
-/* The required stops, shown above the article so you can see at a glance
-   what you still owe the race. */
-function renderCheckpointBar(race) {
-  const bar = $("cpbar");
+/* The whole route lives on one line: where you started, every stop you owe,
+   and where you're going. Checkpoints tick over in place as you reach them. */
+function renderGoalBar(race) {
+  const bar = $("goal");
+  if (!race) {
+    bar.innerHTML = '<span class="muted tiny" id="goal-idle">' +
+      "no race yet — set one up, or wait for someone else</span>";
+    return;
+  }
   const stops = raceCheckpoints(race);
-  if (!race || !stops.length || stageMode !== "race") { bar.hidden = true; return; }
-  bar.hidden = false;
-
   const visited = new Set(S.path.map(norm));
   const done = stops.filter(c => visited.has(norm(c))).length;
-  const atGoal = visited.has(S.targetCanon);
 
-  bar.innerHTML =
-    '<span class="lbl">Checkpoints ' + done + "/" + stops.length + "</span>" +
-    stops.map(c => {
+  let html = '<span class="chip lang">' + esc((race.lang || "en").toUpperCase()) + "</span>" +
+             '<span class="chip">' + esc(race.start) + "</span>";
+
+  if (stops.length) {
+    html += '<span class="arrow">→</span>';
+    html += stops.map(c => {
       const hit = visited.has(norm(c));
-      return '<span class="cp' + (hit ? " hit" : "") + '">' +
+      return '<span class="cp' + (hit ? " hit" : "") + '" title="checkpoint">' +
         '<span class="mark">' + (hit ? "✓" : "○") + "</span>" + esc(c) + "</span>";
-    }).join("") +
-    '<span class="arrow">→</span>' +
-    '<span class="cp goal' + (atGoal && done === stops.length ? " hit" : "") + '">' +
-    '<span class="mark">🏁</span>' + esc(race.target) + "</span>";
+    }).join("");
+    html += '<span class="cpcount' + (done === stops.length ? " done" : "") + '">' +
+      done + "/" + stops.length + "</span>";
+  }
+
+  html += '<span class="arrow">→</span>' +
+          '<span class="chip target">' + esc(race.target) + "</span>";
+  bar.innerHTML = html;
+  renderCheckpointWarning(race, stops, visited);
+}
+
+/* Standing on the target with stops outstanding is the one moment a player
+   needs telling plainly - a toast they may have missed isn't enough. */
+function renderCheckpointWarning(race, stops, visited) {
+  const warn = $("cpwarn");
+  if (!warn) return;
+  const owed = (stops || []).filter(c => !visited.has(norm(c)));
+  const onTarget = S.current && norm(S.current) === S.targetCanon;
+  if (!race || !owed.length || !onTarget || stageMode !== "race" || S.done) {
+    warn.hidden = true;
+    return;
+  }
+  warn.hidden = false;
+  warn.innerHTML =
+    "You're at " + esc(race.target) + ", but this doesn't count yet. " +
+    '<span class="sub">Still to visit: ' + owed.map(esc).join(", ") + ".</span>";
 }
 
 function raceCheckpoints(race) {
@@ -1314,7 +1347,7 @@ async function enterRace(race, myRun) {
   renderCrumbs();
   reportProgress();
   updateHud();
-  renderCheckpointBar(race);
+  renderGoalBar(race);
 }
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -1649,6 +1682,7 @@ function renderMyRun() {
   }
   const times = S.stepTimes || [];
   const target = norm(race.target);
+  const stops = new Set(raceCheckpoints(race).map(norm));
 
   let html =
     '<h2 class="hub-h2">Your run</h2>' +
@@ -1656,14 +1690,18 @@ function renderMyRun() {
     " · " + fmtTime(S.finalElapsed != null ? S.finalElapsed : elapsed()) +
     " · " + S.path.length + " pages</p>";
 
-  html += '<div class="hub-sec"><h4>Where you went — click any step to re-read it</h4>';
+  html += '<div class="hub-sec"><h4>Where you went — click any step to re-read it';
+  if (stops.size) html += ' · checkpoints outlined in green';
+  html += "</h4>";
   html += S.path.map((t, i) => {
     const at = times[i] != null ? fmtTime(times[i]) : "";
     const isGoal = norm(t) === target;
-    return '<div class="step" data-i="' + i + '">' +
+    const isStop = stops.has(norm(t));
+    return '<div class="step' + (isStop ? " checkpoint" : "") + '" data-i="' + i + '">' +
       '<span class="n">' + (i + 1) + "</span>" +
       '<span class="ti">' + esc(t) + "</span>" +
       (i === 0 ? '<span class="tag">start</span>' : "") +
+      (isStop ? '<span class="tag cp">checkpoint</span>' : "") +
       (isGoal ? '<span class="tag goal">target</span>' : "") +
       '<span class="at">' + at + "</span></div>";
   }).join("");
@@ -1996,7 +2034,7 @@ function setStage(mode) {
   stageMode = mode;
   $("lobby").hidden = mode !== "lobby";
   $("crumbs").hidden = mode !== "race";
-  if (mode !== "race") $("cpbar").hidden = true;
+  if (mode !== "race") $("cpwarn").hidden = true;
   $("article-wrap").hidden = mode !== "race";
   $("hub").hidden = mode !== "hub";
   spec.on = mode === "hub" && hubTab === "watch";
@@ -2326,7 +2364,8 @@ function drawRoutes() {
       const cx = mx + (-dy / len) * bow * side;
       const cy = my + (dx / len) * bow * side;
 
-      svg += '<path d="M' + a.x + ' ' + a.y + ' Q' + cx + ' ' + cy + ' ' + b.x + ' ' + b.y +
+      svg += '<path data-run="' + ri + '" d="M' + a.x + ' ' + a.y + ' Q' + cx + ' ' + cy +
+             " " + b.x + " " + b.y +
              '" fill="none" stroke="' + run.color + '" stroke-width="2.2" opacity="0.85"' +
              (revisit ? ' stroke-dasharray="6 4"' : "") + "/>";
 
@@ -2337,8 +2376,8 @@ function drawRoutes() {
       const tx = 2 * (1 - t) * (cx - a.x) + 2 * t * (b.x - cx);
       const ty = 2 * (1 - t) * (cy - a.y) + 2 * t * (b.y - cy);
       const ang = Math.atan2(ty, tx) * 180 / Math.PI;
-      svg += '<polygon points="0,-4.5 9,0 0,4.5" fill="' + run.color + '" ' +
-             'transform="translate(' + px + ',' + py + ') rotate(' + ang + ')"/>';
+      svg += '<polygon data-run="' + ri + '" points="0,-4.5 9,0 0,4.5" fill="' + run.color +
+             '" transform="translate(' + px + ',' + py + ') rotate(' + ang + ')"/>';
     }
   });
 
@@ -2352,7 +2391,10 @@ function drawRoutes() {
     const stroke = isTarget ? "#3fb950" : isCheck ? "#d29922" : shared ? "#8b98a8" : "#3a4757";
     const rad = isStart || isTarget ? 11 : shared ? 9 : 7;
 
-    svg += '<circle cx="' + c.x + '" cy="' + c.y + '" r="' + rad + '" fill="' + fill +
+    const seenBy = [...g.visitors.get(k)].map(n => g.runs.findIndex(r => r.name === n))
+      .filter(i => i >= 0).join(",");
+    svg += '<circle data-seen="' + seenBy + '" cx="' + c.x + '" cy="' + c.y +
+           '" r="' + rad + '" fill="' + fill +
            '" stroke="' + stroke + '" stroke-width="' + (isCheck ? 3 : 2) + '"' +
            (isCheck ? ' stroke-dasharray="4 3"' : "") + ">" +
            "<title>" + esc(g.label.get(k)) + " — " +
@@ -2372,8 +2414,9 @@ function drawRoutes() {
 
   svg += "</svg>";
 
-  const legend = g.runs.map(r =>
-    '<span class="leg"><span class="sw" style="background:' + r.color + '"></span>' +
+  const legend = g.runs.map((r, i) =>
+    '<span class="leg pick" data-run="' + i + '">' +
+    '<span class="sw" style="background:' + r.color + '"></span>' +
     esc(r.name) + '<span class="sub">' + r.clicks + "c</span></span>").join("");
 
   host.innerHTML =
@@ -2383,7 +2426,44 @@ function drawRoutes() {
     '<p class="tiny muted" style="margin-top:12px">Each dot is one article, shared by ' +
     "everyone who saw it. Lines running together mean the same route; a line that " +
     "leaves and rejoins is a detour. A dashed loop is someone returning to a page " +
-    "they had already been to.</p>";
+    "they had already been to. Hover a line or a name to follow one player.</p>";
+
+  wireRouteHover(host);
+}
+
+/* Following one line through a tangle is hard, so hovering any part of a run -
+   or its name in the legend - fades everybody else out of the way. */
+function wireRouteHover(host) {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const strokes = [...svg.querySelectorAll("[data-run]")];
+  const nodes = [...svg.querySelectorAll("[data-seen]")];
+  const legends = [...host.querySelectorAll(".leg.pick")];
+
+  const focus = (idx) => {
+    strokes.forEach(el => {
+      const mine = el.dataset.run === String(idx);
+      el.style.opacity = idx == null ? "" : (mine ? "1" : "0.07");
+    });
+    nodes.forEach(el => {
+      const seen = (el.dataset.seen || "").split(",");
+      const mine = seen.includes(String(idx));
+      el.style.opacity = idx == null ? "" : (mine ? "1" : "0.18");
+    });
+    legends.forEach(el => {
+      el.classList.toggle("faded", idx != null && el.dataset.run !== String(idx));
+    });
+  };
+
+  strokes.forEach(el => {
+    el.style.cursor = "pointer";
+    el.addEventListener("mouseenter", () => focus(+el.dataset.run));
+    el.addEventListener("mouseleave", () => focus(null));
+  });
+  legends.forEach(el => {
+    el.addEventListener("mouseenter", () => focus(+el.dataset.run));
+    el.addEventListener("mouseleave", () => focus(null));
+  });
 }
 
 /* ------------------------------------------------------------------ *
