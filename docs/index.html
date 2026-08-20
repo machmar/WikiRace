@@ -704,12 +704,6 @@
       <div id="rules"></div>
       <div id="racers"><div class="empty">Looking for players on the LAN…</div></div>
       <button id="btn-ready" style="width:100%;margin-top:11px">Mark me ready</button>
-      <div style="margin-top:11px">
-        <div class="toggle on" id="tgl-opponents">
-          <div class="track"></div>
-          <span id="tgl-opponents-label">Show where opponents are</span>
-        </div>
-      </div>
     </div>
 
     <div class="panel">
@@ -763,6 +757,28 @@ const S = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+/* Snapshots arrive several times a second and mostly say the same thing.
+   Rewriting identical markup costs a reflow each time, and a reflow is enough
+   to snap a native <select> dropdown shut while someone is choosing from it. */
+function setHTML(el, html) {
+  if (!el || el.__html === html) return;
+  el.__html = html;
+  el.innerHTML = html;
+}
+
+/* Same again for plain text. The clock ticks ten times a second and most of
+   what sits beside it never changes. */
+function setText(el, text) {
+  if (!el) return;
+  const v = String(text);
+  if (el.textContent === v) return;
+  el.textContent = v;
+}
+
+function setFlag(el, prop, on) {
+  if (el && el[prop] !== on) el[prop] = on;
+}
 const norm = (t) => (t || "").replace(/_/g, " ").trim().toLowerCase();
 const esc = (s) => (s || "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
@@ -1120,25 +1136,27 @@ function timeLimit() {
 
 function updateHud() {
   const live = S.running || S.done;
-  $("hud-clicks").textContent = live ? S.clicks : "—";
+  setText($("hud-clicks"), live ? S.clicks : "—");
 
   const lim = timeLimit();
   const label = $("hud-time-label");
+  const clock = $("hud-time");
   if (live && lim) {
     const left = Math.max(0, lim - elapsed());
-    $("hud-time").textContent = fmtTime(left);
-    $("hud-time").style.color = left <= 30 ? "var(--bad)" : "";
-    label.textContent = "left";
+    setText(clock, fmtTime(left));
+    const col = left <= 30 ? "var(--bad)" : "";
+    if (clock.style.color !== col) clock.style.color = col;
+    setText(label, "left");
   } else {
-    $("hud-time").textContent = live ? fmtTime(elapsed()) : "—";
-    $("hud-time").style.color = "";
-    label.textContent = "time";
+    setText(clock, live ? fmtTime(elapsed()) : "—");
+    if (clock.style.color) clock.style.color = "";
+    setText(label, "time");
   }
 
   const back = $("btn-back");
   const backAllowed = !S.race || S.race.allow_back !== false;
-  back.hidden = !backAllowed;
-  back.disabled = !S.running || S.path.length < 2 || S.loading;
+  setFlag(back, "hidden", !backAllowed);
+  setFlag(back, "disabled", !S.running || S.path.length < 2 || S.loading);
 }
 
 setInterval(() => {
@@ -1277,7 +1295,7 @@ function raceMode(race) {
 
 function renderRules(race) {
   const host = $("rules");
-  if (!race) { host.innerHTML = ""; return; }
+  if (!race) { setHTML(host, ""); return; }
   const bits = [];
   bits.push((LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1]);
   bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
@@ -1287,7 +1305,7 @@ function renderRules(race) {
   if (race.ban_hubs) bits.push("no hub pages");
   for (const c of raceCheckpoints(race)) bits.push("via " + c);
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
-  host.innerHTML = bits.map(b => '<span class="rule">' + esc(b) + "</span>").join("");
+  setHTML(host, bits.map(b => '<span class="rule">' + esc(b) + "</span>").join(""));
 }
 
 /* Entering a race has three flavours: a fresh start, picking up a run we
@@ -1736,7 +1754,18 @@ function renderMyRun() {
  * ------------------------------------------------------------------ */
 
 const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null,
-                 raceId: null, view: "timeline" };
+                 raceId: null, view: "timeline", sig: null, ghost: null };
+
+/* What the replay is drawn from. If this hasn't moved, neither has the
+   picture, so there's no reason to rebuild it. */
+function resultsSignature(race) {
+  const r = race.results || {};
+  return Object.keys(r).sort().map(k => {
+    const x = r[k];
+    return k + ":" + (x.finished ? 1 : 0) + ":" + x.clicks + ":" +
+           Math.round(x.elapsed || 0) + ":" + (x.path || []).length;
+  }).join(",");
+}
 
 function laneData(race, ghost) {
   const laneColors = distinctColors(Object.values(race.results || {}).map(r => r.name));
@@ -1803,8 +1832,11 @@ async function renderReplay(snap) {
     return;
   }
 
-  if (replay.raceId !== race.race_id) {
+  const fresh = replay.raceId !== race.race_id;
+  if (fresh) {
     replay.raceId = race.race_id;
+    replay.sig = null;
+    replay.ghost = null;
     replay.lanes = laneData(race, null);
     replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
     replay.t = replay.maxT;
@@ -1839,13 +1871,27 @@ async function renderReplay(snap) {
     // The ghost arrives late; fold it in without disturbing playback.
     findGhost(snap).then(g => {
       if (g && replay.raceId === race.race_id) {
-        replay.lanes = laneData(race, g);
-        replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
+        replay.ghost = g;
+        rebuildLanes(race);
         drawCurrentReplayView();
       }
     });
   }
-  drawCurrentReplayView();
+  // Somebody finishing after you did changes the picture; nothing else does.
+  const sig = resultsSignature(race);
+  if (fresh || replay.sig !== sig) {
+    const wasAtEnd = replay.t >= replay.maxT - 0.05;
+    replay.sig = sig;
+    rebuildLanes(race);
+    // Sitting at the end means "show me everything", so follow the new end.
+    if (wasAtEnd) replay.t = replay.maxT;
+    drawCurrentReplayView();
+  }
+}
+
+function rebuildLanes(race) {
+  replay.lanes = laneData(race, replay.ghost);
+  replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
 }
 
 /* Two ways of looking at the same race: when it happened, and where it went. */
@@ -2070,26 +2116,26 @@ function renderLobby(snap) {
   const peers = snap.peers || [];
   const total = peers.length + 1;
 
-  $("lobby-sub").textContent = peers.length
+  setText($("lobby-sub"), peers.length
     ? (total + " players here. Everyone ready? Then set up a race.")
-    : "Waiting for others to join — or race solo to practise.";
+    : "Waiting for others to join — or race solo to practise.");
 
-  $("lobby-room").hidden = !snap.room || snap.room === "default";
-  $("lobby-room").textContent = "room: " + (snap.room || "");
-  $("lobby-count").textContent = "(" + total + ")";
+  setFlag($("lobby-room"), "hidden", !snap.room || snap.room === "default");
+  setText($("lobby-room"), "room: " + (snap.room || ""));
+  setText($("lobby-count"), "(" + total + ")");
 
   const rows = [{ name: snap.me.name, color: snap.me.color, ready: !!snap.ready, me: true }]
     .concat(peers.map(p => ({ name: p.name, color: p.color, ready: !!p.ready, me: false })));
 
-  $("lobby-players").innerHTML = rows.map(r =>
+  setHTML($("lobby-players"), rows.map(r =>
     '<div class="lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
     '<span class="nm">' + esc(r.name) + "</span>" +
     (r.me ? '<span class="you">you</span>' : "") +
     '<span class="state' + (r.ready ? " rdy" : "") + '">' +
-    (r.ready ? "ready ✓" : "not ready") + "</span></div>").join("");
+    (r.ready ? "ready ✓" : "not ready") + "</span></div>").join(""));
 
   const rdy = $("lobby-ready");
-  rdy.textContent = snap.ready ? "✓ You're ready" : "Mark me ready";
+  setText(rdy, snap.ready ? "✓ You're ready" : "Mark me ready");
   rdy.classList.toggle("primary", !snap.ready);
 
   // A public link beats a LAN address; otherwise fall back to the local one,
@@ -2097,10 +2143,10 @@ function renderLobby(snap) {
   const here = location.origin + "/";
   const localish = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(here);
   const link = snap.public_url || (localish ? (snap.join_urls || [])[0] : here);
-  $("share-card").hidden = !link;
-  $("share-note").textContent = snap.public_url
+  setFlag($("share-card"), "hidden", !link);
+  setText($("share-note"), snap.public_url
     ? "Anyone, anywhere can play from this link — nothing to install."
-    : "Anyone on this network can play from this link — nothing to install.";
+    : "Anyone on this network can play from this link — nothing to install.");
   if (link && document.activeElement !== $("share-url")) {
     $("share-url").value = link;
   }
@@ -2109,12 +2155,12 @@ function renderLobby(snap) {
 
   // Offer a rematch of the most recent race, settings and all.
   const last = lastFinishedRace(snap);
-  $("lobby-rematch").hidden = !last;
+  setFlag($("lobby-rematch"), "hidden", !last);
   if (last) {
-    $("lobby-last").textContent = "Last race: " + last.start + " → " + last.target;
-    $("lobby-rematch").textContent = "Rematch: " + last.start + " → " + last.target;
+    setText($("lobby-last"), "Last race: " + last.start + " → " + last.target);
+    setText($("lobby-rematch"), "Rematch: " + last.start + " → " + last.target);
   } else {
-    $("lobby-last").textContent = "";
+    setText($("lobby-last"), "");
   }
 }
 
@@ -2330,6 +2376,8 @@ function routeGraph(race) {
 function drawRoutes() {
   const host = $("rp-routes");
   if (!host) return;
+  const priorScroll = host.querySelector(".rp-scroll");
+  const keepLeft = priorScroll ? priorScroll.scrollLeft : 0;
   const race = S.snap && S.snap.race;
   const g = race && routeGraph(race);
   if (!g) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
@@ -2428,6 +2476,8 @@ function drawRoutes() {
     "leaves and rejoins is a detour. A dashed loop is someone returning to a page " +
     "they had already been to. Hover a line or a name to follow one player.</p>";
 
+  const scroller = host.querySelector(".rp-scroll");
+  if (scroller && keepLeft) scroller.scrollLeft = keepLeft;
   wireRouteHover(host);
 }
 
@@ -2780,22 +2830,21 @@ function renderConfigReady(snap) {
   const peers = snap.peers || [];
   const ready = peers.filter(p => p.ready).length;
 
-  host.innerHTML = peers.length
+  setHTML(host, peers.length
     ? peers.map(p =>
         '<div class="ready-row"><span class="tick' + (p.ready ? " on" : "") + '">' +
         (p.ready ? "✓" : "○") + "</span>" + esc(p.name) +
         '<span class="sub">' + (p.ready ? "ready" : "not ready yet") + "</span></div>").join("")
-    : '<div class="empty">Nobody else here yet — you can still race solo.</div>';
+    : '<div class="empty">Nobody else here yet — you can still race solo.</div>');
 
   const go = document.getElementById("c-go");
   const anyway = document.getElementById("c-anyway");
   if (!go || !anyway) return;
   const allReady = peers.length === 0 || ready === peers.length;
-  go.disabled = !allReady;
-  go.textContent = allReady ? "Start race" : "Waiting — " + ready + "/" + peers.length + " ready";
-  anyway.hidden = allReady;
-  anyway.innerHTML = allReady ? "" :
-    '<a href="#" style="color:var(--accent)">Start anyway</a>';
+  setFlag(go, "disabled", !allReady);
+  setText(go, allReady ? "Start race" : "Waiting — " + ready + "/" + peers.length + " ready");
+  setFlag(anyway, "hidden", allReady);
+  setHTML(anyway, allReady ? "" : '<a href="#" style="color:var(--accent)">Start anyway</a>');
 }
 
 /* ------------------------------------------------------------------ *
@@ -2808,18 +2857,9 @@ function renderSnapshot(snap) {
 
   if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
 
-  // The race rule is the ceiling; the personal toggle can only hide further.
-  const raceHides = snap.race && snap.race.show_positions === false;
-  const tgl = $("tgl-opponents");
-  tgl.classList.toggle("on", snap.show_opponents && !raceHides);
-  tgl.classList.toggle("locked", !!raceHides);
-  $("tgl-opponents-label").textContent = raceHides
-    ? "Opponent positions hidden by race rules"
-    : "Show where opponents are";
-
   const ready = $("btn-ready");
-  ready.hidden = !!(snap.race && S.running);
-  ready.textContent = snap.ready ? "✓ You're ready" : "Mark me ready";
+  setFlag(ready, "hidden", !!(snap.race && S.running));
+  setText(ready, snap.ready ? "✓ You're ready" : "Mark me ready");
   ready.classList.toggle("primary", !snap.ready);
 
   renderConfigReady(snap);
@@ -2840,15 +2880,16 @@ function renderSnapshot(snap) {
 
   // Only worth showing when it isn't the default — otherwise it's just noise.
   const roomTag = $("roomtag");
-  roomTag.hidden = !snap.room || snap.room === "default";
-  roomTag.textContent = "· room: " + (snap.room || "");
+  setFlag(roomTag, "hidden", !snap.room || snap.room === "default");
+  setText(roomTag, "· room: " + (snap.room || ""));
 
   // The scoreboard is keyed on name, so a duplicate silently merges two people.
-  $("name-clash").hidden = !snap.peers.some(p => norm(p.name) === norm(snap.me.name));
+  setFlag($("name-clash"), "hidden",
+          !snap.peers.some(p => norm(p.name) === norm(snap.me.name)));
 
   $("netdot").classList.toggle("off", snap.peers.length === 0);
-  $("peercount").textContent = snap.peers.length
-    ? "(" + (snap.peers.length + 1) + " online)" : "(just you)";
+  setText($("peercount"), snap.peers.length
+    ? "(" + (snap.peers.length + 1) + " online)" : "(just you)");
 
   // A race started by anyone — including us — arrives through here.
   if (snap.race && snap.race.race_id !== S.raceId) {
@@ -2894,10 +2935,10 @@ function renderRacers(snap) {
     return;
   }
 
-  // Race rule first, personal preference second.
-  const reveal = !(snap.race && snap.race.show_positions === false) && snap.show_opponents;
+  // Visibility is a race rule, set once for everyone in the setup screen.
+  const reveal = !(snap.race && snap.race.show_positions === false);
 
-  host.innerHTML = rows.map(r => {
+  setHTML(host, rows.map(r => {
     let where;
     if (!r.active) {
       where = '<span class="at">' + (r.ready ? "ready ✓" : "in the lobby") + "</span>";
@@ -2912,19 +2953,19 @@ function renderRacers(snap) {
       '<div class="swatch" style="background:' + r.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(r.name) + "</div>" + where + "</div>" +
       '<div class="n">' + (r.active ? r.clicks : "") + "</div></div>";
-  }).join("");
+  }).join(""));
 }
 
 function renderBoard(board, hostEl) {
   const host = hostEl || $("board");
   if (!board || !board.length) { host.innerHTML = '<div class="empty">No races finished yet.</div>'; return; }
-  host.innerHTML = '<table class="board">' + board.map(e =>
+  setHTML(host, '<table class="board">' + board.map(e =>
     "<tr><td class=\"pos" + (e.rank === 1 ? " p1" : "") + '">' + e.rank + "</td>" +
     "<td><div>" + esc(e.name) + "</div><div class=\"sub\">" +
     e.wins + "w · " + e.finished + "/" + e.races + " finished" +
     (e.best_time != null ? " · best " + fmtTime(e.best_time) : "") + "</div></td>" +
     '<td class="pts">' + e.points + "</td></tr>"
-  ).join("") + "</table>";
+  ).join("") + "</table>");
 }
 
 /* A running commentary of the race. Reading four separate trails is work;
@@ -2979,19 +3020,19 @@ function renderTicker() {
   const host = $("ticker");
   if (!host) return;
   if (!ticker.lines.length) { host.innerHTML = ""; return; }
-  host.innerHTML = ticker.lines.slice().reverse().slice(0, 12).map(l =>
+  setHTML(host, ticker.lines.slice().reverse().slice(0, 12).map(l =>
     '<div class="tk' + (l.hot ? " hot" : "") + '">' +
     '<span class="who" style="color:' + l.color + '">' + esc(l.name) + "</span> " +
     '<span class="what">' + esc(l.text) + "</span>" +
-    '<span class="cl">' + l.clicks + "</span></div>").join("");
+    '<span class="cl">' + l.clicks + "</span></div>").join(""));
 }
 
 function renderFeed(events) {
   const host = $("feed");
   if (!events || !events.length) { host.innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
   const wasBottom = host.scrollTop + host.clientHeight >= host.scrollHeight - 8;
-  host.innerHTML = events.slice().reverse()
-    .map(e => '<div class="e ' + esc(e.kind) + '">' + esc(e.text) + "</div>").join("");
+  setHTML(host, events.slice().reverse()
+    .map(e => '<div class="e ' + esc(e.kind) + '">' + esc(e.text) + "</div>").join(""));
   if (wasBottom) host.scrollTop = 0;
 }
 
@@ -3081,16 +3122,6 @@ $("btn-savename").onclick = () => {
   if (v) { post("/name", { name: v }); toast("Name saved"); }
 };
 $("myname").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-savename").click(); });
-
-$("tgl-opponents").onclick = () => {
-  if ($("tgl-opponents").classList.contains("locked")) {
-    toast("This race hides opponent positions for everyone");
-    return;
-  }
-  const on = !$("tgl-opponents").classList.contains("on");
-  $("tgl-opponents").classList.toggle("on", on);
-  post("/toggle_opponents", { value: on });
-};
 
 $("btn-reset").onclick = () => {
   if (confirm("Clear the scoreboard on this machine?\n\nOther players keep their own copy unless they clear too.")) {
