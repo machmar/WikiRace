@@ -1512,6 +1512,7 @@ function renderRules(race) {
   bits.push((LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1]);
   bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
   bits.push(race.allow_back === false ? "no going back" : "back allowed");
+  if (race.allow_find === false) bits.push("no find on page");
   if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
   bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
   if (race.ban_hubs) bits.push("no hub pages");
@@ -2747,6 +2748,7 @@ function wireRouteHover(host) {
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
   ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0,
+  allow_find: true,
 };
 
 /* A dropdown that behaves itself.
@@ -2929,6 +2931,9 @@ function openConfigurator() {
       "<span>Show where opponents are</span></div>" +
       '<div class="toggle" id="c-back" style="margin-top:8px"><div class="track"></div>' +
       "<span>Allow the Back button</span></div>" +
+      '<div class="toggle" id="c-find" style="margin-top:8px"><div class="track"></div>' +
+      '<span>Allow find on page <span class="muted tiny">(Ctrl+F — blocks the ' +
+      'shortcut, not the browser menu)</span></span></div>' +
       '<div class="toggle" id="c-hubs" style="margin-top:8px"><div class="track"></div>' +
       '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
       '<div class="toggle" id="c-handicap" style="margin-top:8px"><div class="track"></div>' +
@@ -2995,6 +3000,7 @@ function openConfigurator() {
                (v) => { cfg.time_limit = parseInt(v, 10) || 0; });
   q("#c-positions").classList.toggle("on", cfg.show_positions);
   q("#c-back").classList.toggle("on", cfg.allow_back);
+  q("#c-find").classList.toggle("on", cfg.allow_find);
 
   q("#c-hubs").classList.toggle("on", cfg.ban_hubs);
   q("#c-handicap").classList.toggle("on", cfg.handicap);
@@ -3016,6 +3022,7 @@ function openConfigurator() {
   };
   bindToggle("#c-positions", "show_positions");
   bindToggle("#c-back", "allow_back");
+  bindToggle("#c-find", "allow_find");
   bindToggle("#c-hubs", "ban_hubs");
   bindToggle("#c-handicap", "handicap");
 
@@ -3107,6 +3114,7 @@ function openConfigurator() {
         start: cs, target: ct, lang: lang,
         show_positions: cfg.show_positions,
         allow_back: cfg.allow_back,
+        allow_find: cfg.allow_find,
         time_limit: cfg.time_limit,
         ban_hubs: cfg.ban_hubs,
         handicap: cfg.handicap,
@@ -3427,6 +3435,7 @@ $("lobby-rematch").onclick = async () => {
   await post("/start_race", {
     start: last.start, target: last.target, lang: cfg.lang,
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
+    allow_find: cfg.allow_find,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
     handicap: cfg.handicap, checkpoints: cfg.checkpoints, mode: cfg.mode,
     toc: cfg.toc,
@@ -3441,6 +3450,22 @@ $("hub-lobby").onclick = () => setStage("lobby");
 // -- spectator controls --
 document.querySelectorAll("#spec-bar .seg button")
   .forEach(b => b.onclick = () => setSpecView(b.dataset.view));
+/* Races can switch off find-on-page. Worth being clear about what this is:
+   the shortcut can be intercepted, but the browser's own menu still offers
+   Find, so this discourages the reflex rather than making it impossible.
+   Capture phase, so nothing else gets a say first. */
+document.addEventListener("keydown", (e) => {
+  if (stageMode !== "race" || !S.running) return;
+  if (!S.race || S.race.allow_find !== false) return;
+  const k = (e.key || "").toLowerCase();
+  const isFind = ((e.ctrlKey || e.metaKey) && (k === "f" || k === "g")) ||
+                 k === "f3";
+  if (!isFind) return;
+  e.preventDefault();
+  e.stopPropagation();
+  toast("Find is switched off for this race");
+}, true);
+
 /* Broadcast how far down the page we are, so spectators mirror the view and
    not just the title. Throttled - this fires constantly while scrolling. */
 let scrollTimer = null, lastScrollSent = -1;

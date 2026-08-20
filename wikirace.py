@@ -685,6 +685,7 @@ class PeerNet:
                 "lang": incoming.get("lang", "en"),
                 "show_positions": incoming.get("show_positions", True),
                 "allow_back": incoming.get("allow_back", True),
+                "allow_find": incoming.get("allow_find", True),
                 "time_limit": incoming.get("time_limit", 0),
                 "ban_hubs": incoming.get("ban_hubs", False),
                 "checkpoints": list(race_checkpoints(incoming)),
@@ -1275,6 +1276,9 @@ def make_handler(state, net, hub):
                 "lang": (body.get("lang") or "en").strip()[:12],
                 "show_positions": bool(body.get("show_positions", True)),
                 "allow_back": bool(body.get("allow_back", True)),
+                # Intercepts the find shortcut. The browser's own menu can
+                # still reach it, so this discourages rather than prevents.
+                "allow_find": bool(body.get("allow_find", True)),
                 "time_limit": int(limit) if limit else 0,
                 "ban_hubs": bool(body.get("ban_hubs", False)),
                 "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])

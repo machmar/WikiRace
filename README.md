@@ -119,6 +119,7 @@ everyone plays the same game rather than each machine applying its own settings.
 | **🌪️ Obscure** | Genuinely random. Often brutal. |
 | **Show where opponents are** | Live positions on or off for everybody. |
 | **Allow the Back button** | Off makes it a one-way trip. |
+| **Allow find on page** | Off intercepts Ctrl+F, Cmd+F, F3 and Ctrl+G during a race. Honest limitation: a page can block the *shortcut*, not the browser's own Find menu — this discourages the reflex rather than making it impossible. |
 | **Ban hub pages** | Blocks *United States*, *World War II* and two dozen other giants. Nearly every lazy route runs through one of them, so this is the setting that stops repeat games feeling identical. |
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
 | **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
