@@ -125,10 +125,14 @@ class Player:
     tell the two arrangements apart.
     """
 
-    def __init__(self, pid, name):
+    def __init__(self, pid, name, color=None):
         self.id = pid
         self.name = name
-        self.color = PALETTE[int(hashlib.md5(pid.encode()).hexdigest(), 16) % len(PALETTE)]
+        # Hashing the id is fine in isolation but collides often enough that
+        # two people in the same race end up the same colour, which makes the
+        # replay unreadable. The caller hands out a free one instead.
+        self.color = color or PALETTE[
+            int(hashlib.md5(pid.encode()).hexdigest(), 16) % len(PALETTE)]
         self.run = None             # clicks, path, times, started_at, finished, elapsed
         self.ready = False
         self.show_opponents = True  # personal preference; the race rule can override
@@ -182,13 +186,24 @@ class GameState:
                 self.seed_used = True
             if not name:
                 name = self.next_guest_name()
-            p = Player(uuid.uuid4().hex[:12], name)
+            p = Player(uuid.uuid4().hex[:12], name, self.free_color())
             self.locals[sid] = p
             self.add_event(f"{name} joined", "join")
             self.bump()
         if p:
             p.last_seen = now()
         return p
+
+    def free_color(self):
+        """The least-used palette entry, so players stay tellable apart."""
+        used = {}
+        for p in self.locals.values():
+            used[p.color] = used.get(p.color, 0) + 1
+        for p in self.peers.values():
+            c = p.get("color")
+            if c:
+                used[c] = used.get(c, 0) + 1
+        return min(PALETTE, key=lambda c: used.get(c, 0))
 
     def next_guest_name(self):
         taken = {norm_name(x.name) for x in self.locals.values()}

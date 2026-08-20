@@ -538,6 +538,17 @@
   .seg.wide { width: 100%; }
   .seg.wide button { flex: 1; }
 
+  /* routes view */
+  .rp-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
+  .rp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12.5px; }
+  .leg { display: inline-flex; align-items: center; gap: 6px; }
+  .leg .sw { width: 16px; height: 3px; border-radius: 2px; }
+  .leg .sw.dash {
+    background: none;
+    border-top: 3px dashed var(--fg-faint);
+  }
+  .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
+
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
     background: var(--warn); color: #1b1200; text-align: center;
@@ -1686,15 +1697,17 @@ function renderMyRun() {
  * Replay: how the race actually unfolded, and where people crossed
  * ------------------------------------------------------------------ */
 
-const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null, raceId: null };
+const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null,
+                 raceId: null, view: "timeline" };
 
 function laneData(race, ghost) {
+  const laneColors = distinctColors(Object.values(race.results || {}).map(r => r.name));
   const lanes = Object.values(race.results || {}).map(r => {
     const path = r.path || [];
     const times = (r.times && r.times.length === path.length) ? r.times : null;
     return {
       name: r.name,
-      color: colorFor(r.name),
+      color: laneColors.get(r.name),
       finished: !!r.finished,
       clicks: r.clicks,
       elapsed: r.elapsed || 0,
@@ -1761,6 +1774,11 @@ async function renderReplay(snap) {
     host.innerHTML =
       '<h2 class="hub-h2">Replay</h2>' +
       '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) + "</p>" +
+      '<div class="seg" id="rp-view" style="margin-bottom:16px">' +
+      '<button data-rv="timeline">Timeline</button>' +
+      '<button data-rv="routes">Routes</button>' +
+      "</div>" +
+      '<div id="rp-timeline">' +
       '<div class="replay-ctl">' +
       '<button id="rp-play">▶ Play</button>' +
       '<input type="range" id="rp-scrub" min="0" max="1000" value="1000">' +
@@ -1769,8 +1787,10 @@ async function renderReplay(snap) {
       '<div id="rp-chart"></div>' +
       '<div class="lane-now" id="rp-now"></div>' +
       '<p class="tiny muted" style="margin-top:14px">Dotted links mark pages more than one ' +
-      "player visited. Hover a dot to see the page.</p>";
+      "player visited. Hover a dot to see the page.</p></div>" +
+      '<div id="rp-routes" hidden></div>';
 
+    ov_wireReplayView();
     $("rp-play").onclick = toggleReplay;
     $("rp-scrub").oninput = (e) => {
       stopReplay();
@@ -1783,11 +1803,34 @@ async function renderReplay(snap) {
       if (g && replay.raceId === race.race_id) {
         replay.lanes = laneData(race, g);
         replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
-        drawReplay();
+        drawCurrentReplayView();
       }
     });
   }
-  drawReplay();
+  drawCurrentReplayView();
+}
+
+/* Two ways of looking at the same race: when it happened, and where it went. */
+function ov_wireReplayView() {
+  document.querySelectorAll("#rp-view button").forEach(b => {
+    b.classList.toggle("on", b.dataset.rv === replay.view);
+    b.onclick = () => {
+      replay.view = b.dataset.rv;
+      stopReplay();
+      document.querySelectorAll("#rp-view button")
+        .forEach(x => x.classList.toggle("on", x.dataset.rv === replay.view));
+      drawCurrentReplayView();
+    };
+  });
+}
+
+function drawCurrentReplayView() {
+  const timeline = $("rp-timeline"), routes = $("rp-routes");
+  if (!timeline || !routes) return;
+  const showRoutes = replay.view === "routes";
+  timeline.hidden = showRoutes;
+  routes.hidden = !showRoutes;
+  if (showRoutes) drawRoutes(); else drawReplay();
 }
 
 function toggleReplay() {
@@ -2173,6 +2216,174 @@ function mirrorScroll(pane, fraction) {
   const want = fraction * max;
   // Ignore sub-pixel churn so the pane doesn't jitter while they sit still.
   if (Math.abs(el.scrollTop - want) > 2) el.scrollTop = want;
+}
+
+/* ------------------------------------------------------------------ *
+ * Routes view: the race as a map rather than a timeline
+ *
+ * Every article is one dot, shared by everyone who visited it, so two
+ * players taking the same way through run side by side and a detour is a
+ * line that leaves the pack and rejoins it. Revisiting a page draws a line
+ * back to the dot you were already on, which is what makes a loop.
+ * ------------------------------------------------------------------ */
+
+/* Whatever colours the players carry, no two lines in one drawing may match
+   or the picture stops meaning anything. */
+function distinctColors(names) {
+  const out = new Map(), taken = new Set();
+  for (const n of names) {
+    let c = colorFor(n);
+    if (taken.has(c)) c = PALETTE.find(x => !taken.has(x)) || c;
+    taken.add(c);
+    out.set(n, c);
+  }
+  return out;
+}
+
+function routeGraph(race) {
+  const all = Object.values(race.results || {}).filter(r => (r.path || []).length);
+  const colors = distinctColors(all.map(r => r.name));
+  const runs = all.map(r => ({
+    name: r.name, color: colors.get(r.name), path: (r.path || []).slice(),
+    finished: !!r.finished, clicks: r.clicks, elapsed: r.elapsed,
+  }));
+  if (!runs.length) return null;
+
+  const startKey = norm(race.start);
+  const targetKey = norm(race.target);
+  const checkKeys = new Set(raceCheckpoints(race).map(norm));
+
+  // Column = the earliest step at which anybody reached the page, which puts
+  // shared pages in the same place for everyone.
+  const col = new Map(), label = new Map(), visitors = new Map();
+  for (const r of runs) {
+    r.path.forEach((title, i) => {
+      const k = norm(title);
+      if (!label.has(k)) label.set(k, title);
+      col.set(k, Math.min(col.has(k) ? col.get(k) : Infinity, i));
+      if (!visitors.has(k)) visitors.set(k, new Set());
+      visitors.get(k).add(r.name);
+    });
+  }
+  // Pin the ends: the start opens the map, the target closes it, so a run
+  // that overshoots and comes back reads as the loop it was.
+  if (col.has(startKey)) col.set(startKey, 0);
+  let widest = 0;
+  for (const [k, c] of col) if (k !== targetKey) widest = Math.max(widest, c);
+  if (col.has(targetKey)) col.set(targetKey, widest + 1);
+
+  const columns = new Map();
+  for (const [k, c] of col) {
+    if (!columns.has(c)) columns.set(c, []);
+    columns.get(c).push(k);
+  }
+
+  const pos = new Map();
+  const rows = Math.max(...[...columns.values()].map(v => v.length));
+  for (const [c, keys] of columns) {
+    keys.forEach((k, i) => pos.set(k, { c, r: i - (keys.length - 1) / 2 }));
+  }
+
+  return { runs, pos, label, visitors, rows,
+           cols: Math.max(...col.values()) + 1,
+           startKey, targetKey, checkKeys };
+}
+
+function drawRoutes() {
+  const host = $("rp-routes");
+  if (!host) return;
+  const race = S.snap && S.snap.race;
+  const g = race && routeGraph(race);
+  if (!g) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
+
+  const COL = 168, ROW = 74, PAD = 62;
+  const w = PAD * 2 + (g.cols - 1) * COL;
+  const h = PAD * 2 + Math.max(1, g.rows - 1) * ROW;
+  const xy = (k, dy) => {
+    const p = g.pos.get(k);
+    return { x: PAD + p.c * COL, y: h / 2 + p.r * ROW + (dy || 0) };
+  };
+
+  let svg = '<svg viewBox="0 0 ' + w + " " + h + '" width="' + w + '" height="' + h + '">';
+
+  // Lines first, so the dots sit on top of them.
+  g.runs.forEach((run, ri) => {
+    const spread = (ri - (g.runs.length - 1) / 2) * 5;
+    for (let i = 1; i < run.path.length; i++) {
+      const a = xy(norm(run.path[i - 1]), spread);
+      const b = xy(norm(run.path[i]), spread);
+      // Two different things can point leftward. Landing on a page you have
+      // already been to is a real loop and gets dashed; merely rejoining the
+      // pack at an earlier column is still forward progress for that player,
+      // so it stays solid - it just needs the same clearance to be readable.
+      const revisit = run.path.slice(0, i).some(t => norm(t) === norm(run.path[i]));
+      const leftward = g.pos.get(norm(run.path[i])).c <= g.pos.get(norm(run.path[i - 1])).c;
+      const bow = (leftward ? 44 : 12) + Math.abs(spread);
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const side = leftward ? 1 : -1;
+      const cx = mx + (-dy / len) * bow * side;
+      const cy = my + (dx / len) * bow * side;
+
+      svg += '<path d="M' + a.x + ' ' + a.y + ' Q' + cx + ' ' + cy + ' ' + b.x + ' ' + b.y +
+             '" fill="none" stroke="' + run.color + '" stroke-width="2.2" opacity="0.85"' +
+             (revisit ? ' stroke-dasharray="6 4"' : "") + "/>";
+
+      // Arrowhead at the curve's midpoint, pointing the way they went.
+      const t = 0.5;
+      const px = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cx + t * t * b.x;
+      const py = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cy + t * t * b.y;
+      const tx = 2 * (1 - t) * (cx - a.x) + 2 * t * (b.x - cx);
+      const ty = 2 * (1 - t) * (cy - a.y) + 2 * t * (b.y - cy);
+      const ang = Math.atan2(ty, tx) * 180 / Math.PI;
+      svg += '<polygon points="0,-4.5 9,0 0,4.5" fill="' + run.color + '" ' +
+             'transform="translate(' + px + ',' + py + ') rotate(' + ang + ')"/>';
+    }
+  });
+
+  // Dots and labels.
+  for (const [k, p] of g.pos) {
+    const c = xy(k, 0);
+    const shared = g.visitors.get(k).size > 1;
+    const isStart = k === g.startKey, isTarget = k === g.targetKey;
+    const isCheck = g.checkKeys.has(k);
+    const fill = isTarget ? "#14261a" : isStart ? "#1b2733" : "var(--bg-2)";
+    const stroke = isTarget ? "#3fb950" : isCheck ? "#d29922" : shared ? "#8b98a8" : "#3a4757";
+    const rad = isStart || isTarget ? 11 : shared ? 9 : 7;
+
+    svg += '<circle cx="' + c.x + '" cy="' + c.y + '" r="' + rad + '" fill="' + fill +
+           '" stroke="' + stroke + '" stroke-width="' + (isCheck ? 3 : 2) + '"' +
+           (isCheck ? ' stroke-dasharray="4 3"' : "") + ">" +
+           "<title>" + esc(g.label.get(k)) + " — " +
+           [...g.visitors.get(k)].map(esc).join(", ") + "</title></circle>";
+
+    const text = g.label.get(k);
+    const short = text.length > 20 ? text.slice(0, 19) + "…" : text;
+    svg += '<text x="' + c.x + '" y="' + (c.y + rad + 15) + '" text-anchor="middle" ' +
+           'font-size="11.5" fill="' + (isTarget ? "#7ee787" : "var(--fg-dim)") + '">' +
+           esc(short) + "</text>";
+    if (isStart || isTarget) {
+      svg += '<text x="' + c.x + '" y="' + (c.y - rad - 7) + '" text-anchor="middle" ' +
+             'font-size="9.5" letter-spacing="1" fill="var(--fg-faint)">' +
+             (isStart ? "START" : "TARGET") + "</text>";
+    }
+  }
+
+  svg += "</svg>";
+
+  const legend = g.runs.map(r =>
+    '<span class="leg"><span class="sw" style="background:' + r.color + '"></span>' +
+    esc(r.name) + '<span class="sub">' + r.clicks + "c</span></span>").join("");
+
+  host.innerHTML =
+    '<div class="rp-legend">' + legend +
+    '<span class="leg muted"><span class="sw dash"></span>revisited a page</span></div>' +
+    '<div class="rp-scroll">' + svg + "</div>" +
+    '<p class="tiny muted" style="margin-top:12px">Each dot is one article, shared by ' +
+    "everyone who saw it. Lines running together mean the same route; a line that " +
+    "leaves and rejoins is a detour. A dashed loop is someone returning to a page " +
+    "they had already been to.</p>";
 }
 
 /* ------------------------------------------------------------------ *
