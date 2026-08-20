@@ -1,0 +1,16 @@
+# Local game history — each machine keeps its own
+wikirace_history.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Stray logs from running the game
+*.log

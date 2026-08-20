@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WikiRace LAN</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-2: #141b24;
+    --bg-3: #1b232e;
+    --line: #26303d;
+    --line-soft: #1e2733;
+    --fg: #e6edf3;
+    --fg-dim: #9aa7b4;
+    --fg-faint: #6b7785;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --gold: #e3b341;
+    --radius: 10px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  /* An explicit `display` beats the UA rule for [hidden], and several elements
+     here are flex/grid containers - without this they'd never actually hide. */
+  [hidden] { display: none !important; }
+
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  button {
+    font: inherit; cursor: pointer; color: var(--fg);
+    background: var(--bg-3); border: 1px solid var(--line);
+    padding: 7px 13px; border-radius: 7px;
+    transition: background .12s, border-color .12s, transform .06s;
+  }
+  button:hover:not(:disabled) { background: #232d3a; border-color: #38424f; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: #1f6feb; border-color: #2f7ff5; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #2a7cf7; }
+  button.danger:hover:not(:disabled) { background: #40202a; border-color: var(--bad); color: #ff9b95; }
+  button.ghost { background: transparent; }
+
+  input[type=text] {
+    font: inherit; color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+
+  select {
+    font: inherit; color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  /* typeahead */
+  .ta { position: relative; }
+  .ta-list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 70;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
+    max-height: 230px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  }
+  .ta-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
+  .ta-item:hover, .ta-item.on { background: #23303f; color: var(--accent); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
+
+  /* rule chips under the racer list */
+  #rules { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  #rules:empty { margin: 0; }
+  .rule {
+    font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg-dim);
+  }
+
+  /* ready check */
+  .ready-row {
+    display: flex; align-items: center; gap: 9px; padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
+  }
+  .ready-row:last-child { border-bottom: none; }
+  .ready-row .sub { margin-left: auto; }
+  .tick {
+    width: 20px; height: 20px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; background: var(--bg-3); color: var(--fg-faint);
+    border: 1px solid var(--line);
+  }
+  .tick.on { background: #14261a; border-color: #2d6b3a; color: var(--good); }
+
+  .toggle.locked { opacity: .55; cursor: not-allowed; }
+  .chip.lang {
+    background: #1b2733; color: var(--fg-dim); font-size: 11px;
+    letter-spacing: .6px; font-weight: 600; padding: 4px 9px;
+  }
+
+  /* ---------- layout ---------- */
+
+  #app { display: grid; grid-template-columns: 1fr 330px; grid-template-rows: auto 1fr; height: 100%; }
+  #topbar { grid-column: 1 / -1; }
+  #stage { overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  #side {
+    border-left: 1px solid var(--line); background: var(--bg-2);
+    overflow-y: auto; overflow-x: hidden;
+  }
+
+  /* ---------- top bar ---------- */
+
+  #topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 9px 16px; background: var(--bg-2); border-bottom: 1px solid var(--line);
+    min-height: 56px;
+  }
+  .brand { font-weight: 700; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 9px var(--good); }
+  .brand .dot.off { background: var(--fg-faint); box-shadow: none; }
+
+  #goal { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; font-size: 14px; }
+  .chip {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+  }
+  .chip.target { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
+  .arrow { color: var(--fg-faint); }
+
+  #hud { display: flex; align-items: center; gap: 16px; }
+  .stat { text-align: right; line-height: 1.15; }
+  .stat .v { font-family: var(--mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); }
+
+  /* ---------- article stage ---------- */
+
+  #crumbs {
+    display: flex; align-items: center; gap: 6px; padding: 7px 16px;
+    background: var(--bg-2); border-bottom: 1px solid var(--line-soft);
+    overflow-x: auto; white-space: nowrap; font-size: 12.5px; color: var(--fg-dim);
+    scrollbar-width: thin;
+  }
+  #crumbs .c { color: var(--fg-dim); }
+  #crumbs .c:last-child { color: var(--fg); font-weight: 600; }
+  #crumbs .sep { color: var(--fg-faint); }
+
+  #article-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+  #article { max-width: 860px; margin: 0 auto; padding: 26px 34px 90px; }
+  #article h1.title {
+    font-size: 30px; margin: 0 0 4px; font-weight: 700; letter-spacing: -.5px;
+    border-bottom: 1px solid var(--line); padding-bottom: 12px;
+  }
+
+  /* ---------- panels ---------- */
+
+  .panel { border-bottom: 1px solid var(--line); padding: 14px 16px; }
+  .panel h3 {
+    margin: 0 0 11px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--fg-faint); font-weight: 700; display: flex; align-items: center; justify-content: space-between;
+  }
+  .row { display: flex; align-items: center; gap: 9px; }
+  .muted { color: var(--fg-dim); }
+  .tiny { font-size: 12px; }
+  .empty { color: var(--fg-faint); font-size: 13px; font-style: italic; padding: 3px 0; }
+
+  /* racers */
+  .racer {
+    display: flex; align-items: center; gap: 9px; padding: 7px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .racer:last-child { border-bottom: none; }
+  .swatch { width: 8px; height: 26px; border-radius: 3px; flex: none; }
+  .racer .who { flex: 1; min-width: 0; }
+  .racer .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .at { font-size: 11.5px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .at.hidden-pos { color: var(--fg-faint); font-style: italic; }
+  .racer .n { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .racer.done .nm { color: var(--good); }
+  .racer.gone .nm { color: var(--bad); }
+  .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
+
+  /* leaderboard */
+  table.board { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.board td { padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+  table.board tr:last-child td { border-bottom: none; }
+  .pos { width: 22px; color: var(--fg-faint); font-family: var(--mono); }
+  .pos.p1 { color: var(--gold); font-weight: 700; }
+  .pts { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sub { color: var(--fg-faint); font-size: 11px; }
+
+  /* play-by-play ticker */
+  #ticker { max-height: 200px; overflow-y: auto; margin-bottom: 9px; }
+  #ticker:empty { display: none; }
+  .tk {
+    display: flex; align-items: baseline; gap: 6px; font-size: 12.5px;
+    padding: 4px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .tk:last-child { border-bottom: none; }
+  .tk .who { font-weight: 600; flex: none; }
+  .tk .what { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tk .cl { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+  .tk.hot .what { color: var(--warn); font-weight: 600; }
+
+  /* feed */
+  #feed { max-height: 190px; overflow-y: auto; font-size: 12.5px; }
+  #feed .e { padding: 3px 0; color: var(--fg-dim); border-bottom: 1px solid var(--line-soft); }
+  #feed .e:last-child { border-bottom: none; }
+  #feed .e.finish { color: var(--good); }
+  #feed .e.race { color: var(--accent); }
+  #feed .e.leave { color: var(--fg-faint); }
+
+  /* toggle */
+  .toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; font-size: 13px; }
+  .track {
+    width: 36px; height: 20px; border-radius: 999px; background: var(--bg-3);
+    border: 1px solid var(--line); position: relative; transition: background .15s, border-color .15s; flex: none;
+  }
+  .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--fg-faint); transition: transform .15s, background .15s;
+  }
+  .toggle.on .track { background: #17384f; border-color: var(--accent); }
+  .toggle.on .track::after { transform: translateX(16px); background: var(--accent); }
+
+  /* ---------- overlays ---------- */
+
+  .overlay {
+    position: absolute; inset: 0; z-index: 50;
+    background: rgba(6, 10, 15, .93); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; padding: 30px;
+  }
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 28px 30px; max-width: 560px; width: 100%;
+    box-shadow: 0 22px 60px rgba(0,0,0,.55);
+  }
+  .card h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
+  .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); margin-bottom: 5px; font-weight: 600; }
+  .actions { display: flex; gap: 9px; margin-top: 20px; }
+  .actions button { flex: 1; }
+
+  #countdown { font-size: 130px; font-weight: 800; font-family: var(--mono); letter-spacing: -6px; animation: pop .45s ease-out; }
+  @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .cd-wrap { text-align: center; }
+  .cd-wrap .goal-big { font-size: 19px; margin-bottom: 8px; }
+  .cd-wrap .goal-big b { color: #7ee787; }
+
+  .result-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+  .result-row .medal { width: 26px; font-size: 16px; }
+  .result-row .rn { flex: 1; font-weight: 600; }
+  .result-row .rs { font-family: var(--mono); font-size: 13px; color: var(--fg-dim); }
+  .path-line { font-size: 11.5px; color: var(--fg-faint); margin-left: 36px; word-break: break-word; line-height: 1.45; }
+
+  #toast {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 18px; font-size: 13.5px; z-index: 60; pointer-events: none;
+    opacity: 0; transition: opacity .2s;
+  }
+  #toast.show { opacity: 1; }
+
+  .spinner {
+    width: 26px; height: 26px; border: 3px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite; margin: 60px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- wikipedia article styling ---------- */
+
+  .wiki { font-size: 15.5px; line-height: 1.68; }
+  .wiki a { color: var(--accent); text-decoration: none; }
+  .wiki a:hover { text-decoration: underline; }
+  .wiki a.dead { color: var(--fg-faint); cursor: not-allowed; text-decoration: line-through; }
+  .wiki p { margin: 0 0 14px; }
+  .wiki h2 { font-size: 22px; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); font-weight: 650; }
+  .wiki h3 { font-size: 18px; margin: 22px 0 9px; font-weight: 650; }
+  .wiki h4 { font-size: 16px; margin: 18px 0 7px; }
+  .wiki ul, .wiki ol { margin: 0 0 14px; padding-left: 26px; }
+  .wiki li { margin-bottom: 4px; }
+  .wiki img { max-width: 100%; height: auto; }
+  .wiki figure, .wiki .thumb {
+    margin: 0 0 14px 20px; float: right; clear: right; max-width: 300px;
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+  }
+  .wiki .thumbcaption, .wiki figcaption { font-size: 12.5px; color: var(--fg-dim); margin-top: 6px; line-height: 1.4; }
+  .wiki .infobox {
+    float: right; clear: right; margin: 0 0 16px 20px; width: 300px; max-width: 320px;
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
+    font-size: 12.5px; border-collapse: collapse; overflow: hidden;
+  }
+  .wiki .infobox th, .wiki .infobox td { padding: 6px 9px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+  .wiki .infobox .infobox-above, .wiki .infobox caption { background: var(--bg-3); font-size: 15px; font-weight: 700; padding: 9px; text-align: center; }
+  .wiki table.wikitable { border-collapse: collapse; margin: 0 0 16px; font-size: 13px; display: block; overflow-x: auto; max-width: 100%; }
+  .wiki table.wikitable th, .wiki table.wikitable td { border: 1px solid var(--line); padding: 6px 9px; }
+  .wiki table.wikitable th { background: var(--bg-3); }
+  .wiki .hatnote { font-style: italic; color: var(--fg-dim); margin-bottom: 12px; font-size: 14px; }
+  .wiki blockquote { margin: 0 0 14px; padding-left: 16px; border-left: 3px solid var(--line); color: var(--fg-dim); }
+  .wiki sup.reference { font-size: 10px; }
+  .wiki .reflist, .wiki .references { font-size: 12px; color: var(--fg-dim); columns: 2; column-gap: 26px; }
+  .wiki code, .wiki pre { font-family: var(--mono); font-size: 13px; background: var(--bg-2); border-radius: 4px; padding: 1px 5px; }
+  .wiki hr { border: none; border-top: 1px solid var(--line); margin: 20px 0; }
+  /* clutter that only slows the race down */
+  .wiki .navbox, .wiki .mw-editsection, .wiki .metadata, .wiki .ambox,
+  .wiki .sistersitebox, .wiki .mbox-small, .wiki .noprint, .wiki .mw-jump-link,
+  .wiki .vertical-navbox, .wiki .catlinks, .wiki #toc, .wiki .toc { display: none !important; }
+
+  /* ---------- lobby ---------- */
+
+  #lobby { flex: 1; overflow-y: auto; }
+  .lobby-inner { max-width: 820px; margin: 0 auto; padding: 40px 30px 60px; }
+  .lobby-hero { text-align: center; margin-bottom: 30px; }
+  .lobby-hero .flag { font-size: 46px; line-height: 1; margin-bottom: 10px; }
+  .lobby-hero h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.6px; }
+  .lobby-hero .lede { margin: 0; color: var(--fg-dim); font-size: 14.5px; }
+  #lobby-room { margin-top: 8px; }
+
+  .lobby-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .lobby-cols { grid-template-columns: 1fr; } }
+  .lobby-card {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .lobby-card h3 {
+    margin: 0 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--fg-faint); font-weight: 700;
+  }
+  .lobby-actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; }
+  button.big { padding: 12px 26px; font-size: 15px; border-radius: 9px; }
+
+  .lp {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--line-soft); font-size: 14px;
+  }
+  .lp:last-child { border-bottom: none; }
+  .lp .nm { font-weight: 600; }
+  .lp .you { color: var(--accent); font-size: 11px; }
+  .lp .state { margin-left: auto; font-size: 12px; color: var(--fg-faint); }
+  .lp .state.rdy { color: var(--good); }
+
+  /* ---------- post-race hub ---------- */
+
+  #hub { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #hub-bar {
+    display: flex; align-items: center; gap: 12px; padding: 9px 16px;
+    background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
+  }
+  #hub-body { flex: 1; min-height: 0; display: flex; }
+  .hub-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .hub-pane[data-pane="results"], .hub-pane[data-pane="myrun"], .hub-pane[data-pane="replay"] {
+    overflow-y: auto;
+  }
+  #results-pane, #myrun-pane, #replay-pane { max-width: 860px; margin: 0 auto; padding: 24px 28px 60px; width: 100%; }
+
+  .hub-h2 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.3px; }
+  .hub-sub { color: var(--fg-dim); font-size: 13.5px; margin: 0 0 20px; }
+  .hub-sec { margin-bottom: 26px; }
+  .hub-sec h4 {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--fg-faint); font-weight: 700; margin: 0 0 10px;
+  }
+
+  /* awards */
+  .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .award {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 13px; display: flex; gap: 10px; align-items: center;
+  }
+  .award .ic { font-size: 20px; }
+  .award .t { font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--fg-faint); font-weight: 700; }
+  .award .v { font-weight: 600; font-size: 14px; }
+  .award .d { font-size: 11.5px; color: var(--fg-dim); }
+
+  .fact {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px 15px; font-size: 13.5px; color: var(--fg-dim);
+  }
+  .fact b { color: var(--fg); }
+
+  /* my-run trail */
+  .step {
+    display: flex; align-items: center; gap: 11px; padding: 8px 11px;
+    border: 1px solid var(--line); border-radius: 9px; margin-bottom: 7px;
+    background: var(--bg-2); cursor: pointer; transition: border-color .12s, background .12s;
+  }
+  .step:hover { border-color: var(--accent); background: #19222d; }
+  .step.here { border-color: var(--accent); }
+  .step .n { font-family: var(--mono); color: var(--fg-faint); font-size: 12px; width: 20px; }
+  .step .ti { flex: 1; font-weight: 600; font-size: 14px; }
+  .step .at { font-family: var(--mono); font-size: 12px; color: var(--fg-dim); }
+  .step .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-faint); }
+  .step .tag.goal { background: #14261a; color: var(--good); border-color: #2d6b3a; }
+
+  /* replay */
+  .replay-ctl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .replay-ctl input[type=range] { flex: 1; accent-color: var(--accent); }
+  .replay-clock { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 62px; }
+  .lane-now { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+  .lane-now .row2 {
+    display: flex; align-items: center; gap: 9px; font-size: 13.5px;
+    padding: 7px 11px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px;
+  }
+  .lane-now .row2 .who { font-weight: 600; min-width: 92px; }
+  .lane-now .row2 .art { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lane-now .row2 .cl { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
+  .lane-now .row2.done { border-color: #2d6b3a; }
+
+  /* ---------- spectator view ---------- */
+
+  #spec-bar {
+    display: flex; align-items: center; gap: 11px; padding: 9px 16px;
+    background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
+  }
+  #spec-who { width: auto; min-width: 170px; }
+
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; background: transparent; padding: 6px 13px; font-size: 13px; }
+  .seg button.on { background: #1f6feb; font-weight: 600; }
+
+  #spec-body { flex: 1; overflow: hidden; padding: 12px; }
+  #spec-body.tiles {
+    display: grid; gap: 12px; overflow-y: auto;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    grid-auto-rows: minmax(260px, 1fr);
+  }
+  #spec-body.one { display: block; }
+
+  .spec-tile {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden;
+  }
+  #spec-body.one .spec-tile { height: 100%; }
+  .spec-head {
+    display: flex; align-items: center; gap: 8px; padding: 7px 11px;
+    background: var(--bg-3); border-bottom: 1px solid var(--line); flex: none; font-size: 13px;
+  }
+  .spec-head .nm { font-weight: 600; white-space: nowrap; }
+  .spec-head .meta {
+    margin-left: auto; color: var(--fg-dim); font-size: 11.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .spec-head .badge {
+    font-size: 10px; padding: 1px 7px; border-radius: 999px;
+    background: #14261a; color: var(--good); border: 1px solid #2d6b3a;
+  }
+  .spec-head .badge.out { background: #2a1519; color: var(--bad); border-color: #6b2d34; }
+
+  /* Mirrors their scroll position, so it must not be scrollable by hand. */
+  .spec-view { flex: 1; overflow: hidden; position: relative; }
+  .spec-view .inner { padding: 12px 16px; pointer-events: none; }
+  .spec-view .wiki { font-size: 12.5px; line-height: 1.55; }
+  #spec-body.one .spec-view .wiki { font-size: 15px; line-height: 1.65; }
+  .spec-view .wiki .infobox, .spec-view .wiki .thumb, .spec-view .wiki figure {
+    width: 180px; max-width: 45%; margin-left: 12px;
+  }
+  #spec-body.one .spec-view .wiki .infobox { width: 280px; }
+  .spec-view h1.sp-title { font-size: 17px; margin: 0 0 9px; font-weight: 700; }
+  #spec-body.one .spec-view h1.sp-title { font-size: 24px; }
+  .spec-empty { color: var(--fg-faint); font-style: italic; padding: 26px; text-align: center; font-size: 13px; }
+  .spec-fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 34px; pointer-events: none;
+    background: linear-gradient(transparent, var(--bg-2));
+  }
+
+  /* ---------- phones and small windows ----------
+     Browser-only players will turn up on whatever device is in their hand,
+     so the sidebar stacks under the article instead of squeezing it. */
+  @media (max-width: 760px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    #side {
+      border-left: none; border-top: 1px solid var(--line);
+      max-height: 45vh;
+    }
+    #topbar { flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
+    #goal { order: 3; width: 100%; font-size: 13px; }
+    #hud { margin-left: auto; }
+    .chip { max-width: 42vw; }
+
+    #article { padding: 16px 14px 60px; }
+    #article h1.title { font-size: 23px; }
+    .wiki { font-size: 15px; }
+    /* Floated infoboxes and thumbs are unreadable on a narrow screen. */
+    .wiki .infobox, .wiki .thumb, .wiki figure {
+      float: none; width: auto; max-width: 100%; margin: 0 0 14px;
+    }
+    .wiki .reflist, .wiki .references { columns: 1; }
+
+    .lobby-inner { padding: 22px 14px 40px; }
+    .lobby-cols { grid-template-columns: 1fr; }
+    .lobby-actions { flex-direction: column; }
+    .lobby-actions button { width: 100%; }
+
+    #hub-bar { flex-wrap: wrap; }
+    #results-pane, #myrun-pane, #replay-pane { padding: 16px 14px 50px; }
+    #spec-body.tiles { grid-template-columns: 1fr; }
+    .two { grid-template-columns: 1fr; }
+    .card { padding: 20px 16px; }
+    .awards { grid-template-columns: 1fr; }
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #2a3441; border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #38424f; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="topbar">
+    <div class="brand">
+      <span class="dot" id="netdot"></span> WikiRace
+      <span id="roomtag" class="tiny muted" style="font-weight:400" hidden></span>
+    </div>
+
+    <div id="goal">
+      <span class="muted tiny" id="goal-idle">no race yet — set one up, or wait for someone else</span>
+      <span class="chip lang" id="goal-lang" hidden></span>
+      <span class="chip" id="goal-start" hidden></span>
+      <span class="arrow" id="goal-arrow" hidden>→</span>
+      <span class="chip target" id="goal-target" hidden></span>
+    </div>
+
+    <div id="hud">
+      <div class="stat"><div class="v" id="hud-time">—</div><div class="k" id="hud-time-label">time</div></div>
+      <div class="stat"><div class="v" id="hud-clicks">—</div><div class="k">clicks</div></div>
+    </div>
+
+    <div class="row">
+      <button id="btn-back" disabled>← Back</button>
+      <button id="btn-giveup" class="danger" hidden>Give up</button>
+      <button id="btn-new" class="primary">Set up race</button>
+    </div>
+  </div>
+
+  <div id="stage">
+    <!-- ---------- lobby: what you see between races ---------- -->
+    <div id="lobby">
+      <div class="lobby-inner">
+        <div class="lobby-hero">
+          <div class="flag">🏁</div>
+          <h1>WikiRace</h1>
+          <p class="lede" id="lobby-sub">Looking for players on your network…</p>
+          <div id="lobby-room" class="tiny muted" hidden></div>
+        </div>
+
+        <div class="lobby-cols">
+          <div class="lobby-card">
+            <h3>In the lobby <span id="lobby-count" class="muted"></span></h3>
+            <div id="lobby-players"></div>
+            <button id="lobby-ready" class="primary" style="width:100%;margin-top:12px">
+              Mark me ready
+            </button>
+          </div>
+
+          <div class="lobby-card">
+            <h3>Standings</h3>
+            <div id="lobby-board"><div class="empty">No races yet.</div></div>
+            <div id="lobby-last" class="tiny muted" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="lobby-card" id="share-card" style="margin-top:16px" hidden>
+          <h3>Invite people</h3>
+          <p class="tiny muted" style="margin:0 0 10px" id="share-note">
+            Anyone on this network can play from this link — nothing to install.
+          </p>
+          <div class="row">
+            <input type="text" id="share-url" readonly>
+            <button id="share-copy" class="ghost">Copy</button>
+          </div>
+        </div>
+
+        <div class="lobby-actions">
+          <button id="lobby-start" class="primary big">Set up a race</button>
+          <button id="lobby-rematch" class="big" hidden>Rematch</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- racing ---------- -->
+    <div id="crumbs" hidden><span class="muted tiny">Your trail will appear here</span></div>
+    <div id="article-wrap" hidden><div id="article"></div></div>
+
+    <!-- ---------- post-race hub ---------- -->
+    <div id="hub" hidden>
+      <div id="hub-bar">
+        <div class="seg" id="hub-tabs">
+          <button data-tab="results" class="on">Results</button>
+          <button data-tab="myrun">My run</button>
+          <button data-tab="watch">Watching</button>
+          <button data-tab="replay">Replay</button>
+        </div>
+        <span id="hub-note" class="tiny muted"></span>
+        <button id="hub-lobby" style="margin-left:auto">Back to lobby</button>
+      </div>
+
+      <div id="hub-body">
+        <div class="hub-pane" data-pane="results"><div id="results-pane"></div></div>
+        <div class="hub-pane" data-pane="myrun" hidden><div id="myrun-pane"></div></div>
+        <div class="hub-pane" data-pane="watch" hidden>
+          <div id="spec-bar">
+            <span class="tiny muted">Watching</span>
+            <div class="seg">
+              <button data-view="tiles" class="on">Tiled</button>
+              <button data-view="one">Single</button>
+            </div>
+            <select id="spec-who" hidden></select>
+            <span id="spec-note" class="tiny muted"></span>
+          </div>
+          <div id="spec-body"></div>
+        </div>
+        <div class="hub-pane" data-pane="replay" hidden><div id="replay-pane"></div></div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <div id="side">
+    <div class="panel">
+      <h3>You</h3>
+      <div class="row">
+        <input type="text" id="myname" maxlength="24" placeholder="your name">
+        <button id="btn-savename" class="ghost">Save</button>
+      </div>
+      <div id="name-clash" class="tiny" style="color:var(--warn);margin-top:7px" hidden>
+        Someone else is using this name — your scores will be pooled. Pick another.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Racers <span id="peercount" class="muted"></span></h3>
+      <div id="rules"></div>
+      <div id="racers"><div class="empty">Looking for players on the LAN…</div></div>
+      <button id="btn-ready" style="width:100%;margin-top:11px">Mark me ready</button>
+      <div style="margin-top:11px">
+        <div class="toggle on" id="tgl-opponents">
+          <div class="track"></div>
+          <span id="tgl-opponents-label">Show where opponents are</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:2px 7px;font-size:11px">clear</button></h3>
+      <div id="board"><div class="empty">No races finished yet.</div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Play-by-play</h3>
+      <div id="ticker"></div>
+      <div id="feed"><div class="empty">Nothing yet.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* Wikipedia editions offered in the configurator. Every one of these has a
+   large, well-connected article graph, which is what makes a race winnable. */
+const LANGS = [
+  ["en", "English"], ["de", "Deutsch"], ["fr", "Français"], ["es", "Español"],
+  ["it", "Italiano"], ["pt", "Português"], ["nl", "Nederlands"], ["pl", "Polski"],
+  ["cs", "Čeština"], ["sk", "Slovenčina"], ["ru", "Русский"], ["uk", "Українська"],
+  ["sv", "Svenska"], ["fi", "Suomi"], ["da", "Dansk"], ["no", "Norsk"],
+  ["hu", "Magyar"], ["ro", "Română"], ["tr", "Türkçe"], ["el", "Ελληνικά"],
+  ["ja", "日本語"], ["zh", "中文"], ["ko", "한국어"], ["ar", "العربية"],
+  ["he", "עברית"], ["hi", "हिन्दी"], ["id", "Bahasa Indonesia"], ["vi", "Tiếng Việt"],
+];
+
+const apiUrl = (lang) => `https://${lang}.wikipedia.org/w/api.php`;
+
+const S = {
+  snap: null,              // last server snapshot
+  race: null,              // active race record
+  raceId: null,            // race we have locally set up
+  targetCanon: null,       // canonical target title, lowercased
+  current: null,           // canonical title we're on
+  path: [],                // trail of canonical titles
+  stepTimes: [],           // when each step happened, on the fair clock
+  clicks: 0,
+  startedAt: null,         // performance.now() at go
+  loadMs: 0,               // time spent waiting on Wikipedia, excluded from the clock
+  finalElapsed: null,      // frozen clock once we're done
+  running: false,
+  done: false,
+  showOpponents: true,
+  loading: false,
+  lang: "en",              // edition this race is played on
+  badPrefixes: null,       // namespace prefixes that don't count as articles
+};
+
+const $ = (id) => document.getElementById(id);
+const norm = (t) => (t || "").replace(/_/g, " ").trim().toLowerCase();
+const esc = (s) => (s || "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+function fmtTime(sec) {
+  if (sec == null) return "—";
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ":" + s.toFixed(1).padStart(4, "0");
+}
+
+function toast(msg, ms = 2000) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+async function post(path, body) {
+  try {
+    const r = await fetch("/api" + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    return await r.json();
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Wikipedia access.  All calls go straight from this browser to
+ * Wikipedia with origin=*, so no proxying and no extra hop.
+ * ------------------------------------------------------------------ */
+
+/* Always bounded: a request that never answers would otherwise strand the
+   player on a spinner with the clock running and every click ignored. */
+async function wiki(params, lang, timeoutMs = 12000) {
+  const q = new URLSearchParams({ format: "json", origin: "*", ...params });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const url = apiUrl(lang || S.lang || "en") + "?" + q;
+    const r = await fetch(url, { redirect: "follow", signal: ctl.signal });
+    if (!r.ok) throw new Error("Wikipedia returned " + r.status);
+    return await r.json();
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("Wikipedia didn't answer in time");
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function canonicalTitle(title, lang) {
+  const d = await wiki({ action: "query", titles: title, redirects: "1" }, lang);
+  const pages = d?.query?.pages || {};
+  const page = Object.values(pages)[0];
+  if (!page || page.missing !== undefined) return null;
+  return page.title;
+}
+
+/* "File:", "Category:" and friends are English. On cs.wikipedia they're
+   "Soubor:" and "Kategorie:", so the set of non-article prefixes has to come
+   from the wiki itself or the link filter silently breaks on every other
+   edition. Canonical English names stay in the set too - every wiki accepts
+   them as aliases. */
+const CANONICAL_NS = ["file", "image", "category", "help", "portal", "template",
+  "wikipedia", "project", "special", "talk", "module", "draft", "mediawiki",
+  "book", "user", "timedtext", "gadget"];
+const nsCache = {};
+
+async function namespacePrefixes(lang) {
+  if (nsCache[lang]) return nsCache[lang];
+  const bad = new Set(CANONICAL_NS);
+  try {
+    const d = await wiki(
+      { action: "query", meta: "siteinfo", siprop: "namespaces|namespacealiases" }, lang);
+    for (const n of Object.values(d?.query?.namespaces || {})) {
+      if (n.id === 0) continue;
+      if (n["*"]) bad.add(n["*"].toLowerCase());
+      if (n.canonical) bad.add(n.canonical.toLowerCase());
+    }
+    for (const a of (d?.query?.namespacealiases || [])) {
+      if (a.id !== 0 && a["*"]) bad.add(a["*"].toLowerCase());
+    }
+  } catch (e) { /* the canonical English set is a serviceable fallback */ }
+  nsCache[lang] = bad;
+  return bad;
+}
+
+/* Typeahead, so you can find an article instead of guessing its exact title. */
+async function suggestTitles(text, lang) {
+  if (!text.trim()) return [];
+  const d = await wiki(
+    { action: "opensearch", search: text, limit: "8", namespace: "0" }, lang, 6000);
+  return Array.isArray(d) && Array.isArray(d[1]) ? d[1] : [];
+}
+
+/* The curated pool is English, so for other editions we follow the language
+   link across. That keeps races on well-connected articles in any language. */
+async function translateTitle(title, lang) {
+  if (lang === "en") return title;
+  const d = await wiki(
+    { action: "query", titles: title, prop: "langlinks", lllang: lang, lllimit: "1" }, "en");
+  const page = Object.values(d?.query?.pages || {})[0];
+  return page?.langlinks?.[0]?.["*"] || null;
+}
+
+/* Wikipedia's random endpoint mostly returns stubs, and its most-viewed list is
+   all current events — both make miserable races, because a page nothing links
+   to is a page nobody can reach. This pool is hand-picked for the opposite:
+   heavily cross-linked articles that always leave you an interesting move. */
+const POOL = [
+  "France","Japan","Brazil","Egypt","India","Australia","Canada","Germany","Italy",
+  "Russia","China","Mexico","Spain","Greece","Norway","Kenya","Argentina","Iceland",
+  "Antarctica","Sahara","Amazon rainforest","Mount Everest","Pacific Ocean","Nile",
+  "Himalayas","London","Paris","Tokyo","New York City","Rome","Istanbul","Cairo","Sydney",
+  "Physics","Chemistry","Biology","Mathematics","Astronomy","Gravity","Evolution","DNA",
+  "Atom","Electron","Photosynthesis","Black hole","Big Bang","Periodic table","Oxygen",
+  "Carbon","Gold","Iron","Water","Electricity","Magnetism","Quantum mechanics","Bacteria",
+  "Virus","Vaccine","Antibiotic","Climate change","Volcano","Earthquake","Plate tectonics",
+  "Solar System","Moon","Mars","Jupiter","Sun","Galaxy","Milky Way","Photon",
+  "Albert Einstein","Isaac Newton","Leonardo da Vinci","William Shakespeare","Napoleon",
+  "Julius Caesar","Cleopatra","Charles Darwin","Marie Curie","Nikola Tesla","Mahatma Gandhi",
+  "Nelson Mandela","Abraham Lincoln","Alexander the Great","Genghis Khan","Galileo Galilei",
+  "Ludwig van Beethoven","Wolfgang Amadeus Mozart","Vincent van Gogh","Pablo Picasso",
+  "Michelangelo","Aristotle","Plato","Socrates","Confucius","Winston Churchill",
+  "Queen Victoria","Elizabeth I","Muhammad Ali","Pelé","Michael Jordan",
+  "Roman Empire","Ancient Egypt","Ancient Greece","World War I","World War II","Cold War",
+  "French Revolution","Industrial Revolution","Renaissance","Middle Ages","Vikings",
+  "Silk Road","Ottoman Empire","British Empire","Maya civilization","Inca Empire",
+  "Byzantine Empire","Crusades","Black Death","American Civil War","Apollo 11",
+  "Music","Jazz","Rock music","Classical music","Hip-hop","Opera","Guitar","Piano","Violin",
+  "Film","Television","Photography","Painting","Sculpture","Architecture","Literature",
+  "Poetry","Novel","Theatre","Dance","Ballet","Chess","Association football","Basketball",
+  "Tennis","Olympic Games","Baseball","Cricket",
+  "Coffee","Tea","Chocolate","Bread","Cheese","Wine","Beer","Pizza","Rice","Wheat","Sugar",
+  "Salt","Banana","Apple","Potato","Tomato","Honey","Milk",
+  "Computer","Internet","World Wide Web","Smartphone","Artificial intelligence","Robot",
+  "Telephone","Radio","Printing press","Steam engine","Car","Airplane","Bicycle",
+  "Rocket","Satellite","Nuclear power","Laser","Transistor","Cryptography","Linux",
+  "Dog","Cat","Horse","Elephant","Lion","Tiger","Whale","Shark","Dolphin","Eagle","Penguin",
+  "Butterfly","Bee","Spider","Snake","Dinosaur","Tree","Flower","Forest","Ocean","Desert",
+  "Mountain","River","Rain","Snow","Wind",
+  "Language","English language","Writing","Alphabet","Philosophy","Religion","Christianity",
+  "Islam","Buddhism","Hinduism","Judaism","Democracy","Economics","Money","Capitalism","Law",
+  "War","Education","University","Medicine","Psychology","Sleep","Dream","Time","Color",
+  "Light","Sound","Fire","Glass","Paper","Clock","Map","Calendar","Greek mythology","Dragon",
+];
+
+function pickFromPool(n) {
+  const bag = POOL.slice();
+  const out = [];
+  while (out.length < n && bag.length) {
+    out.push(bag.splice(Math.floor(Math.random() * bag.length), 1)[0]);
+  }
+  return out;
+}
+
+/* The chaos option: genuinely random articles, stubs and all. */
+async function wildArticles(n, lang) {
+  const d = await wiki({
+    action: "query", generator: "random", grnnamespace: "0", grnlimit: "20", prop: "info",
+  }, lang);
+  const pages = Object.values(d?.query?.pages || {})
+    .filter(p => p.length > 6000 && !/\(disambiguation\)/i.test(p.title))
+    .sort((a, b) => b.length - a.length);
+  return pages.slice(0, n).map(p => p.title);
+}
+
+async function fetchArticle(title, lang) {
+  const d = await wiki({
+    action: "parse", page: title, prop: "text", redirects: "1",
+    disableeditsection: "1", disabletoc: "1",
+  }, lang);
+  if (d.error) throw new Error(d.error.info || "could not load that article");
+  return { title: d.parse.title, html: d.parse.text["*"] };
+}
+
+/* ------------------------------------------------------------------ *
+ * Rendering an article + intercepting the links
+ * ------------------------------------------------------------------ */
+
+/* Nearly every route drifts through the same few giant articles. Banning them
+   forces people to actually think, and stops repeat games feeling identical. */
+const HUB_ARTICLES = [
+  "United States", "World War II", "World War I", "England", "France", "Germany",
+  "United Kingdom", "India", "China", "Russia", "Japan", "Canada", "Australia",
+  "Italy", "Spain", "Europe", "Latin", "Animal", "Species", "London",
+  "New York City", "Association football", "Christianity", "Catholic Church",
+  "Soviet Union",
+];
+
+function linkIsPlayable(href) {
+  if (!href || !href.startsWith("/wiki/")) return false;
+  const page = decodeURIComponent(href.slice(6)).split("#")[0];
+  if (S.bannedSet && S.bannedSet.has(norm(page))) return false;
+  // Main namespace only, the standard wikiracing rule. Titles legitimately
+  // contain colons ("Star Wars: A New Hope"), so only a real namespace counts.
+  const i = page.indexOf(":");
+  if (i > 0 && S.badPrefixes) {
+    if (S.badPrefixes.has(page.slice(0, i).trim().toLowerCase())) return false;
+  }
+  return true;
+}
+
+function showArticle(title, html) {
+  const art = $("article");
+  art.innerHTML = '<h1 class="title"></h1><div class="wiki"></div>';
+  art.querySelector("h1.title").textContent = title;
+  const body = art.querySelector(".wiki");
+  body.innerHTML = html;
+
+  body.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href") || "";
+    if (href.startsWith("#")) return;                 // in-page footnote, free to use
+    if (linkIsPlayable(href)) {
+      a.dataset.page = decodeURIComponent(href.slice(6)).split("#")[0].replace(/_/g, " ");
+    } else {
+      a.classList.add("dead");
+      a.removeAttribute("href");
+    }
+  });
+
+  $("article-wrap").scrollTop = 0;
+}
+
+$("article").addEventListener("click", (ev) => {
+  const a = ev.target.closest("a");
+  if (!a) return;
+  const href = a.getAttribute("href") || "";
+  if (href.startsWith("#")) {                          // footnote jump
+    ev.preventDefault();
+    const el = document.getElementById(href.slice(1)) ||
+               document.querySelector('[id="' + CSS.escape(href.slice(1)) + '"]');
+    if (el) el.scrollIntoView({ block: "center" });
+    return;
+  }
+  ev.preventDefault();
+  if (a.classList.contains("dead")) { toast("Only article links count — that one's off-limits"); return; }
+  if (!a.dataset.page) return;
+  if (!S.running) { toast("No race running"); return; }
+  navigate(a.dataset.page, true);
+});
+
+async function navigate(title, countsAsClick) {
+  if (S.loading) return;
+  S.loading = true;
+  const loadStart = performance.now();
+  $("article").innerHTML = '<div class="spinner"></div>';
+  try {
+    const { title: canon, html } = await fetchArticle(title, S.lang);
+    S.current = canon;
+    if (countsAsClick) {
+      S.clicks++;
+      S.path.push(canon);
+      S.stepTimes.push(round1(elapsed()));   // when, on the fair clock
+    }
+    showArticle(canon, html);
+    renderCrumbs();
+    reportProgress();
+    if (norm(canon) === S.targetCanon) win();
+  } catch (e) {
+    $("article").innerHTML =
+      '<div style="text-align:center;padding:60px;color:var(--fg-dim)">' +
+      "<p>Could not load <b>" + esc(title) + "</b>.</p>" +
+      '<p class="tiny">' + esc(e.message) + "</p>" +
+      '<button id="retry-load" class="primary" style="margin-top:14px">Try again</button></div>';
+    // The click never counted, so retrying costs nothing but the seconds lost.
+    const btn = document.getElementById("retry-load");
+    if (btn) btn.onclick = () => navigate(title, countsAsClick);
+    toast("Load failed — check your connection");
+  } finally {
+    S.loading = false;
+    S.loadMs += performance.now() - loadStart;   // the clock ignores loading
+    updateHud();
+  }
+}
+
+function renderCrumbs() {
+  const c = $("crumbs");
+  if (!S.path.length) { c.innerHTML = '<span class="muted tiny">Your trail will appear here</span>'; return; }
+  c.innerHTML = S.path
+    .map(p => '<span class="c">' + esc(p) + "</span>")
+    .join('<span class="sep">›</span>');
+  c.scrollLeft = c.scrollWidth;
+}
+
+/* ------------------------------------------------------------------ *
+ * Race flow
+ * ------------------------------------------------------------------ */
+
+/* Time spent waiting on Wikipedia is excluded, so a slow connection costs you
+   nothing. What's measured is the thinking, not the bandwidth. */
+function elapsed() {
+  if (S.done && S.finalElapsed != null) return S.finalElapsed;
+  if (S.startedAt == null) return 0;
+  return Math.max(0, performance.now() - S.startedAt - S.loadMs) / 1000;
+}
+
+function timeLimit() {
+  return (S.race && S.race.time_limit) || 0;
+}
+
+function updateHud() {
+  const live = S.running || S.done;
+  $("hud-clicks").textContent = live ? S.clicks : "—";
+
+  const lim = timeLimit();
+  const label = $("hud-time-label");
+  if (live && lim) {
+    const left = Math.max(0, lim - elapsed());
+    $("hud-time").textContent = fmtTime(left);
+    $("hud-time").style.color = left <= 30 ? "var(--bad)" : "";
+    label.textContent = "left";
+  } else {
+    $("hud-time").textContent = live ? fmtTime(elapsed()) : "—";
+    $("hud-time").style.color = "";
+    label.textContent = "time";
+  }
+
+  const back = $("btn-back");
+  const backAllowed = !S.race || S.race.allow_back !== false;
+  back.hidden = !backAllowed;
+  back.disabled = !S.running || S.path.length < 2 || S.loading;
+}
+
+setInterval(() => {
+  if (!S.running) return;
+  updateHud();
+  const lim = timeLimit();
+  if (lim && elapsed() >= lim) outOfTime();
+}, 100);
+
+let reportTimer = null;
+function reportProgress() {
+  clearTimeout(reportTimer);
+  reportTimer = setTimeout(() => {
+    post("/progress", {
+      article: S.current, clicks: S.clicks, path: S.path,
+      times: S.stepTimes, elapsed: elapsed(),
+    });
+  }, 60);
+}
+
+async function showGoal(race) {
+  S.raceId = race.race_id;
+  S.race = race;
+  S.lang = race.lang || "en";
+
+  $("goal-idle").hidden = true;
+  for (const id of ["goal-start", "goal-arrow", "goal-target"]) $(id).hidden = false;
+  $("goal-start").textContent = race.start;
+  $("goal-target").textContent = race.target;
+  $("goal-lang").textContent = S.lang.toUpperCase();
+  $("goal-lang").hidden = false;
+  renderRules(race);
+
+  // Namespace names are per-edition, so the link filter needs this wiki's set.
+  S.badPrefixes = await namespacePrefixes(S.lang);
+  S.bannedSet = race.ban_hubs ? await bannedSet(S.lang) : null;
+  S.proximity = new Map();
+
+  // Resolve the target through redirects so "USA" and "United States" match.
+  S.targetCanon = norm(race.target);
+  try {
+    const canon = await canonicalTitle(race.target, S.lang);
+    if (canon) S.targetCanon = norm(canon);
+  } catch (e) { /* fall back to the literal title */ }
+}
+
+/* The hub list is English; one langlinks call carries it to any edition. */
+const bannedCache = {};
+
+async function bannedSet(lang) {
+  if (bannedCache[lang]) return bannedCache[lang];
+  const set = new Set(HUB_ARTICLES.map(norm));
+  if (lang !== "en") {
+    try {
+      const d = await wiki({ action: "query", titles: HUB_ARTICLES.join("|"),
+                             prop: "langlinks", lllang: lang, lllimit: "500" }, "en");
+      for (const pg of Object.values(d?.query?.pages || {})) {
+        for (const l of (pg.langlinks || [])) set.add(norm(l["*"]));
+      }
+    } catch (e) { /* English names still block the obvious ones */ }
+  }
+  bannedCache[lang] = set;
+  return set;
+}
+
+/* One filtered API call answers "does this page link straight to the target?".
+   Knowing somebody is one click away is the best tension in the game. */
+async function isOneAway(article, target, lang) {
+  const key = norm(article);
+  if (S.proximity && S.proximity.has(key)) return S.proximity.get(key);
+  const job = (async () => {
+    try {
+      const d = await wiki({ action: "query", titles: article, prop: "links",
+                             pltitles: target, pllimit: "max" }, lang, 8000);
+      return Object.values(d?.query?.pages || {}).some(p => (p.links || []).length);
+    } catch (e) { return false; }
+  })();
+  if (S.proximity) S.proximity.set(key, job);
+  return job;
+}
+
+function renderRules(race) {
+  const host = $("rules");
+  if (!race) { host.innerHTML = ""; return; }
+  const bits = [];
+  bits.push((LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1]);
+  bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
+  bits.push(race.allow_back === false ? "no going back" : "back allowed");
+  if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
+  if (race.ban_hubs) bits.push("no hub pages");
+  if (race.checkpoint) bits.push("via " + race.checkpoint);
+  if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
+  host.innerHTML = bits.map(b => '<span class="rule">' + esc(b) + "</span>").join("");
+}
+
+/* Entering a race has three flavours: a fresh start, picking up a run we
+   were already in (someone reloaded the tab), and arriving after we've
+   already finished. Only the fresh one gets a countdown and a zeroed clock. */
+async function enterRace(race, myRun) {
+  const mine = myRun && myRun.race_id === race.race_id ? myRun : null;
+  await showGoal(race);
+
+  if (mine && mine.done) {
+    S.clicks = mine.clicks || 0;
+    S.path = (mine.path || []).slice();
+    S.done = true; S.running = false; S.loadMs = 0;
+    S.finalElapsed = mine.elapsed || 0;
+    S.stepTimes = (mine.times || []).slice();
+    $("btn-giveup").hidden = true;
+    renderCrumbs(); updateHud();
+    openHub("results");
+    return;
+  }
+
+  if (mine) {
+    // Reload mid-race: pick the clock back up where the peer process has it,
+    // so refreshing the page isn't a way to reset your time.
+    S.clicks = mine.clicks || 0;
+    S.path = (mine.path || []).slice();
+    S.done = false; S.finalElapsed = null; S.running = true;
+    // Resume from the reported race clock, not wall time: with loading excluded
+    // the two differ, and the race clock is the one that counts.
+    S.loadMs = 0;
+    S.startedAt = performance.now() - Math.max(0, mine.elapsed || 0) * 1000;
+    $("btn-giveup").hidden = false;
+    renderCrumbs(); updateHud();
+    await navigate(mine.article || race.start, false);
+    return;
+  }
+
+  S.clicks = 0; S.path = []; S.stepTimes = []; S.done = false; S.finalElapsed = null;
+  S.running = false; S.startedAt = null; S.loadMs = 0;
+  $("btn-giveup").hidden = false;
+  setStage("race");
+  updateHud();
+
+  await countdown(race);
+
+  S.running = true;
+  S.startedAt = performance.now();
+
+  // Leaders start late. The clock is already running, so the wait is the
+  // penalty - it isn't excluded the way loading time is.
+  const penalty = (race.handicaps || {})[norm(S.snap ? S.snap.me.name : "")] || 0;
+  if (penalty > 0) await servePenalty(penalty);
+
+  await navigate(race.start, false);
+  S.path = [S.current || race.start];
+  S.stepTimes = [round1(elapsed())];
+  renderCrumbs();
+  reportProgress();
+  updateHud();
+}
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+function servePenalty(seconds) {
+  return new Promise(resolve => {
+    const ov = document.createElement("div");
+    ov.className = "overlay";
+    ov.innerHTML =
+      '<div class="cd-wrap"><div class="goal-big">You\'re leading the session</div>' +
+      '<div id="countdown">' + seconds + "</div>" +
+      '<div class="muted tiny">handicap — your clock is already running</div></div>';
+    $("stage").appendChild(ov);
+    let left = seconds;
+    const tick = () => {
+      left--;
+      const el = ov.querySelector("#countdown");
+      if (left > 0) { el.textContent = left; setTimeout(tick, 1000); }
+      else { ov.remove(); resolve(); }
+    };
+    setTimeout(tick, 1000);
+  });
+}
+
+function countdown(race) {
+  return new Promise(resolve => {
+    const ov = document.createElement("div");
+    ov.className = "overlay";
+    ov.innerHTML =
+      '<div class="cd-wrap">' +
+      '<div class="goal-big">' + esc(race.start) + ' &nbsp;→&nbsp; <b>' + esc(race.target) + "</b></div>" +
+      '<div id="countdown">3</div>' +
+      '<div class="muted tiny">only in-article links count</div></div>';
+    $("stage").appendChild(ov);
+    let n = 3;
+    const tick = () => {
+      n--;
+      const el = ov.querySelector("#countdown");
+      if (n > 0) {
+        el.textContent = n;
+        el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
+        setTimeout(tick, 1000);
+      } else {
+        el.textContent = "GO";
+        el.style.color = "var(--good)";
+        setTimeout(() => { ov.remove(); resolve(); }, 420);
+      }
+    };
+    setTimeout(tick, 1000);
+  });
+}
+
+async function win() {
+  if (S.done) return;
+  // A checkpoint race isn't won until you've actually been through it.
+  const cp = S.race && S.race.checkpoint;
+  if (cp && !S.path.some(t => norm(t) === norm(cp))) {
+    toast("You still have to pass through " + cp);
+    return;
+  }
+  S.done = true;
+  S.running = false;
+  const secs = elapsed();
+  S.finalElapsed = secs;
+  updateHud();
+  await post("/finish", { elapsed: secs, clicks: S.clicks, path: S.path, times: S.stepTimes });
+  openHub("results");
+}
+
+async function outOfTime() {
+  if (S.done || !S.running) return;
+  S.done = true;
+  S.running = false;
+  S.finalElapsed = timeLimit();
+  updateHud();
+  await post("/give_up", { elapsed: S.finalElapsed, clicks: S.clicks,
+                           path: S.path, times: S.stepTimes });
+  $("btn-giveup").hidden = true;
+  toast("Time's up");
+  openHub("results");
+}
+
+async function giveUp() {
+  if (S.done || !S.running) return;
+  S.done = true;
+  S.running = false;
+  const secs = elapsed();
+  S.finalElapsed = secs;
+  updateHud();
+  await post("/give_up", { elapsed: secs, clicks: S.clicks,
+                           path: S.path, times: S.stepTimes });
+  $("btn-giveup").hidden = true;
+  openHub("watch");
+}
+
+/* ------------------------------------------------------------------ *
+ * Results: standings, superlatives, and the route nobody found
+ * ------------------------------------------------------------------ */
+
+const PALETTE = ["#f97583", "#79c0ff", "#7ee787", "#ffa657", "#d2a8ff",
+                 "#56d4dd", "#f2cc60", "#ff9bce", "#a5d6ff", "#b4f1b4"];
+
+function colorFor(name) {
+  const live = (S.snap?.peers || []).find(p => norm(p.name) === norm(name));
+  if (live) return live.color;
+  if (S.snap && norm(S.snap.me.name) === norm(name)) return S.snap.me.color;
+  let h = 0;
+  for (const ch of norm(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+/* Superlatives computed from the finished results - cheap, and they give the
+   people who didn't win something to have done. */
+function computeAwards(race) {
+  const all = Object.values(race.results || {});
+  const fin = all.filter(r => r.finished).sort((a, b) => a.elapsed - b.elapsed);
+  if (!fin.length) return [];
+  const out = [];
+
+  out.push({ ic: "🏆", t: "Winner", v: fin[0].name, d: fmtTime(fin[0].elapsed) });
+
+  const fewest = fin.reduce((a, b) => (b.clicks < a.clicks ? b : a));
+  out.push({ ic: "✂️", t: "Fewest clicks", v: fewest.name, d: fewest.clicks + " clicks" });
+
+  if (fin.length > 1) {
+    const most = fin.reduce((a, b) => (b.clicks > a.clicks ? b : a));
+    if (most.clicks > fewest.clicks) {
+      out.push({ ic: "🌀", t: "Scenic route", v: most.name, d: most.clicks + " clicks" });
+    }
+  }
+
+  // Who wandered somewhere nobody else did?
+  const seen = new Map();
+  for (const r of all) for (const t of new Set(r.path || [])) {
+    seen.set(t, (seen.get(t) || 0) + 1);
+  }
+  let best = null;
+  for (const r of all) {
+    const solo = [...new Set(r.path || [])].filter(t => seen.get(t) === 1).length;
+    if (!best || solo > best.n) best = { name: r.name, n: solo };
+  }
+  if (best && best.n > 0 && all.length > 1) {
+    out.push({ ic: "👣", t: "Trailblazer", v: best.name, d: best.n + " pages no one else saw" });
+  }
+
+  if (fin.length > 1 && (fin[1].elapsed - fin[0].elapsed) <= 5) {
+    out.push({ ic: "⚡", t: "Photo finish", v: fin[0].name + " over " + fin[1].name,
+               d: (fin[1].elapsed - fin[0].elapsed).toFixed(1) + "s apart" });
+  }
+
+  // The pair who unknowingly walked the same ground the most.
+  if (all.length > 1) {
+    let pair = null;
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const a = new Set(all[i].path || []);
+      const shared = [...new Set(all[j].path || [])].filter(t => a.has(t));
+      if (!pair || shared.length > pair.n) {
+        pair = { n: shared.length, a: all[i].name, b: all[j].name, via: shared };
+      }
+    }
+    if (pair && pair.n > 1) {
+      out.push({ ic: "🤝", t: "Crossed paths", v: pair.a + " & " + pair.b,
+                 d: pair.n + " shared pages" });
+    }
+  }
+  return out;
+}
+
+/* Is there a 1- or 2-click route? Answered exhaustively: every page the start
+   links to is checked against the target, so "more than 2" is a real answer
+   rather than "I stopped looking". */
+const shortestCache = new Map();
+
+async function shortestRoute(start, target, lang) {
+  const key = lang + "|" + start + "|" + target;
+  if (shortestCache.has(key)) return shortestCache.get(key);
+
+  const job = (async () => {
+    const fwd = [];
+    let cont = {}, complete = true;
+    for (let i = 0; ; i++) {
+      if (i >= 10) { complete = false; break; }
+      const d = await wiki({ action: "query", titles: start, prop: "links",
+                             plnamespace: "0", pllimit: "max", ...cont }, lang, 15000);
+      for (const pg of Object.values(d?.query?.pages || {}))
+        for (const l of (pg.links || [])) fwd.push(l.title);
+      if (d.continue) cont = d.continue; else break;
+    }
+    if (fwd.some(t => norm(t) === norm(target))) return { hops: 1, via: [], complete: true };
+
+    const via = [];
+    for (let i = 0; i < fwd.length && via.length < 3; i += 50) {
+      const d = await wiki({ action: "query", titles: fwd.slice(i, i + 50).join("|"),
+                             prop: "links", pltitles: target, pllimit: "max" }, lang, 15000);
+      for (const pg of Object.values(d?.query?.pages || {}))
+        if ((pg.links || []).length) via.push(pg.title);
+    }
+    return { hops: via.length ? 2 : null, via, complete };
+  })();
+
+  shortestCache.set(key, job);
+  return job;
+}
+
+function renderResults(snap) {
+  const host = $("results-pane");
+  const race = snap && snap.race;
+  if (!race) { host.innerHTML = '<div class="empty">No race to show.</div>'; return; }
+
+  const all = Object.values(race.results || {});
+  const fin = all.filter(r => r.finished).sort((a, b) => a.elapsed - b.elapsed);
+  const out = all.filter(r => !r.finished);
+  const medals = ["🥇", "🥈", "🥉"];
+  const mine = all.find(r => norm(r.name) === norm(snap.me.name));
+
+  let head;
+  if (mine && mine.finished) head = fin[0] === mine ? "🎉 You won" : "You made it";
+  else if (mine) head = "Race over";
+  else head = "Results";
+
+  let html =
+    '<h2 class="hub-h2">' + head + "</h2>" +
+    '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) +
+    (race.checkpoint ? " · via " + esc(race.checkpoint) : "") + "</p>";
+
+  html += '<div class="hub-sec"><h4>Finishing order</h4>';
+  html += fin.map((r, i) =>
+    '<div class="result-row"><span class="medal">' + (medals[i] || (i + 1) + ".") + "</span>" +
+    '<span class="rn" style="color:' + colorFor(r.name) + '">' + esc(r.name) + "</span>" +
+    '<span class="rs">' + fmtTime(r.elapsed) + " · " + r.clicks + "c</span></div>" +
+    ((r.path || []).length ? '<div class="path-line">' + r.path.map(esc).join(" › ") + "</div>" : "")
+  ).join("");
+  html += out.map(r =>
+    '<div class="result-row"><span class="medal">—</span>' +
+    '<span class="rn muted">' + esc(r.name) + '</span><span class="rs">gave up</span></div>').join("");
+  if (!all.length) html += '<div class="empty">Nobody has finished yet.</div>';
+  html += "</div>";
+
+  const awards = computeAwards(race);
+  if (awards.length) {
+    html += '<div class="hub-sec"><h4>Honours</h4><div class="awards">' +
+      awards.map(a =>
+        '<div class="award"><span class="ic">' + a.ic + "</span><div>" +
+        '<div class="t">' + esc(a.t) + '</div><div class="v">' + esc(a.v) + "</div>" +
+        '<div class="d">' + esc(a.d) + "</div></div></div>").join("") +
+      "</div></div>";
+  }
+
+  html += '<div class="hub-sec"><h4>The best route</h4>' +
+    '<div class="fact" id="shortest-fact">Working out the shortest possible route…</div></div>';
+
+  host.innerHTML = html;
+  fillShortest(race, fin);
+}
+
+async function fillShortest(race, fin) {
+  const el = $("shortest-fact");
+  if (!el) return;
+  try {
+    const r = await shortestRoute(race.start, race.target, race.lang || "en");
+    if (!$("shortest-fact")) return;
+    const best = fin.length ? Math.min(...fin.map(x => x.clicks)) : null;
+    let msg;
+    if (r.hops === 1) {
+      msg = "<b>" + esc(race.start) + "</b> links straight to <b>" + esc(race.target) +
+            "</b> — one click was all it needed.";
+    } else if (r.hops === 2) {
+      msg = "The shortest route was <b>2 clicks</b>, e.g. via <b>" +
+            esc(r.via[0]) + "</b>" +
+            (r.via.length > 1 ? " (also " + r.via.slice(1).map(esc).join(", ") + ")" : "") + ".";
+      if (best != null) {
+        msg += best === 2 ? " Somebody found it." : " Best anyone managed was " + best + ".";
+      }
+    } else if (r.complete) {
+      msg = "No route in 2 clicks exists" +
+            (best != null ? " — the best run took " + best + "." : ".");
+    } else {
+      msg = "That start article has too many links to check exhaustively.";
+    }
+    el.innerHTML = msg;
+  } catch (e) {
+    el.textContent = "Couldn't work out the shortest route.";
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * My run: walk back through your own trail
+ * ------------------------------------------------------------------ */
+
+function renderMyRun() {
+  const host = $("myrun-pane");
+  const race = S.race;
+  if (!race || !S.path.length) {
+    host.innerHTML = '<div class="empty">No run to review.</div>';
+    return;
+  }
+  const times = S.stepTimes || [];
+  const target = norm(race.target);
+
+  let html =
+    '<h2 class="hub-h2">Your run</h2>' +
+    '<p class="hub-sub">' + S.clicks + (S.clicks === 1 ? " click" : " clicks") +
+    " · " + fmtTime(S.finalElapsed != null ? S.finalElapsed : elapsed()) +
+    " · " + S.path.length + " pages</p>";
+
+  html += '<div class="hub-sec"><h4>Where you went — click any step to re-read it</h4>';
+  html += S.path.map((t, i) => {
+    const at = times[i] != null ? fmtTime(times[i]) : "";
+    const isGoal = norm(t) === target;
+    return '<div class="step" data-i="' + i + '">' +
+      '<span class="n">' + (i + 1) + "</span>" +
+      '<span class="ti">' + esc(t) + "</span>" +
+      (i === 0 ? '<span class="tag">start</span>' : "") +
+      (isGoal ? '<span class="tag goal">target</span>' : "") +
+      '<span class="at">' + at + "</span></div>";
+  }).join("");
+  html += "</div>";
+
+  html += '<div class="hub-sec"><h4>Reader</h4>' +
+    '<div id="myrun-reader" class="fact">Pick a step above to read it again.</div></div>';
+
+  host.innerHTML = html;
+
+  host.querySelectorAll(".step").forEach(el => {
+    el.onclick = async () => {
+      host.querySelectorAll(".step").forEach(s => s.classList.remove("here"));
+      el.classList.add("here");
+      const title = S.path[+el.dataset.i];
+      const reader = $("myrun-reader");
+      reader.className = "";
+      reader.innerHTML = '<div class="spinner"></div>';
+      try {
+        const html2 = await cachedArticle(title, S.lang);
+        renderInert(reader, title, html2);
+      } catch (e) {
+        reader.className = "fact";
+        reader.textContent = "Couldn't reload " + title;
+      }
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Replay: how the race actually unfolded, and where people crossed
+ * ------------------------------------------------------------------ */
+
+const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null, raceId: null };
+
+function laneData(race, ghost) {
+  const lanes = Object.values(race.results || {}).map(r => {
+    const path = r.path || [];
+    const times = (r.times && r.times.length === path.length) ? r.times : null;
+    return {
+      name: r.name,
+      color: colorFor(r.name),
+      finished: !!r.finished,
+      clicks: r.clicks,
+      elapsed: r.elapsed || 0,
+      ghost: false,
+      // Older races carry no per-step timing; space them evenly so they can
+      // still be drawn, just without the real rhythm.
+      steps: path.map((title, i) => ({
+        title,
+        t: times ? times[i]
+                 : (r.elapsed || 0) * (path.length > 1 ? i / (path.length - 1) : 0),
+      })),
+    };
+  });
+  if (ghost) lanes.push(ghost);
+  lanes.sort((a, b) => (a.ghost - b.ghost) || (a.elapsed - b.elapsed));
+  return lanes;
+}
+
+async function findGhost(snap) {
+  // Your best previous attempt at this exact pairing, drawn as a shadow.
+  const race = snap.race;
+  if (!race || !snap.races_list) return null;
+  const me = norm(snap.me.name);
+  const prior = snap.races_list
+    .filter(r => r.race_id !== race.race_id &&
+                 norm(r.start) === norm(race.start) &&
+                 norm(r.target) === norm(race.target))
+    .sort((a, b) => (b.created || 0) - (a.created || 0));
+  for (const row of prior.slice(0, 4)) {
+    try {
+      const full = await (await fetch("/api/race?id=" + encodeURIComponent(row.race_id))).json();
+      const mine = Object.values(full.results || {}).find(r => norm(r.name) === me && r.finished);
+      if (mine) {
+        const path = mine.path || [];
+        const times = (mine.times && mine.times.length === path.length) ? mine.times : null;
+        return {
+          name: mine.name + " (previous)", color: "#6b7785", ghost: true,
+          finished: true, clicks: mine.clicks, elapsed: mine.elapsed || 0,
+          steps: path.map((title, i) => ({
+            title,
+            t: times ? times[i] : (mine.elapsed || 0) * (path.length > 1 ? i / (path.length - 1) : 0),
+          })),
+        };
+      }
+    } catch (e) { /* skip this one */ }
+  }
+  return null;
+}
+
+async function renderReplay(snap) {
+  const host = $("replay-pane");
+  const race = snap && snap.race;
+  if (!race || !Object.keys(race.results || {}).length) {
+    host.innerHTML = '<div class="empty">Nothing to replay yet — it appears once people finish.</div>';
+    return;
+  }
+
+  if (replay.raceId !== race.race_id) {
+    replay.raceId = race.race_id;
+    replay.lanes = laneData(race, null);
+    replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
+    replay.t = replay.maxT;
+    replay.playing = false;
+    host.innerHTML =
+      '<h2 class="hub-h2">Replay</h2>' +
+      '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) + "</p>" +
+      '<div class="replay-ctl">' +
+      '<button id="rp-play">▶ Play</button>' +
+      '<input type="range" id="rp-scrub" min="0" max="1000" value="1000">' +
+      '<span class="replay-clock" id="rp-clock">0:00.0</span>' +
+      "</div>" +
+      '<div id="rp-chart"></div>' +
+      '<div class="lane-now" id="rp-now"></div>' +
+      '<p class="tiny muted" style="margin-top:14px">Dotted links mark pages more than one ' +
+      "player visited. Hover a dot to see the page.</p>";
+
+    $("rp-play").onclick = toggleReplay;
+    $("rp-scrub").oninput = (e) => {
+      stopReplay();
+      replay.t = (+e.target.value / 1000) * replay.maxT;
+      drawReplay();
+    };
+
+    // The ghost arrives late; fold it in without disturbing playback.
+    findGhost(snap).then(g => {
+      if (g && replay.raceId === race.race_id) {
+        replay.lanes = laneData(race, g);
+        replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
+        drawReplay();
+      }
+    });
+  }
+  drawReplay();
+}
+
+function toggleReplay() {
+  if (replay.playing) { stopReplay(); return; }
+  if (replay.t >= replay.maxT) replay.t = 0;
+  replay.playing = true;
+  $("rp-play").textContent = "⏸ Pause";
+  const step = 0.05;
+  replay.timer = setInterval(() => {
+    replay.t += step * 2;                     // roughly double real time
+    if (replay.t >= replay.maxT) { replay.t = replay.maxT; stopReplay(); }
+    drawReplay();
+  }, step * 1000);
+}
+
+function stopReplay() {
+  replay.playing = false;
+  clearInterval(replay.timer);
+  const b = $("rp-play");
+  if (b) b.textContent = "▶ Play";
+}
+
+function drawReplay() {
+  const chart = $("rp-chart");
+  if (!chart) return;
+  const lanes = replay.lanes;
+  const w = Math.max(420, chart.clientWidth || 700);
+  const padL = 108, padR = 18, rowH = 34, top = 14;
+  const h = top + lanes.length * rowH + 10;
+  const x = (t) => padL + (t / replay.maxT) * (w - padL - padR);
+
+  // Pages that more than one player set foot on.
+  const counts = new Map();
+  for (const l of lanes) {
+    if (l.ghost) continue;
+    for (const t of new Set(l.steps.map(s => s.title))) counts.set(t, (counts.get(t) || 0) + 1);
+  }
+
+  let svg = '<svg viewBox="0 0 ' + w + " " + h + '" width="100%" height="' + h + '" style="overflow:visible">';
+
+  for (const [title, n] of counts) {
+    if (n < 2) continue;
+    const pts = [];
+    lanes.forEach((l, i) => {
+      const s = l.steps.find(s => s.title === title);
+      if (s && !l.ghost) pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2 });
+    });
+    for (let i = 1; i < pts.length; i++) {
+      svg += '<line x1="' + pts[i - 1].x + '" y1="' + pts[i - 1].y +
+             '" x2="' + pts[i].x + '" y2="' + pts[i].y +
+             '" stroke="#3a4757" stroke-width="1" stroke-dasharray="2 3"/>';
+    }
+  }
+
+  lanes.forEach((l, i) => {
+    const y = top + i * rowH + rowH / 2;
+    svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y +
+           '" stroke="' + (l.ghost ? "#252d38" : "#2a3441") + '" stroke-width="2" ' +
+           (l.ghost ? 'stroke-dasharray="4 4"' : "") + "/>";
+    svg += '<text x="0" y="' + (y + 4) + '" fill="' + l.color +
+           '" font-size="12" font-weight="600">' +
+           esc(l.name.length > 15 ? l.name.slice(0, 14) + "…" : l.name) + "</text>";
+
+    for (const s of l.steps) {
+      const shared = !l.ghost && (counts.get(s.title) || 0) > 1;
+      const dim = s.t > replay.t;
+      svg += '<circle cx="' + x(s.t) + '" cy="' + y + '" r="' + (shared ? 5.5 : 4) +
+             '" fill="' + (dim ? "#1b232e" : l.color) + '" stroke="' + l.color +
+             '" stroke-width="1.5" opacity="' + (l.ghost ? .55 : 1) + '">' +
+             "<title>" + esc(s.title) + " — " + fmtTime(s.t) + "</title></circle>";
+    }
+    if (l.finished && l.elapsed <= replay.t) {
+      svg += '<text x="' + (x(l.elapsed) + 9) + '" y="' + (y + 4) +
+             '" fill="#3fb950" font-size="12">&#127937;</text>';
+    }
+  });
+
+  const px = x(replay.t);
+  svg += '<line x1="' + px + '" y1="' + (top - 6) + '" x2="' + px + '" y2="' + (h - 6) +
+         '" stroke="#58a6ff" stroke-width="1.5"/>';
+  svg += "</svg>";
+  chart.innerHTML = svg;
+
+  const scrub = $("rp-scrub");
+  if (scrub) scrub.value = String(Math.round((replay.t / replay.maxT) * 1000));
+  const clock = $("rp-clock");
+  if (clock) clock.textContent = fmtTime(replay.t);
+
+  // Where everyone stood at this instant.
+  $("rp-now").innerHTML = lanes.map(l => {
+    const passed = l.steps.filter(s => s.t <= replay.t);
+    const at = passed.length ? passed[passed.length - 1].title : "—";
+    const done = l.finished && l.elapsed <= replay.t;
+    return '<div class="row2' + (done ? " done" : "") + '">' +
+      '<span class="swatch" style="height:14px;width:5px;background:' + l.color + '"></span>' +
+      '<span class="who" style="color:' + l.color + '">' + esc(l.name) + "</span>" +
+      '<span class="art">' + (done ? "finished" : esc(at)) + "</span>" +
+      '<span class="cl">' + Math.max(0, passed.length - 1) + "c</span></div>";
+  }).join("");
+}
+
+/* ------------------------------------------------------------------ *
+ * Spectating
+ *
+ * Article HTML never crosses the LAN: peers broadcast which page they're on
+ * and how far down it they are, and each spectator fetches that page from
+ * Wikipedia itself. So this is mostly bookkeeping over data already flowing.
+ * ------------------------------------------------------------------ */
+
+const spec = {
+  on: false,
+  view: "tiles",       // "tiles" | "one"
+  who: null,           // peer id in single view
+  panes: new Map(),    // peer id -> { root, viewEl, innerEl, article, headEl }
+  signature: "",       // which peers are laid out right now
+};
+
+const artCache = new Map();
+
+function cachedArticle(title, lang) {
+  const key = lang + "|" + title;
+  if (!artCache.has(key)) {
+    // Cache the promise, so a page two players share is fetched once.
+    artCache.set(key, fetchArticle(title, lang).then(r => r.html));
+    if (artCache.size > 40) artCache.delete(artCache.keys().next().value);
+  }
+  return artCache.get(key);
+}
+
+/* Links must be completely inert here - a stray click would navigate the whole
+   tab away from the game. */
+function renderInert(host, title, html) {
+  host.innerHTML = '<h1 class="sp-title"></h1><div class="wiki"></div>';
+  host.querySelector("h1.sp-title").textContent = title;
+  const body = host.querySelector(".wiki");
+  body.innerHTML = html;
+  body.querySelectorAll("a").forEach(a => { a.removeAttribute("href"); a.style.cursor = "default"; });
+}
+
+function spectatable(snap) {
+  return (snap.peers || []).filter(p => p.in_this_race);
+}
+
+/* If the race hid positions, spectating stays shut until nobody is still
+   running - otherwise finishing early would become a way to scout for
+   whoever's sitting next to you. */
+function spectateAllowed(snap) {
+  const race = snap.race;
+  if (!race) return false;
+  if (race.show_positions !== false) return true;
+  return !spectatable(snap).some(p => !p.finished && !p.gave_up);
+}
+
+/* ------------------------------------------------------------------ *
+ * Stage: the middle of the window is always in exactly one of three
+ * states - waiting in the lobby, racing, or picking over the aftermath.
+ * ------------------------------------------------------------------ */
+
+let stageMode = "lobby";
+let hubTab = "results";
+
+function setStage(mode) {
+  stageMode = mode;
+  $("lobby").hidden = mode !== "lobby";
+  $("crumbs").hidden = mode !== "race";
+  $("article-wrap").hidden = mode !== "race";
+  $("hub").hidden = mode !== "hub";
+  spec.on = mode === "hub" && hubTab === "watch";
+  if (mode === "lobby") renderLobby(S.snap);
+}
+
+function setHubTab(tab) {
+  hubTab = tab;
+  document.querySelectorAll("#hub-tabs button")
+    .forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  document.querySelectorAll(".hub-pane")
+    .forEach(p => p.hidden = p.dataset.pane !== tab);
+  spec.on = tab === "watch";
+  if (tab === "results") renderResults(S.snap);
+  else if (tab === "myrun") renderMyRun();
+  else if (tab === "watch") renderSpectate(S.snap);
+  else if (tab === "replay") renderReplay(S.snap);
+}
+
+function openHub(tab) {
+  setStage("hub");
+  setHubTab(tab || "results");
+}
+
+function closeSpectate() { setStage("lobby"); }
+
+/* ------------------------------------------------------------------ *
+ * Lobby
+ * ------------------------------------------------------------------ */
+
+function renderLobby(snap) {
+  if (!snap) return;
+  const peers = snap.peers || [];
+  const total = peers.length + 1;
+
+  $("lobby-sub").textContent = peers.length
+    ? (total + " players here. Everyone ready? Then set up a race.")
+    : "Waiting for others to join — or race solo to practise.";
+
+  $("lobby-room").hidden = !snap.room || snap.room === "default";
+  $("lobby-room").textContent = "room: " + (snap.room || "");
+  $("lobby-count").textContent = "(" + total + ")";
+
+  const rows = [{ name: snap.me.name, color: snap.me.color, ready: !!snap.ready, me: true }]
+    .concat(peers.map(p => ({ name: p.name, color: p.color, ready: !!p.ready, me: false })));
+
+  $("lobby-players").innerHTML = rows.map(r =>
+    '<div class="lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
+    '<span class="nm">' + esc(r.name) + "</span>" +
+    (r.me ? '<span class="you">you</span>' : "") +
+    '<span class="state' + (r.ready ? " rdy" : "") + '">' +
+    (r.ready ? "ready ✓" : "not ready") + "</span></div>").join("");
+
+  const rdy = $("lobby-ready");
+  rdy.textContent = snap.ready ? "✓ You're ready" : "Mark me ready";
+  rdy.classList.toggle("primary", !snap.ready);
+
+  // A public link beats a LAN address; otherwise fall back to the local one,
+  // and if this page itself came from somewhere shareable, offer that.
+  const here = location.origin + "/";
+  const localish = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(here);
+  const link = snap.public_url || (localish ? (snap.join_urls || [])[0] : here);
+  $("share-card").hidden = !link;
+  $("share-note").textContent = snap.public_url
+    ? "Anyone, anywhere can play from this link — nothing to install."
+    : "Anyone on this network can play from this link — nothing to install.";
+  if (link && document.activeElement !== $("share-url")) {
+    $("share-url").value = link;
+  }
+
+  renderBoard(snap.leaderboard, $("lobby-board"));
+
+  // Offer a rematch of the most recent race, settings and all.
+  const last = lastFinishedRace(snap);
+  $("lobby-rematch").hidden = !last;
+  if (last) {
+    $("lobby-last").textContent = "Last race: " + last.start + " → " + last.target;
+    $("lobby-rematch").textContent = "Rematch: " + last.start + " → " + last.target;
+  } else {
+    $("lobby-last").textContent = "";
+  }
+}
+
+function lastFinishedRace(snap) {
+  if (!snap || !snap.races_list) return null;
+  const done = snap.races_list.filter(r => Object.keys(r.results || {}).length);
+  done.sort((a, b) => (b.created || 0) - (a.created || 0));
+  return done[0] || null;
+}
+
+function setSpecView(view) {
+  spec.view = view;
+  spec.signature = "";                     // force a rebuild
+  document.querySelectorAll("#spec-bar .seg button")
+    .forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  $("spec-who").hidden = view !== "one";
+  renderSpectate(S.snap);
+}
+
+function renderSpectate(snap) {
+  if (!spec.on || !snap) return;
+  const body = $("spec-body");
+  const note = $("spec-note");
+
+  const blocked = !snap.race
+    ? "No race is running."
+    : (!spectateAllowed(snap)
+        ? "This race hides opponent positions.<br>Spectating opens once everyone has finished."
+        : null);
+  if (blocked) {
+    body.className = "";
+    body.innerHTML = '<div class="spec-empty">' + blocked + "</div>";
+    spec.panes.clear(); spec.signature = "";
+    note.textContent = "";
+    return;
+  }
+
+  const all = spectatable(snap);
+  if (!all.length) {
+    body.className = "";
+    body.innerHTML = '<div class="spec-empty">Nobody else is in this race.</div>';
+    spec.panes.clear(); spec.signature = "";
+    note.textContent = "";
+    return;
+  }
+
+  // Keep the single-view picker in step with who's actually here.
+  const sel = $("spec-who");
+  const wanted = all.map(p => p.id + ":" + p.name).join("|");
+  if (sel.dataset.built !== wanted) {
+    sel.dataset.built = wanted;
+    sel.innerHTML = all.map(p => '<option value="' + p.id + '">' + esc(p.name) + "</option>").join("");
+    if (!all.some(p => p.id === spec.who)) spec.who = all[0].id;
+    sel.value = spec.who;
+  }
+
+  const shown = spec.view === "one"
+    ? all.filter(p => p.id === spec.who)
+    : all;
+
+  const stillGoing = all.filter(p => !p.finished && !p.gave_up).length;
+  note.textContent = stillGoing ? stillGoing + " still racing" : "everyone's done";
+
+  // Rebuild the panes only when the cast changes, so we don't thrash the DOM.
+  const signature = spec.view + "|" + shown.map(p => p.id).join(",");
+  if (signature !== spec.signature) {
+    spec.signature = signature;
+    spec.panes.clear();
+    body.className = spec.view === "one" ? "one" : "tiles";
+    body.innerHTML = "";
+    for (const p of shown) {
+      const tile = document.createElement("div");
+      tile.className = "spec-tile";
+      tile.innerHTML =
+        '<div class="spec-head">' +
+        '<span class="swatch" style="height:14px;width:6px;background:' + p.color + '"></span>' +
+        '<span class="nm"></span><span class="badge" hidden></span>' +
+        '<span class="meta"></span></div>' +
+        '<div class="spec-view"><div class="inner"></div><div class="spec-fade"></div></div>';
+      body.appendChild(tile);
+      spec.panes.set(p.id, {
+        root: tile,
+        headEl: tile.querySelector(".spec-head"),
+        viewEl: tile.querySelector(".spec-view"),
+        innerEl: tile.querySelector(".inner"),
+        article: null,
+      });
+    }
+  }
+
+  for (const p of shown) updatePane(p);
+}
+
+async function updatePane(peer) {
+  const pane = spec.panes.get(peer.id);
+  if (!pane) return;
+
+  pane.headEl.querySelector(".nm").textContent = peer.name;
+  pane.headEl.querySelector(".meta").textContent =
+    peer.clicks + (peer.clicks === 1 ? " click" : " clicks") +
+    (peer.article ? " · " + peer.article : "");
+
+  const badge = pane.headEl.querySelector(".badge");
+  badge.hidden = !(peer.finished || peer.gave_up);
+  badge.textContent = peer.finished ? "finished" : "gave up";
+  badge.classList.toggle("out", !!peer.gave_up);
+
+  if (!peer.article) {
+    pane.innerEl.innerHTML = '<div class="spec-empty">Waiting for them to load a page…</div>';
+    return;
+  }
+
+  // Only refetch when they actually move; otherwise this would hit Wikipedia
+  // several times a second per tile.
+  if (pane.article !== peer.article) {
+    pane.article = peer.article;
+    pane.innerEl.innerHTML = '<div class="spinner"></div>';
+    try {
+      const html = await cachedArticle(peer.article, S.lang);
+      if (pane.article !== peer.article) return;      // they moved on mid-fetch
+      renderInert(pane.innerEl, peer.article, html);
+    } catch (e) {
+      pane.innerEl.innerHTML = '<div class="spec-empty">Couldn\'t load ' +
+        esc(peer.article) + "</div>";
+      pane.article = null;                            // let it retry
+      return;
+    }
+  }
+
+  mirrorScroll(pane, peer.scroll || 0);
+}
+
+function mirrorScroll(pane, fraction) {
+  const el = pane.viewEl;
+  const max = el.scrollHeight - el.clientHeight;
+  if (max <= 0) return;
+  const want = fraction * max;
+  // Ignore sub-pixel churn so the pane doesn't jitter while they sit still.
+  if (Math.abs(el.scrollTop - want) > 2) el.scrollTop = want;
+}
+
+/* ------------------------------------------------------------------ *
+ * New-race dialog
+ * ------------------------------------------------------------------ */
+
+/* Settings survive between races, so a rematch is one click. */
+const cfg = {
+  lang: "en", show_positions: true, allow_back: true, time_limit: 0,
+  ban_hubs: false, handicap: false, checkpoint: "",
+};
+
+/* A text box that suggests real article titles, so nobody has to guess exact
+   spelling - and in a language they may not read fluently. */
+function attachTypeahead(input, list, getLang) {
+  let timer = null, items = [], active = -1;
+
+  const close = () => { list.hidden = true; active = -1; };
+  const choose = (t) => { input.value = t; close(); input.dispatchEvent(new Event("change")); };
+
+  const draw = () => {
+    if (!items.length) { close(); return; }
+    list.innerHTML = items.map((t, i) =>
+      '<div class="ta-item' + (i === active ? " on" : "") + '" data-i="' + i + '">' +
+      esc(t) + "</div>").join("");
+    list.hidden = false;
+  };
+
+  list.onmousedown = (e) => {                 // mousedown: fires before blur
+    const it = e.target.closest(".ta-item");
+    if (it) { e.preventDefault(); choose(items[+it.dataset.i]); }
+  };
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const text = input.value;
+    if (!text.trim()) { items = []; close(); return; }
+    timer = setTimeout(async () => {
+      try {
+        items = await suggestTitles(text, getLang());
+        active = -1;
+        draw();
+      } catch (e) { close(); }
+    }, 180);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden || !items.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; draw(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + items.length) % items.length; draw(); }
+    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); choose(items[active]); }
+    else if (e.key === "Escape") { close(); }
+  });
+
+  input.addEventListener("blur", () => setTimeout(close, 120));
+}
+
+async function randomPair(lang, hard) {
+  if (hard) return wildArticles(2, lang);
+  // Curated titles are English; follow the language link for other editions.
+  const out = [];
+  const tried = new Set();
+  while (out.length < 2 && tried.size < 24) {
+    const [cand] = pickFromPool(1);
+    if (tried.has(cand)) continue;
+    tried.add(cand);
+    const t = await translateTitle(cand, lang);
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+function openConfigurator() {
+  const ov = document.createElement("div");
+  ov.className = "overlay";
+  ov.id = "config-overlay";
+  ov.innerHTML =
+    '<div class="card wide">' +
+    "<h2>Race setup</h2>" +
+    '<p class="lede">These rules apply to everyone — they travel with the race.</p>' +
+
+    '<div class="field"><label>Wikipedia edition</label>' +
+    '<select id="c-lang">' +
+    LANGS.map(([code, name]) =>
+      '<option value="' + code + '">' + esc(name) + " (" + code + ")</option>").join("") +
+    "</select></div>" +
+
+    '<div class="two">' +
+      '<div class="field"><label>Start article</label>' +
+      '<div class="ta"><input type="text" id="c-start" autocomplete="off" placeholder="type to search…">' +
+      '<div class="ta-list" id="c-start-list" hidden></div></div></div>' +
+
+      '<div class="field"><label>Target article</label>' +
+      '<div class="ta"><input type="text" id="c-target" autocomplete="off" placeholder="type to search…">' +
+      '<div class="ta-list" id="c-target-list" hidden></div></div></div>' +
+    "</div>" +
+
+    '<div class="row" style="margin-bottom:16px">' +
+      '<button id="c-easy" style="flex:2">🎲 Random pair</button>' +
+      '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
+      '<button id="c-swap" title="Swap start and target">⇄</button>' +
+    "</div>" +
+
+    '<div class="field"><label>Rules</label>' +
+      '<div class="toggle" id="c-positions"><div class="track"></div>' +
+      "<span>Show where opponents are</span></div>" +
+      '<div class="toggle" id="c-back" style="margin-top:8px"><div class="track"></div>' +
+      "<span>Allow the Back button</span></div>" +
+      '<div class="toggle" id="c-hubs" style="margin-top:8px"><div class="track"></div>' +
+      '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
+      '<div class="toggle" id="c-handicap" style="margin-top:8px"><div class="track"></div>' +
+      '<span>Handicap the session leaders</span></div>' +
+    "</div>" +
+
+    '<div class="field"><label>Checkpoint <span class="muted tiny">(optional — must pass through)</span></label>' +
+    '<div class="ta"><input type="text" id="c-check" autocomplete="off" placeholder="leave empty for none">' +
+    '<div class="ta-list" id="c-check-list" hidden></div></div></div>' +
+
+    '<div class="field"><label>Time limit</label>' +
+    '<select id="c-limit">' +
+    '<option value="0">No limit</option>' +
+    '<option value="120">2 minutes</option>' +
+    '<option value="300">5 minutes</option>' +
+    '<option value="600">10 minutes</option>' +
+    "</select></div>" +
+
+    '<div class="field"><label>Players</label><div id="c-ready"></div></div>' +
+
+    '<div class="actions">' +
+    '<button class="ghost" id="c-cancel">Cancel</button>' +
+    '<button class="primary" id="c-go">Start race</button>' +
+    "</div>" +
+    '<div id="c-anyway" class="tiny" style="text-align:center;margin-top:9px" hidden></div>' +
+    "</div>";
+  $("stage").appendChild(ov);
+
+  const q = (id) => ov.querySelector(id);
+  const close = () => ov.remove();
+  q("#c-cancel").onclick = close;
+  ov.addEventListener("click", e => { if (e.target === ov) close(); });
+
+  // -- restore last-used settings --------------------------------------
+  q("#c-lang").value = cfg.lang;
+  q("#c-limit").value = String(cfg.time_limit);
+  q("#c-positions").classList.toggle("on", cfg.show_positions);
+  q("#c-back").classList.toggle("on", cfg.allow_back);
+
+  q("#c-hubs").classList.toggle("on", cfg.ban_hubs);
+  q("#c-handicap").classList.toggle("on", cfg.handicap);
+  q("#c-check").value = cfg.checkpoint || "";
+
+  const bindToggle = (id, key) => {
+    q(id).onclick = () => {
+      cfg[key] = !q(id).classList.contains("on");
+      q(id).classList.toggle("on", cfg[key]);
+    };
+  };
+  bindToggle("#c-positions", "show_positions");
+  bindToggle("#c-back", "allow_back");
+  bindToggle("#c-hubs", "ban_hubs");
+  bindToggle("#c-handicap", "handicap");
+  q("#c-limit").onchange = () => { cfg.time_limit = parseInt(q("#c-limit").value, 10) || 0; };
+
+  const startIn = q("#c-start"), targetIn = q("#c-target");
+  const getLang = () => q("#c-lang").value;
+
+  q("#c-lang").onchange = () => {
+    // Titles are per-edition, so anything already typed is meaningless now.
+    cfg.lang = getLang();
+    startIn.value = ""; targetIn.value = "";
+    toast("Switched to " + (LANGS.find(l => l[0] === cfg.lang) || [, cfg.lang])[1]);
+  };
+
+  attachTypeahead(startIn, q("#c-start-list"), getLang);
+  attachTypeahead(targetIn, q("#c-target-list"), getLang);
+  attachTypeahead(q("#c-check"), q("#c-check-list"), getLang);
+
+  q("#c-swap").onclick = () => {
+    const a = startIn.value; startIn.value = targetIn.value; targetIn.value = a;
+  };
+
+  const roll = async (btn, hard, label) => {
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = "…";
+    try {
+      const [a, b] = await randomPair(getLang(), hard);
+      if (!a || !b) toast("Couldn't find a pair in that language — try again");
+      startIn.value = a || ""; targetIn.value = b || "";
+    } catch (e) { toast("Couldn't reach Wikipedia"); }
+    btn.disabled = false; btn.textContent = old || label;
+  };
+  q("#c-easy").onclick = (e) => roll(e.currentTarget, false, "🎲 Random pair");
+  q("#c-hard").onclick = (e) => roll(e.currentTarget, true, "🌪️ Obscure");
+
+  // -- launching --------------------------------------------------------
+  const launch = async () => {
+    const start = startIn.value.trim(), target = targetIn.value.trim();
+    if (!start || !target) { toast("Pick both a start and a target"); return; }
+    const go = q("#c-go");
+    go.disabled = true; go.textContent = "Checking…";
+    try {
+      const lang = getLang();
+      const [cs, ct] = await Promise.all([
+        canonicalTitle(start, lang), canonicalTitle(target, lang),
+      ]);
+      if (!cs || !ct) {
+        toast('No article called "' + (cs ? target : start) + '"');
+        go.disabled = false; go.textContent = "Start race"; return;
+      }
+      if (norm(cs) === norm(ct)) {
+        toast("Those are the same article!");
+        go.disabled = false; go.textContent = "Start race"; return;
+      }
+      // A checkpoint has to be a real article too, or the race is unwinnable.
+      let checkpoint = "";
+      const rawCheck = q("#c-check").value.trim();
+      if (rawCheck) {
+        checkpoint = await canonicalTitle(rawCheck, lang);
+        if (!checkpoint) {
+          toast('No article called "' + rawCheck + '"');
+          go.disabled = false; go.textContent = "Start race"; return;
+        }
+      }
+      cfg.checkpoint = checkpoint;
+      close();
+      await post("/start_race", {
+        start: cs, target: ct, lang: lang,
+        show_positions: cfg.show_positions,
+        allow_back: cfg.allow_back,
+        time_limit: cfg.time_limit,
+        ban_hubs: cfg.ban_hubs,
+        handicap: cfg.handicap,
+        checkpoint: checkpoint,
+      });
+    } catch (e) {
+      toast("Wikipedia unreachable");
+      q("#c-go").disabled = false; q("#c-go").textContent = "Start race";
+    }
+  };
+  q("#c-go").onclick = launch;
+  q("#c-anyway").onclick = launch;
+
+  renderConfigReady(S.snap);
+  setTimeout(() => startIn.focus(), 40);
+}
+
+/* Live ready-check inside the configurator. Nobody gets blocked from starting,
+   but you can see at a glance who's still making tea. */
+function renderConfigReady(snap) {
+  const host = document.getElementById("c-ready");
+  if (!host || !snap) return;
+  const peers = snap.peers || [];
+  const ready = peers.filter(p => p.ready).length;
+
+  host.innerHTML = peers.length
+    ? peers.map(p =>
+        '<div class="ready-row"><span class="tick' + (p.ready ? " on" : "") + '">' +
+        (p.ready ? "✓" : "○") + "</span>" + esc(p.name) +
+        '<span class="sub">' + (p.ready ? "ready" : "not ready yet") + "</span></div>").join("")
+    : '<div class="empty">Nobody else here yet — you can still race solo.</div>';
+
+  const go = document.getElementById("c-go");
+  const anyway = document.getElementById("c-anyway");
+  if (!go || !anyway) return;
+  const allReady = peers.length === 0 || ready === peers.length;
+  go.disabled = !allReady;
+  go.textContent = allReady ? "Start race" : "Waiting — " + ready + "/" + peers.length + " ready";
+  anyway.hidden = allReady;
+  anyway.innerHTML = allReady ? "" :
+    '<a href="#" style="color:var(--accent)">Start anyway</a>';
+}
+
+/* ------------------------------------------------------------------ *
+ * Sidebar rendering from the peer snapshot
+ * ------------------------------------------------------------------ */
+
+function renderSnapshot(snap) {
+  S.snap = snap;
+  S.showOpponents = snap.show_opponents;
+
+  if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
+
+  // The race rule is the ceiling; the personal toggle can only hide further.
+  const raceHides = snap.race && snap.race.show_positions === false;
+  const tgl = $("tgl-opponents");
+  tgl.classList.toggle("on", snap.show_opponents && !raceHides);
+  tgl.classList.toggle("locked", !!raceHides);
+  $("tgl-opponents-label").textContent = raceHides
+    ? "Opponent positions hidden by race rules"
+    : "Show where opponents are";
+
+  const ready = $("btn-ready");
+  ready.hidden = !!(snap.race && S.running);
+  ready.textContent = snap.ready ? "✓ You're ready" : "Mark me ready";
+  ready.classList.toggle("primary", !snap.ready);
+
+  renderConfigReady(snap);
+  renderRules(snap.race);
+  renderRacers(snap);
+  updateTicker(snap);
+  renderTicker();
+  if (stageMode === "lobby") renderLobby(snap);
+  if (stageMode === "hub") {
+    if (hubTab === "results") renderResults(snap);
+    else if (hubTab === "watch") renderSpectate(snap);
+    else if (hubTab === "replay") renderReplay(snap);
+  }
+  // Nothing running and nothing to pick over? Fall back to the lobby.
+  if (!snap.race && stageMode !== "lobby") setStage("lobby");
+  renderBoard(snap.leaderboard);
+  renderFeed(snap.events);
+
+  // Only worth showing when it isn't the default — otherwise it's just noise.
+  const roomTag = $("roomtag");
+  roomTag.hidden = !snap.room || snap.room === "default";
+  roomTag.textContent = "· room: " + (snap.room || "");
+
+  // The scoreboard is keyed on name, so a duplicate silently merges two people.
+  $("name-clash").hidden = !snap.peers.some(p => norm(p.name) === norm(snap.me.name));
+
+  $("netdot").classList.toggle("off", snap.peers.length === 0);
+  $("peercount").textContent = snap.peers.length
+    ? "(" + (snap.peers.length + 1) + " online)" : "(just you)";
+
+  // A race started by anyone — including us — arrives through here.
+  if (snap.race && snap.race.race_id !== S.raceId) {
+    document.querySelectorAll(".overlay").forEach(o => o.remove());
+    if (spec.on) closeSpectate();          // a new race pulls you back to playing
+    enterRace(snap.race, snap.my_run);
+  }
+}
+
+function renderRacers(snap) {
+  const host = $("racers");
+  const race = snap.race;
+  const rows = [];
+
+  const mine = snap.my_run || {};
+  rows.push({
+    name: snap.me.name + " (you)", color: snap.me.color,
+    article: S.current, clicks: S.clicks,
+    finished: !!mine.finished,
+    gave_up: !!mine.gave_up,
+    ready: !!snap.ready,
+    me: true,
+    active: !!race,
+  });
+
+  for (const p of snap.peers) {
+    rows.push({
+      name: p.name, color: p.color,
+      article: p.in_this_race ? p.article : null,
+      clicks: p.in_this_race ? p.clicks : 0,
+      finished: p.in_this_race && p.finished,
+      gave_up: p.in_this_race && p.gave_up,
+      ready: !!p.ready,
+      me: false,
+      active: p.in_this_race,
+    });
+  }
+
+  if (rows.length === 1 && !race) {
+    host.innerHTML = '<div class="racer me"><div class="swatch" style="background:' + snap.me.color + '"></div>' +
+      '<div class="who"><div class="nm">' + esc(snap.me.name) + ' (you)</div>' +
+      '<div class="at">waiting for others…</div></div></div>';
+    return;
+  }
+
+  // Race rule first, personal preference second.
+  const reveal = !(snap.race && snap.race.show_positions === false) && snap.show_opponents;
+
+  host.innerHTML = rows.map(r => {
+    let where;
+    if (!r.active) {
+      where = '<span class="at">' + (r.ready ? "ready ✓" : "in the lobby") + "</span>";
+    }
+    else if (r.finished) where = '<span class="at" style="color:var(--good)">finished 🏁</span>';
+    else if (r.gave_up) where = '<span class="at" style="color:var(--bad)">gave up</span>';
+    else if (!r.me && !reveal) where = '<span class="at hidden-pos">position hidden</span>';
+    else where = '<span class="at">' + esc(r.article || "loading…") + "</span>";
+
+    return '<div class="racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
+      (r.gave_up ? " gone" : "") + '">' +
+      '<div class="swatch" style="background:' + r.color + '"></div>' +
+      '<div class="who"><div class="nm">' + esc(r.name) + "</div>" + where + "</div>" +
+      '<div class="n">' + (r.active ? r.clicks : "") + "</div></div>";
+  }).join("");
+}
+
+function renderBoard(board, hostEl) {
+  const host = hostEl || $("board");
+  if (!board || !board.length) { host.innerHTML = '<div class="empty">No races finished yet.</div>'; return; }
+  host.innerHTML = '<table class="board">' + board.map(e =>
+    "<tr><td class=\"pos" + (e.rank === 1 ? " p1" : "") + '">' + e.rank + "</td>" +
+    "<td><div>" + esc(e.name) + "</div><div class=\"sub\">" +
+    e.wins + "w · " + e.finished + "/" + e.races + " finished" +
+    (e.best_time != null ? " · best " + fmtTime(e.best_time) : "") + "</div></td>" +
+    '<td class="pts">' + e.points + "</td></tr>"
+  ).join("") + "</table>";
+}
+
+/* A running commentary of the race. Reading four separate trails is work;
+   one chronological stream tells the story on its own. */
+const ticker = { seen: new Map(), lines: [], announced: new Set(), raceId: null };
+
+function resetTicker(raceId) {
+  ticker.raceId = raceId;
+  ticker.seen.clear();
+  ticker.lines = [];
+  ticker.announced.clear();
+}
+
+function updateTicker(snap) {
+  const race = snap.race;
+  if (!race) { resetTicker(null); return; }
+  // Each race gets a fresh commentary; otherwise the last one bleeds through.
+  if (ticker.raceId !== race.race_id) resetTicker(race.race_id);
+  if (race.show_positions === false) return;       // same secrecy as everywhere else
+
+  for (const p of snap.peers) {
+    if (!p.in_this_race) continue;
+    const prev = ticker.seen.get(p.id);
+    const trail = p.path || [];
+    if (prev !== undefined && trail.length > prev && p.article) {
+      ticker.lines.push({
+        t: Date.now(), name: p.name, color: p.color,
+        text: "→ " + p.article, clicks: p.clicks,
+      });
+      ticker.lines = ticker.lines.slice(-30);
+
+      // Shout when somebody is one link from home.
+      const key = p.id + "|" + p.article;
+      if (!ticker.announced.has(key)) {
+        ticker.announced.add(key);
+        isOneAway(p.article, race.target, race.lang || "en").then(near => {
+          if (!near) return;
+          ticker.lines.push({
+            t: Date.now(), name: p.name, color: p.color,
+            text: "is one click away!", clicks: p.clicks, hot: true,
+          });
+          if (!S.done) toast(p.name + " is one click from " + race.target + "!", 2600);
+          renderTicker();
+        });
+      }
+    }
+    ticker.seen.set(p.id, trail.length);
+  }
+}
+
+function renderTicker() {
+  const host = $("ticker");
+  if (!host) return;
+  if (!ticker.lines.length) { host.innerHTML = ""; return; }
+  host.innerHTML = ticker.lines.slice().reverse().slice(0, 12).map(l =>
+    '<div class="tk' + (l.hot ? " hot" : "") + '">' +
+    '<span class="who" style="color:' + l.color + '">' + esc(l.name) + "</span> " +
+    '<span class="what">' + esc(l.text) + "</span>" +
+    '<span class="cl">' + l.clicks + "</span></div>").join("");
+}
+
+function renderFeed(events) {
+  const host = $("feed");
+  if (!events || !events.length) { host.innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  const wasBottom = host.scrollTop + host.clientHeight >= host.scrollHeight - 8;
+  host.innerHTML = events.slice().reverse()
+    .map(e => '<div class="e ' + esc(e.kind) + '">' + esc(e.text) + "</div>").join("");
+  if (wasBottom) host.scrollTop = 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+$("btn-new").onclick = openConfigurator;
+$("btn-giveup").onclick = giveUp;
+
+$("btn-ready").onclick = () => {
+  const now = !(S.snap && S.snap.ready);
+  post("/ready", { value: now });
+};
+
+// -- lobby --
+$("share-copy").onclick = async () => {
+  const url = $("share-url").value;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link copied");
+  } catch (e) {
+    // clipboard needs a secure context; selecting it is the next best thing
+    $("share-url").select();
+    toast("Press Ctrl+C to copy");
+  }
+};
+
+$("lobby-start").onclick = openConfigurator;
+$("lobby-ready").onclick = () => post("/ready", { value: !(S.snap && S.snap.ready) });
+$("lobby-rematch").onclick = async () => {
+  const last = lastFinishedRace(S.snap);
+  if (!last) return;
+  cfg.lang = last.lang || cfg.lang;
+  await post("/start_race", {
+    start: last.start, target: last.target, lang: cfg.lang,
+    show_positions: cfg.show_positions, allow_back: cfg.allow_back,
+    time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
+    handicap: cfg.handicap, checkpoint: cfg.checkpoint,
+  });
+};
+
+// -- post-race hub --
+document.querySelectorAll("#hub-tabs button")
+  .forEach(b => b.onclick = () => setHubTab(b.dataset.tab));
+$("hub-lobby").onclick = () => setStage("lobby");
+
+// -- spectator controls --
+document.querySelectorAll("#spec-bar .seg button")
+  .forEach(b => b.onclick = () => setSpecView(b.dataset.view));
+$("spec-who").onchange = (e) => {
+  spec.who = e.target.value;
+  spec.signature = "";
+  renderSpectate(S.snap);
+};
+
+/* Broadcast how far down the page we are, so spectators mirror the view and
+   not just the title. Throttled - this fires constantly while scrolling. */
+let scrollTimer = null, lastScrollSent = -1;
+$("article-wrap").addEventListener("scroll", () => {
+  if (!S.running) return;
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => {
+    const el = $("article-wrap");
+    const max = el.scrollHeight - el.clientHeight;
+    const f = max > 0 ? el.scrollTop / max : 0;
+    if (Math.abs(f - lastScrollSent) < 0.004) return;
+    lastScrollSent = f;
+    post("/scroll", { value: Math.round(f * 1000) / 1000 });
+  }, 140);
+});
+
+$("btn-back").onclick = async () => {
+  if (!S.running || S.path.length < 2 || S.loading) return;
+  S.path.pop(); S.stepTimes.pop();               // stepping back is free, as is traditional
+  const prev = S.path[S.path.length - 1];
+  S.path.pop(); S.stepTimes.pop();
+  await navigate(prev, true);
+  S.clicks--;                                    // ...so undo the click navigate() added
+  updateHud();
+  renderCrumbs();
+  reportProgress();
+};
+
+$("btn-savename").onclick = () => {
+  const v = $("myname").value.trim();
+  if (v) { post("/name", { name: v }); toast("Name saved"); }
+};
+$("myname").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-savename").click(); });
+
+$("tgl-opponents").onclick = () => {
+  if ($("tgl-opponents").classList.contains("locked")) {
+    toast("This race hides opponent positions for everyone");
+    return;
+  }
+  const on = !$("tgl-opponents").classList.contains("on");
+  $("tgl-opponents").classList.toggle("on", on);
+  post("/toggle_opponents", { value: on });
+};
+
+$("btn-reset").onclick = () => {
+  if (confirm("Clear the scoreboard on this machine?\n\nOther players keep their own copy unless they clear too.")) {
+    post("/reset_scores", {});
+  }
+};
+
+// Live updates from our local peer process.
+function connect() {
+  const es = new EventSource("/api/stream");
+  es.onmessage = (ev) => {
+    try { renderSnapshot(JSON.parse(ev.data)); } catch (e) { /* ignore a bad frame */ }
+  };
+  es.onerror = () => { es.close(); setTimeout(connect, 1200); };
+}
+connect();
+
+fetch("/api/state").then(r => r.json()).then(renderSnapshot).catch(() => {});
+</script>
+</body>
+</html>
