@@ -80,11 +80,12 @@ docker compose up -d
 To take a new version later, `docker compose pull && docker compose up -d`, or
 hit **Update** on the TrueNAS app.
 
-**One thing to check the first time:** packages start out private, so the pull
-will fail with `denied` until you make it public — repo → **Packages** →
-*wikirace* → **Package settings** → **Change visibility** → Public. Keeping it
-private is fine too; the NAS then needs `docker login ghcr.io` with a token
-that can read packages.
+The package is public, so the NAS pulls it without logging in to anything —
+checked by fetching the manifest anonymously, which is exactly what `docker
+pull` does. If you fork this and your copy comes out private, the pull fails
+with `denied`; make it public under repo → **Packages** → *wikirace* →
+**Package settings** → **Change visibility**, or run `docker login ghcr.io` on
+the NAS with a token that can read packages.
 
 Or without Docker at all — it's one script and one HTML file:
 
