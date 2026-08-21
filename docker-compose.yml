@@ -3,12 +3,13 @@
 services:
   wikirace:
     container_name: wikirace
-    # Either build from this folder...
-    build: .
-    # ...or, if you'd rather not build on the NAS, comment `build` out, run
-    # `docker build -t wikirace .` somewhere else, push it, and put the tag
-    # here instead:
-    # image: ghcr.io/you/wikirace:latest
+    # Built by GitHub Actions on every push and published here, so the NAS
+    # only has to pull it. Change the owner if you forked this.
+    image: ghcr.io/machmar/wikirace:latest
+    pull_policy: always
+    # To build it on the NAS instead, comment the two lines above out and
+    # uncomment this:
+    # build: .
 
     restart: unless-stopped
 

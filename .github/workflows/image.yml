@@ -1,0 +1,63 @@
+name: Publish container image
+
+# Builds the image and pushes it to this repo's own container registry, so a
+# NAS can pull it rather than building anything itself.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # the built-in token needs this to push to ghcr
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr rejects capital letters in an image name, and plenty of repos
+      # have them - so lowercase it rather than hardcoding one.
+      - name: Work out the image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      # For arm NAS boxes as well as the usual x86 ones. Nothing is compiled
+      # here - the image only copies two files - so the emulated build is
+      # still quick.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Say where it went
+        run: |
+          echo "### Image published" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Pull with: docker pull $IMAGE:latest" >> "$GITHUB_STEP_SUMMARY"

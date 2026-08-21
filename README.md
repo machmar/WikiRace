@@ -55,16 +55,18 @@ laptop is open.
 
 ### TrueNAS SCALE
 
-There's a `docker-compose.yml` in this folder ready for it.
+The image is built by GitHub Actions on every push and published to this
+repo's registry, so the NAS only has to pull it — nothing is built there and
+you don't need the source on the box at all.
 
-1. Put this folder somewhere on the NAS (a dataset, an SMB share, `git clone`
-   — however you like).
-2. Make a dataset for the scoreboard, e.g. `/mnt/tank/apps/wikirace`, and note
+1. Make a dataset for the scoreboard, e.g. `/mnt/tank/apps/wikirace`, and note
    the UID/GID that owns it.
-3. In `docker-compose.yml`: set `WIKIRACE_CODE` to something only your friends
-   know, point the volume at that dataset, and set `user:` to match its owner.
-4. **Apps → Discover Apps → Custom App → Install via YAML**, and paste the
-   file in.
+2. Take `docker-compose.yml` from this repo. Set `WIKIRACE_CODE` to something
+   only your friends know, point the volume at that dataset, and set `user:`
+   to match its owner.
+3. **Apps → Discover Apps → Custom App → Install via YAML**, and paste it in.
+
+It pulls `ghcr.io/machmar/wikirace:latest`, built for both x86 and arm.
 
 Then everyone opens `http://your-nas:8420/?code=YOURCODE`. The code is
 remembered per browser, so it's asked for once.
@@ -74,6 +76,15 @@ It also runs anywhere else Docker does:
 ```sh
 docker compose up -d
 ```
+
+To take a new version later, `docker compose pull && docker compose up -d`, or
+hit **Update** on the TrueNAS app.
+
+**One thing to check the first time:** packages start out private, so the pull
+will fail with `denied` until you make it public — repo → **Packages** →
+*wikirace* → **Package settings** → **Change visibility** → Public. Keeping it
+private is fine too; the NAS then needs `docker login ghcr.io` with a token
+that can read packages.
 
 Or without Docker at all — it's one script and one HTML file:
 
@@ -334,6 +345,7 @@ On Windows pass these after the .bat, e.g. `"Play WikiRace.bat" --name Marek`.
 | `wikirace.py` | the peer: discovery, gossip, scoring, local UI server |
 | `ui.html` | the game interface, served straight from disk |
 | `Dockerfile`, `docker-compose.yml` | for running it on a NAS or any Docker host |
+| `.github/workflows/image.yml` | builds and publishes the image on every push |
 | `Play WikiRace.bat` / `play.sh` | launchers (install Python if needed) |
 | `Setup.bat` / `setup.sh` | explicit Python setup |
 | `wikirace_history.json` | your local copy of past races (created on first finish) |
