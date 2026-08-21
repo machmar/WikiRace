@@ -682,11 +682,6 @@
     margin-left: auto; color: var(--fg-dim); font-size: 11.5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .spec-head .badge {
-    font-size: 10px; padding: 1px 7px; border-radius: 999px;
-    background: var(--good-bg); color: var(--good); border: 1px solid var(--good-line);
-  }
-  .spec-head .badge.out { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-line); }
 
   /* Mirrors their scroll position, so it must not be scrollable by hand. */
   .spec-view { flex: 1; overflow: hidden; position: relative; }
@@ -2540,10 +2535,11 @@ function inThisRace(snap) {
   return (snap.peers || []).filter(p => p.in_this_race);
 }
 
-/* Watching is for people still going. Somebody who has finished is a frozen
-   page, so their tile leaves once they're home. */
+/* Watching is for people still going. Finishing and giving up both leave a
+   frozen page behind, so either one takes that tile away - and leaving them up
+   would make the race look busier than it is. */
 function spectatable(snap) {
-  return inThisRace(snap).filter(p => !p.finished);
+  return inThisRace(snap).filter(p => !p.finished && !p.gave_up);
 }
 
 /* If the race hid positions, spectating stays shut until nobody is still
@@ -2724,8 +2720,7 @@ function renderSpectate(snap) {
     ? all.filter(p => p.id === spec.who)
     : all;
 
-  const stillGoing = all.filter(p => !p.gave_up).length;
-  note.textContent = stillGoing ? stillGoing + " still racing" : "everyone's done";
+  note.textContent = all.length + " still racing";
 
   // Rebuild the panes only when the cast changes, so we don't thrash the DOM.
   const signature = spec.view + "|" + shown.map(p => p.id).join(",");
@@ -2740,7 +2735,7 @@ function renderSpectate(snap) {
       tile.innerHTML =
         '<div class="spec-head">' +
         '<span class="swatch" style="height:14px;width:6px;background:' + p.color + '"></span>' +
-        '<span class="nm"></span><span class="badge" hidden></span>' +
+        '<span class="nm"></span>' +
         '<span class="meta"></span></div>' +
         '<div class="spec-view"><div class="inner"></div><div class="spec-fade"></div></div>';
       body.appendChild(tile);
@@ -2765,11 +2760,6 @@ async function updatePane(peer) {
   pane.headEl.querySelector(".meta").textContent =
     peer.clicks + (peer.clicks === 1 ? " click" : " clicks") +
     (peer.article ? " · " + peer.article : "");
-
-  const badge = pane.headEl.querySelector(".badge");
-  badge.hidden = !(peer.finished || peer.gave_up);
-  badge.textContent = peer.finished ? "finished" : "gave up";
-  badge.classList.toggle("out", !!peer.gave_up);
 
   if (!peer.article) {
     pane.innerEl.innerHTML = '<div class="spec-empty">Waiting for them to load a page…</div>';
