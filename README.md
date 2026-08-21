@@ -47,34 +47,75 @@ can paste it into a group chat.
 Type your name in the sidebar, and when everyone shows up hit **Set up a
 race**. Everyone gets a 3-2-1 countdown together.
 
-## Running it somewhere always on
+## Running it on a NAS or home server
 
-Host mode is all you need to put the game on a NAS, a home server or a VPS, so
-it's there whenever people want a game rather than only while someone's laptop
-is open:
+Host mode is all it takes to leave the game running somewhere permanent, so
+it's there whenever people fancy a race rather than only while somebody's
+laptop is open.
+
+### TrueNAS SCALE
+
+There's a `docker-compose.yml` in this folder ready for it.
+
+1. Put this folder somewhere on the NAS (a dataset, an SMB share, `git clone`
+   — however you like).
+2. Make a dataset for the scoreboard, e.g. `/mnt/tank/apps/wikirace`, and note
+   the UID/GID that owns it.
+3. In `docker-compose.yml`: set `WIKIRACE_CODE` to something only your friends
+   know, point the volume at that dataset, and set `user:` to match its owner.
+4. **Apps → Discover Apps → Custom App → Install via YAML**, and paste the
+   file in.
+
+Then everyone opens `http://your-nas:8420/?code=YOURCODE`. The code is
+remembered per browser, so it's asked for once.
+
+It also runs anywhere else Docker does:
 
 ```sh
-python3 wikirace.py --host --no-browser --code SOMETHINGSECRET
+docker compose up -d
 ```
 
-Then everybody opens `http://your-server:8420/?code=SOMETHINGSECRET`. The code
-is remembered per browser, so it's asked for once.
+Or without Docker at all — it's one script and one HTML file:
 
-A few things worth knowing before you point it at the open internet:
+```sh
+python3 wikirace.py --host --no-browser --no-discovery \
+        --code YOURCODE --data-dir /mnt/tank/apps/wikirace
+```
 
-- **Set a code.** Without one, anyone who finds the port is in your game. With
+### Settings
+
+Everything can come from the environment, which is how a NAS app is
+configured — no command line needed:
+
+| | |
+|---|---|
+| `WIKIRACE_CODE` | required to join. **Set this.** |
+| `WIKIRACE_DATA` | where the standings are kept. Mount a volume here. |
+| `WIKIRACE_ROOM` | keeps separate groups apart if more than one crowd uses the box |
+| `WIKIRACE_PORT` | which port to listen on (default 8420) |
+| `WIKIRACE_HOST` | `1` — let browsers connect. Already set in the image. |
+| `WIKIRACE_NO_BROWSER` | `1` — don't try to open a window on a headless box |
+| `WIKIRACE_NO_DISCOVERY` | `1` — skip the LAN peer hunt; a server has no neighbours to find |
+| `WIKIRACE_NAME` | the name given to whoever opens it on the machine itself |
+
+`GET /healthz` answers without the join code and returns player and race
+counts — that's what the container's health check asks, and it's the right
+thing to point a monitor at.
+
+### Before you put it on the open internet
+
+- **Set a code.** Without one, whoever finds the port is in your game. With
   one, the game shows a small door asking for it and answers nothing else.
-- **Put TLS in front of it.** This speaks plain HTTP, so on a bare port the
-  code and everything else travels in the clear. Most NAS boxes can reverse
-  proxy it behind their own certificate; do that rather than exposing 8420
-  directly.
-- **It is a small standard-library HTTP server**, not hardened software. It
+- **Terminate TLS in front of it.** This speaks plain HTTP, so on a bare port
+  the code and everything else travels in the clear. TrueNAS can reverse proxy
+  it behind a certificate; do that rather than forwarding 8420 directly.
+- **It's a small standard-library HTTP server**, not hardened software. It
   serves exactly two things — the page and its own API — and reads no file
-  paths from the request, so there's nothing to traverse. Still: put it behind
-  the reverse proxy your NAS already runs, and don't run it as root.
-- **`--room`** keeps separate groups apart if more than one crowd uses the box.
-- The peer-to-peer discovery keeps running and simply finds nobody, which is
-  harmless. `--no-browser` stops it trying to open a window on a headless box.
+  paths from the request, so there's nothing to traverse. Still: keep it behind
+  the reverse proxy, and it runs as UID 1000 in the image rather than root.
+- **The standings are written on every finish**, not only at shutdown, so a
+  yanked power cord costs at most the race in progress. A clean stop
+  (`docker stop`, or the Apps page) flushes the rest.
 
 ## Race setup
 
@@ -292,6 +333,7 @@ On Windows pass these after the .bat, e.g. `"Play WikiRace.bat" --name Marek`.
 |---|---|
 | `wikirace.py` | the peer: discovery, gossip, scoring, local UI server |
 | `ui.html` | the game interface, served straight from disk |
+| `Dockerfile`, `docker-compose.yml` | for running it on a NAS or any Docker host |
 | `Play WikiRace.bat` / `play.sh` | launchers (install Python if needed) |
 | `Setup.bat` / `setup.sh` | explicit Python setup |
 | `wikirace_history.json` | your local copy of past races (created on first finish) |

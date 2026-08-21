@@ -1,0 +1,45 @@
+# Paste this into TrueNAS SCALE: Apps -> Discover Apps -> Custom App ->
+# "Install via YAML". It also works with plain `docker compose up -d`.
+services:
+  wikirace:
+    container_name: wikirace
+    # Either build from this folder...
+    build: .
+    # ...or, if you'd rather not build on the NAS, comment `build` out, run
+    # `docker build -t wikirace .` somewhere else, push it, and put the tag
+    # here instead:
+    # image: ghcr.io/you/wikirace:latest
+
+    restart: unless-stopped
+
+    ports:
+      # host:container - change the left side if 8420 is taken on your NAS.
+      - "8420:8420"
+
+    environment:
+      # CHANGE THIS. Without it, whoever finds the port is in your game.
+      WIKIRACE_CODE: "change-me-before-you-expose-this"
+
+      # Everyone using the same room name plays together; separate names keep
+      # separate groups apart if more than one crowd uses the box.
+      WIKIRACE_ROOM: "default"
+
+      # The rest are already set in the image and are here to be seen rather
+      # than changed: host mode on, no browser to open, no LAN discovery
+      # (there are no other copies on a NAS to find), data on the volume.
+      WIKIRACE_HOST: "1"
+      WIKIRACE_NO_BROWSER: "1"
+      WIKIRACE_NO_DISCOVERY: "1"
+      WIKIRACE_DATA: "/data"
+
+    volumes:
+      # The scoreboard. Point the left side at a dataset you keep, e.g.
+      #   /mnt/tank/apps/wikirace:/data
+      - wikirace-data:/data
+
+    # Match this to whoever owns the dataset above, or the standings can't be
+    # written. TrueNAS shows the uid/gid in the dataset's permissions screen.
+    user: "1000:1000"
+
+volumes:
+  wikirace-data:

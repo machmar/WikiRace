@@ -21,6 +21,7 @@ import hashlib
 import json
 import os
 import random
+import signal
 import socket
 import struct
 import sys
@@ -418,7 +419,7 @@ class GameState:
 # --------------------------------------------------------------------------
 
 class PeerNet:
-    def __init__(self, state, extra_peers=None):
+    def __init__(self, state, extra_peers=None, discover=True):
         self.state = state
         self.process_id = uuid.uuid4().hex[:12]
         self.on_change = lambda: None
@@ -426,6 +427,14 @@ class PeerNet:
         self.seen = {}                    # (peer_id, seq) -> ts, for dedupe
         self.unicast_targets = {}         # peer_id -> (ip, port)
         self.running = True
+        # A server has no neighbours to find, so it can skip the sockets and
+        # the chatter entirely - the browsers connect to it, not the reverse.
+        self.discover = discover
+        if not discover:
+            self.rx = None
+            self.tx = None
+            self.bcast_addrs = []
+            return
 
         self.rx = self._make_rx_socket()
         self.tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -488,6 +497,8 @@ class PeerNet:
     # -- send ---------------------------------------------------------------
 
     def send(self, msg, to=None):
+        if not self.discover:
+            return
         with self.state.lock:
             # Messages about a specific player carry that player's identity;
             # anything else speaks for the process as a whole.
@@ -806,10 +817,24 @@ class PeerNet:
                 self.on_change()
 
     def start(self):
+        if not self.discover:
+            # Still tick, so browsers on this machine keep getting updates.
+            threading.Thread(target=self.local_loop, daemon=True).start()
+            return
         threading.Thread(target=self.listen_loop, daemon=True).start()
         threading.Thread(target=self.beacon_loop, daemon=True).start()
         self.send_hello()
         self.send({"type": "sync_req"})
+
+    def local_loop(self):
+        """The beacon's job minus the network: keep the browsers fed."""
+        while self.running:
+            st = self.state
+            with st.lock:
+                racing = any(p.run and not p.run.get("done") for p in st.locals.values())
+                st.prune_locals()
+            self.on_change()
+            time.sleep(RACE_TICK_INTERVAL if racing else HEARTBEAT_INTERVAL)
 
     def stop(self):
         self.running = False
@@ -819,8 +844,11 @@ class PeerNet:
 # Persistence - local only; the network is the real source of truth.
 # --------------------------------------------------------------------------
 
+DATA_DIR = HERE          # replaced at startup by --data-dir
+
+
 def save_path():
-    return os.path.join(HERE, "wikirace_history.json")
+    return os.path.join(DATA_DIR, "wikirace_history.json")
 
 
 def load_history(state):
@@ -1040,6 +1068,18 @@ def make_handler(state, net, hub):
 
         def do_GET(self):
             path = self.path.split("?")[0]
+            # Deliberately outside the join code: a container platform has to
+            # be able to tell whether this is alive without being let in, and
+            # it reveals nothing but that.
+            if path == "/healthz":
+                with state.lock:
+                    body = json.dumps({
+                        "ok": True,
+                        "players": len(state.locals),
+                        "races": len(state.races),
+                    }).encode()
+                self._send(200, body)
+                return
             if not self.code_ok():
                 if path in ("/", "/index.html"):
                     self.send_gate(tried="code=" in self.path)
@@ -1394,22 +1434,43 @@ class GameServer(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
+def env_default(name, fallback=None):
+    """A NAS app is configured with environment variables, not a command
+    line, so every useful flag can also arrive as WIKIRACE_SOMETHING."""
+    value = os.environ.get("WIKIRACE_" + name.upper())
+    return value if value not in (None, "") else fallback
+
+
+def env_flag(name):
+    return str(env_default(name, "")).strip().lower() in ("1", "true", "yes", "on")
+
+
 def main():
     ap = argparse.ArgumentParser(description="WikiRace LAN - serverless multiplayer Wikipedia racing")
-    ap.add_argument("--name", default=None, help="your display name")
-    ap.add_argument("--port", type=int, default=DEFAULT_HTTP_PORT, help="local UI port")
-    ap.add_argument("--room", default="default",
+    ap.add_argument("--name", default=env_default("name"), help="your display name")
+    ap.add_argument("--port", type=int, default=int(env_default("port", DEFAULT_HTTP_PORT)),
+                    help="which port to listen on. Also read from WIKIRACE_PORT.")
+    ap.add_argument("--room", default=env_default("room", "default"),
                     help="only play with people using the same room name, "
                          "so separate groups on one network don't collide")
     ap.add_argument("--peer", action="append", default=[],
                     help="manually add a peer IP (repeatable) if broadcast is blocked")
-    ap.add_argument("--host", action="store_true",
+    ap.add_argument("--host", action="store_true", default=env_flag("host"),
                     help="host for people who haven't installed anything: they just "
                          "open the printed link in a browser and each becomes a player")
-    ap.add_argument("--code", default=None, metavar="CODE",
+    ap.add_argument("--code", default=env_default("code"), metavar="CODE",
                     help="require this code to join. Worth setting whenever the game "
-                         "is reachable from outside your own network.")
-    ap.add_argument("--no-browser", action="store_true", help="don't open a browser window")
+                         "is reachable from outside your own network. "
+                         "Also read from WIKIRACE_CODE.")
+    ap.add_argument("--data-dir", default=env_default("data", HERE), metavar="DIR",
+                    help="where to keep the standings (default: next to this script). "
+                         "Point it at a mounted volume when running in a container. "
+                         "Also read from WIKIRACE_DATA.")
+    ap.add_argument("--no-discovery", action="store_true", default=env_flag("no_discovery"),
+                    help="skip the peer-to-peer discovery entirely. Worth it on a "
+                         "server, where there are no other copies to find.")
+    ap.add_argument("--no-browser", action="store_true", default=env_flag("no_browser"),
+                    help="don't open a browser window. Implied when there's no display.")
     args = ap.parse_args()
 
     # USERNAME on Windows, USER on Linux/macOS. Without both, everyone on the
@@ -1417,6 +1478,20 @@ def main():
     account = os.environ.get("USERNAME") or os.environ.get("USER")
     name = args.name or account or socket.gethostname() or "Player"
     name = name.strip()[:24]
+
+    global DATA_DIR
+    DATA_DIR = os.path.abspath(args.data_dir or HERE)
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        probe = os.path.join(DATA_DIR, ".write-test")
+        with open(probe, "w") as f:
+            f.write("")
+        os.remove(probe)
+    except OSError as e:
+        # Better to say so now than to lose the standings at shutdown.
+        log(f"cannot write to {DATA_DIR}: {e}")
+        log("pass --data-dir somewhere writable (or fix the volume's ownership)")
+        raise SystemExit(1)
 
     port = pick_http_port(args.port)
     state = GameState(name, port, room=args.room.strip() or "default")
@@ -1427,7 +1502,7 @@ def main():
     load_history(state)
 
     hub = Hub()
-    net = PeerNet(state, extra_peers=args.peer)
+    net = PeerNet(state, extra_peers=args.peer, discover=not args.no_discovery)
     net.on_change = hub.publish
     with state.lock:
         state.lan_urls = [f"http://{ip}:{port}/" for ip in net._local_ips()]
@@ -1464,6 +1539,18 @@ def main():
         local = url + ("?code=" + state.join_code if state.join_code else "")
         threading.Timer(0.6, lambda: webbrowser.open(local)).start()
 
+    # Docker and systemd both stop a service with SIGTERM. Without this the
+    # standings since the last finish would be lost on every restart.
+    def bow_out(signum, frame):
+        log("shutting down")
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sig, bow_out)
+        except (ValueError, AttributeError, OSError):
+            pass      # not the main thread, or a platform without it
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1471,6 +1558,7 @@ def main():
     finally:
         net.stop()
         save_history(state)
+        log("standings saved to", save_path())
 
 
 if __name__ == "__main__":

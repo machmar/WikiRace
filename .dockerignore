@@ -1,0 +1,5 @@
+# Only two files belong in the image; everything else is for playing or
+# developing on a desktop.
+*
+!wikirace.py
+!ui.html
