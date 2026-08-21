@@ -19,8 +19,80 @@
     --warn: #d29922;
     --bad: #f85149;
     --gold: #e3b341;
+
+    /* Second tier: the tinted surfaces built from those accents, plus the
+       greys that aren't quite background or line. Naming them is what makes a
+       light theme a matter of swapping values rather than hunting hex codes. */
+    --good-bg: #14261a;   --good-line: #2d6b3a;  --good-fg: #7ee787;
+    --good-hover: #56d364;
+    --warn-bg: #33270c;   --warn-line: #8a6d1f;  --warn-fg: #f2cc60;
+    --bad-bg: #40202a;    --bad-line: #6b2d34;   --bad-fg: #ff9b95;
+    --info-bg: #16222f;   --info-line: #2b4a6b;
+    --accent-solid: #1f6feb; --accent-line: #2f7ff5; --accent-hover: #2a7cf7;
+    --hover: #232d3a;     --hover-soft: #19222d;  --hover-strong: #23303f;
+    --line-strong: #38424f;
+    --sunken: #1b232e;    --raised: #1b2733;
+    --fg-strong: #fff;
+    --on-accent: #fff;
+    --scrim: rgba(6, 10, 15, .6);
+    --shadow: rgba(0, 0, 0, .5);
+
     --radius: 10px;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+
+  /* Light throughout. The same names, different values - which is the whole
+     reason the colours were given names in the first place. */
+  body[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-2: #f6f7f9;
+    --bg-3: #eceff3;
+    --line: #d4d9e0;
+    --line-soft: #e7eaef;
+    --line-strong: #b7bfca;
+    --fg: #1b1f24;
+    --fg-dim: #4a5058;
+    --fg-faint: #767e88;
+    --fg-strong: #000000;
+    --accent: #0b62d6;
+    --good: #1a7f37;
+    --warn: #9a6700;
+    --bad: #cf222e;
+    --gold: #9a6700;
+
+    --good-bg: #dafbe1;  --good-line: #4ac26b;  --good-fg: #1a7f37;
+    --good-hover: #116329;
+    --warn-bg: #fff8c5;  --warn-line: #d4a72c;  --warn-fg: #7d4e00;
+    --bad-bg: #ffebe9;   --bad-line: #ff8182;   --bad-fg: #a40e26;
+    --info-bg: #ddf4ff;  --info-line: #54aeff;
+    --accent-solid: #0969da; --accent-line: #0969da; --accent-hover: #0860ca;
+    --hover: #eef1f4;    --hover-soft: #f3f5f7;  --hover-strong: #e3e8ee;
+    --sunken: #f6f8fa;   --raised: #eef2f6;
+    --scrim: rgba(27, 31, 36, .45);
+    --shadow: rgba(80, 90, 105, .22);
+  }
+
+  /* Wikipedia's own colours, and only where an article is drawn - so the game
+     around it stays dark while the reading looks like the real thing. */
+  body[data-theme="wiki"] #article-wrap,
+  body[data-theme="wiki"] #toc-panel,
+  body[data-theme="wiki"] .spec-view,
+  body[data-theme="wiki"] #myrun-reader {
+    --bg: #ffffff;
+    --bg-2: #f8f9fa;
+    --bg-3: #eaecf0;
+    --line: #a2a9b1;
+    --line-soft: #c8ccd1;
+    --line-strong: #72777d;
+    --fg: #202122;
+    --fg-dim: #54595d;
+    --fg-faint: #72777d;
+    --fg-strong: #000000;
+    --accent: #3366cc;
+    --hover: #eaf3ff;    --hover-soft: #f3f7fd;  --hover-strong: #e1ecff;
+    --sunken: #f8f9fa;   --raised: #eaecf0;
+    background: var(--bg);
+    color: var(--fg);
   }
 
   * { box-sizing: border-box; }
@@ -42,12 +114,12 @@
     padding: 7px 13px; border-radius: 7px;
     transition: background .12s, border-color .12s, transform .06s;
   }
-  button:hover:not(:disabled) { background: #232d3a; border-color: #38424f; }
+  button:hover:not(:disabled) { background: var(--hover); border-color: var(--line-strong); }
   button:active:not(:disabled) { transform: translateY(1px); }
   button:disabled { opacity: .4; cursor: not-allowed; }
-  button.primary { background: #1f6feb; border-color: #2f7ff5; font-weight: 600; }
-  button.primary:hover:not(:disabled) { background: #2a7cf7; }
-  button.danger:hover:not(:disabled) { background: #40202a; border-color: var(--bad); color: #ff9b95; }
+  button.primary { background: var(--accent-solid); border-color: var(--accent-line); color: var(--on-accent); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  button.danger:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad); color: var(--bad-fg); }
   button.ghost { background: transparent; }
 
   input[type=text] {
@@ -72,7 +144,7 @@
     justify-content: space-between; gap: 8px;
     background: var(--bg); border: 1px solid var(--line);
   }
-  .dd-btn:hover:not(:disabled) { background: var(--bg); border-color: #38424f; }
+  .dd-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--line-strong); }
   .dd.open .dd-btn { border-color: var(--accent); }
   .dd-btn .caret { color: var(--fg-faint); font-size: 10px; }
   .dd-list {
@@ -81,7 +153,7 @@
     max-height: 250px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
   }
   .dd-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
-  .dd-item:hover { background: #23303f; color: var(--accent); }
+  .dd-item:hover { background: var(--hover-strong); color: var(--accent); }
   .dd-item.on { color: var(--accent); font-weight: 600; }
   .dd-item.on::after { content: " ✓"; }
 
@@ -93,7 +165,7 @@
     max-height: 230px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
   }
   .ta-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
-  .ta-item:hover, .ta-item.on { background: #23303f; color: var(--accent); }
+  .ta-item:hover, .ta-item.on { background: var(--hover-strong); color: var(--accent); }
 
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .card.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
@@ -119,11 +191,11 @@
     font-size: 12px; background: var(--bg-3); color: var(--fg-faint);
     border: 1px solid var(--line);
   }
-  .tick.on { background: #14261a; border-color: #2d6b3a; color: var(--good); }
+  .tick.on { background: var(--good-bg); border-color: var(--good-line); color: var(--good); }
 
   .toggle.locked { opacity: .55; cursor: not-allowed; }
   .chip.lang {
-    background: #1b2733; color: var(--fg-dim); font-size: 11px;
+    background: var(--raised); color: var(--fg-dim); font-size: 11px;
     letter-spacing: .6px; font-weight: 600; padding: 4px 9px;
   }
 
@@ -162,8 +234,35 @@
     background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
     padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
   }
-  .chip.target { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
+  .chip.target { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   .arrow { color: var(--fg-faint); }
+
+  /* A round knob sliding along a three-slot track. The knob is one element
+     that moves, rather than three that light up, so the thing reads as a
+     switch with a position instead of three buttons. */
+  #theme {
+    position: relative; display: inline-flex; flex: none;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px;
+  }
+  #theme .knob {
+    position: absolute; top: 2px; left: 2px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent-solid);
+    transition: transform .2s cubic-bezier(.4, 1.3, .5, 1);
+    pointer-events: none;
+  }
+  #theme[data-at="1"] .knob { transform: translateX(26px); }
+  #theme[data-at="2"] .knob { transform: translateX(52px); }
+  #theme button {
+    position: relative; z-index: 1; width: 26px; height: 26px; padding: 0;
+    border: none; background: none; border-radius: 50%;
+    font-size: 13px; line-height: 1; color: var(--fg-faint);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #theme button:hover:not(:disabled) { background: none; color: var(--fg-dim); }
+  #theme button[aria-checked="true"] { color: var(--on-accent); font-weight: 700; }
+  #theme button[data-theme="wiki"] { font-family: Georgia, "Times New Roman", serif; }
 
   #hud { display: flex; align-items: center; gap: 16px; }
   .stat { text-align: right; line-height: 1.15; }
@@ -198,7 +297,7 @@
     display: block; padding: 5px 14px; font-size: 12.5px; line-height: 1.35;
     color: var(--fg-dim); cursor: pointer; border-left: 2px solid transparent;
   }
-  #toc-panel a:hover { color: var(--accent); background: #19222d; border-left-color: var(--accent); }
+  #toc-panel a:hover { color: var(--accent); background: var(--hover-soft); border-left-color: var(--accent); }
   #toc-panel a.lv3 { padding-left: 26px; font-size: 12px; }
   #toc-panel a.lv4 { padding-left: 38px; font-size: 11.5px; color: var(--fg-faint); }
   #toc-panel .empty { padding: 0 14px; }
@@ -241,12 +340,12 @@
     background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
     font-family: var(--mono);
   }
-  .racer .pip.cp.all { border-color: #4a5563; color: #fff; background: #2a3441; }
+  .racer .pip.cp.all { border-color: var(--line-strong); color: var(--fg-strong); background: var(--line-strong); }
 
   .racer.near .pip {
     margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
     text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
-    background: #40202a; border: 1px solid var(--bad); color: #ff9b95;
+    background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad-fg);
     vertical-align: 1px;
   }
   .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
@@ -291,7 +390,7 @@
     content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
     border-radius: 50%; background: var(--fg-faint); transition: transform .15s, background .15s;
   }
-  .toggle.on .track { background: #17384f; border-color: var(--accent); }
+  .toggle.on .track { background: var(--info-bg); border-color: var(--accent); }
   .toggle.on .track::after { transform: translateX(16px); background: var(--accent); }
 
   /* ---------- overlays ---------- */
@@ -316,14 +415,14 @@
   #countdown { font-size: 130px; font-weight: 800; font-family: var(--mono); letter-spacing: -6px; animation: pop .45s ease-out; }
   .cd-warn {
     margin-top: 16px; padding: 9px 16px; border-radius: 9px;
-    background: #3a2d10; border: 1px solid #6b5320; color: #f2cc60;
+    background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-fg);
     font-size: 13.5px; max-width: 420px;
   }
-  .cd-warn b { color: #fff; }
+  .cd-warn b { color: var(--fg-strong); }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .cd-wrap { text-align: center; }
   .cd-wrap .goal-big { font-size: 19px; margin-bottom: 8px; }
-  .cd-wrap .goal-big b { color: #7ee787; }
+  .cd-wrap .goal-big b { color: var(--good-fg); }
 
   .result-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
   .result-row .medal { width: 26px; font-size: 16px; }
@@ -463,7 +562,7 @@
     border: 1px solid var(--line); border-radius: 9px; margin-bottom: 7px;
     background: var(--bg-2); cursor: pointer; transition: border-color .12s, background .12s;
   }
-  .step:hover { border-color: var(--accent); background: #19222d; }
+  .step:hover { border-color: var(--accent); background: var(--hover-soft); }
   .step.here { border-color: var(--accent); }
   .step .n { font-family: var(--mono); color: var(--fg-faint); font-size: 12px; width: 20px; }
   .step .ti { flex: 1; font-weight: 600; font-size: 14px; }
@@ -472,16 +571,16 @@
   /* The three steps that mean something get the same treatment - a coloured
      edge and a matching tag - so they read as one family: where you set off,
      what you had to touch on the way, and where you arrived. */
-  .step .tag.begin { background: #16222f; color: var(--accent); border-color: #2b4a6b; }
-  .step .tag.cp    { background: #33270c; color: #f2cc60;      border-color: #8a6d1f; }
-  .step .tag.goal  { background: #14261a; color: var(--good);  border-color: #2d6b3a; }
+  .step .tag.begin { background: var(--info-bg); color: var(--accent); border-color: var(--info-line); }
+  .step .tag.cp    { background: var(--warn-bg); color: var(--warn-fg);      border-color: var(--warn-line); }
+  .step .tag.goal  { background: var(--good-bg); color: var(--good);  border-color: var(--good-line); }
 
-  .step.start      { border-color: #2b4a6b; box-shadow: inset 3px 0 0 var(--accent); }
-  .step.checkpoint { border-color: #8a6d1f; box-shadow: inset 3px 0 0 #f2cc60; }
-  .step.target     { border-color: #2d6b3a; box-shadow: inset 3px 0 0 var(--good); }
+  .step.start      { border-color: var(--info-line); box-shadow: inset 3px 0 0 var(--accent); }
+  .step.checkpoint { border-color: var(--warn-line); box-shadow: inset 3px 0 0 var(--warn-fg); }
+  .step.target     { border-color: var(--good-line); box-shadow: inset 3px 0 0 var(--good); }
   .step.start:hover      { border-color: var(--accent); }
-  .step.checkpoint:hover { border-color: #f2cc60; }
-  .step.target:hover     { border-color: #56d364; }
+  .step.checkpoint:hover { border-color: var(--warn-fg); }
+  .step.target:hover     { border-color: var(--good-hover); }
 
   /* replay */
   .replay-ctl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -495,7 +594,7 @@
   .lane-now .row2 .who { font-weight: 600; min-width: 92px; }
   .lane-now .row2 .art { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lane-now .row2 .cl { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
-  .lane-now .row2.done { border-color: #2d6b3a; }
+  .lane-now .row2.done { border-color: var(--good-line); }
 
   /* ---------- spectator view ---------- */
 
@@ -507,7 +606,7 @@
 
   .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
   .seg button { border: none; border-radius: 0; background: transparent; padding: 6px 13px; font-size: 13px; }
-  .seg button.on { background: #1f6feb; font-weight: 600; }
+  .seg button.on { background: var(--accent-solid); color: var(--on-accent); font-weight: 600; }
 
   #spec-body { flex: 1; overflow: hidden; padding: 12px; }
   #spec-body.tiles {
@@ -534,9 +633,9 @@
   }
   .spec-head .badge {
     font-size: 10px; padding: 1px 7px; border-radius: 999px;
-    background: #14261a; color: var(--good); border: 1px solid #2d6b3a;
+    background: var(--good-bg); color: var(--good); border: 1px solid var(--good-line);
   }
-  .spec-head .badge.out { background: #2a1519; color: var(--bad); border-color: #6b2d34; }
+  .spec-head .badge.out { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-line); }
 
   /* Mirrors their scroll position, so it must not be scrollable by hand. */
   .spec-view { flex: 1; overflow: hidden; position: relative; }
@@ -603,6 +702,11 @@
     .stat .v { font-size: 16px; }
     .stat .k { font-size: 9px; letter-spacing: .6px; }
     #btn-new { display: none; }          /* the lobby has its own, larger one */
+    #theme { padding: 1px; }
+    #theme .knob { top: 1px; left: 1px; width: 22px; height: 22px; }
+    #theme[data-at="1"] .knob { transform: translateX(22px); }
+    #theme[data-at="2"] .knob { transform: translateX(44px); }
+    #theme button { width: 22px; height: 22px; font-size: 11.5px; }
     #btn-back, #btn-giveup { padding: 6px 10px; font-size: 12.5px; }
 
     /* Everyone else's progress: full width, one line, no horizontal cost. */
@@ -649,10 +753,10 @@
 
   /* only appears when you're standing on the target still owing a stop */
   #cpwarn {
-    padding: 9px 16px; background: #3a2d10; border-bottom: 1px solid #6b5320;
-    color: #f2cc60; font-size: 13px; font-weight: 600;
+    padding: 9px 16px; background: var(--warn-bg); border-bottom: 1px solid var(--warn-line);
+    color: var(--warn-fg); font-size: 13px; font-weight: 600;
   }
-  #cpwarn .sub { font-weight: 400; color: #d9c08a; }
+  #cpwarn .sub { font-weight: 400; color: var(--warn-fg); }
 
   .cp {
     display: inline-flex; align-items: center; gap: 6px;
@@ -660,7 +764,7 @@
     border: 1px solid var(--line); background: var(--bg-3); color: var(--fg-dim);
   }
   .cp .mark { font-size: 11px; }
-  .cp.hit { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
+  .cp.hit { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   .cp.goal { border-style: dashed; }
   .cp.goal.hit { border-style: solid; }
 
@@ -718,20 +822,20 @@
   .mp .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .mp .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mp .n { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
-  .mp.done { border-color: #2d6b3a; background: #14261a; color: #7ee787; }
-  .mp.near { border-color: var(--bad); background: #40202a; color: #ff9b95; font-weight: 700; }
+  .mp.done { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
+  .mp.near { border-color: var(--bad); background: var(--bad-bg); color: var(--bad-fg); font-weight: 700; }
   .mp.out { opacity: .45; }
 
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
-    background: var(--warn); color: #1b1200; text-align: center;
+    background: var(--warn); color: var(--bg); text-align: center;
     font-size: 12.5px; font-weight: 600; padding: 4px;
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: #2a3441; border-radius: 5px; border: 2px solid var(--bg); }
-  ::-webkit-scrollbar-thumb:hover { background: #38424f; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
 </style>
 </head>
 <body>
@@ -755,6 +859,13 @@
     </div>
 
     <div class="row">
+      <div id="theme" role="radiogroup" aria-label="Appearance">
+        <span class="knob"></span>
+        <button type="button" data-theme="light" role="radio" title="Light">☀</button>
+        <button type="button" data-theme="wiki" role="radio"
+                title="Dark, with the article as Wikipedia">W</button>
+        <button type="button" data-theme="dark" role="radio" title="Dark">☾</button>
+      </div>
       <button id="btn-back" disabled>← Back</button>
       <button id="btn-giveup" class="danger" hidden>Give up</button>
       <button id="btn-new" class="primary">Set up race</button>
@@ -1738,6 +1849,8 @@ async function giveUp() {
  * Results: standings, superlatives, and the route nobody found
  * ------------------------------------------------------------------ */
 
+// A player's colour is their identity for the whole race - it stays put when
+// the theme changes, so these are literals on purpose.
 const PALETTE = ["#f97583", "#79c0ff", "#7ee787", "#ffa657", "#d2a8ff",
                  "#56d4dd", "#f2cc60", "#ff9bce", "#a5d6ff", "#b4f1b4"];
 
@@ -2073,7 +2186,7 @@ async function findGhost(snap) {
         const path = mine.path || [];
         const times = (mine.times && mine.times.length === path.length) ? mine.times : null;
         return {
-          name: mine.name + " (previous)", color: "#6b7785", ghost: true,
+          name: mine.name + " (previous)", color: "var(--fg-faint)", ghost: true,
           finished: true, clicks: mine.clicks, elapsed: mine.elapsed || 0,
           steps: path.map((title, i) => ({
             title,
@@ -2238,7 +2351,7 @@ function drawReplay() {
                    '" x2="' + pts[i].x + '" y2="' + pts[i].y + '"';
       svg += "<line " + geom + ' stroke="transparent" stroke-width="12" ' +
              'data-art="' + esc(key) + '" class="tl-hit"/>';
-      svg += "<line " + geom + ' stroke="#3a4757" stroke-width="1" ' +
+      svg += "<line " + geom + ' stroke="var(--line-strong)" stroke-width="1" ' +
              'stroke-dasharray="2 3" data-art="' + esc(key) + '" class="tl-link"/>';
     }
   }
@@ -2246,7 +2359,7 @@ function drawReplay() {
   lanes.forEach((l, i) => {
     const y = top + i * rowH + rowH / 2;
     svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y +
-           '" stroke="' + (l.ghost ? "#252d38" : "#2a3441") + '" stroke-width="2" ' +
+           '" stroke="' + (l.ghost ? "var(--line-soft)" : "var(--line-strong)") + '" stroke-width="2" ' +
            (l.ghost ? 'stroke-dasharray="4 4"' : "") + "/>";
     svg += '<text x="0" y="' + (y + 4) + '" fill="' + l.color +
            '" font-size="12" font-weight="600">' +
@@ -2259,27 +2372,27 @@ function drawReplay() {
       const isCheck = checkKeys.has(key);
       const isGoal = key === targetKey;
       // The ring says what the page is; the fill still says whose dot it is.
-      const ring = isGoal ? "#3fb950" : isCheck ? "#f2cc60" : l.color;
+      const ring = isGoal ? "var(--good)" : isCheck ? "var(--warn-fg)" : l.color;
       const rad = isGoal || isCheck ? 6.5 : shared ? 5.5 : 4;
       const label = s.title + " · " + fmtTime(s.t) +
                     (isGoal ? " · target" : isCheck ? " · checkpoint" : "");
       svg += '<circle class="tl-dot" data-art="' + esc(key) +
              '" data-label="' + esc(label) +
              '" cx="' + x(s.t) + '" cy="' + y + '" r="' + rad +
-             '" fill="' + (dim ? "#1b232e" : l.color) + '" stroke="' + ring +
+             '" fill="' + (dim ? "var(--sunken)" : l.color) + '" stroke="' + ring +
              '" stroke-width="' + (isGoal || isCheck ? 2.5 : 1.5) + '"' +
              (isCheck ? ' stroke-dasharray="4 3"' : "") +
              ' opacity="' + (l.ghost ? .55 : 1) + '"/>';
     }
     if (l.finished && l.elapsed <= replay.t) {
       svg += '<text x="' + (x(l.elapsed) + 9) + '" y="' + (y + 4) +
-             '" fill="#3fb950" font-size="12">&#127937;</text>';
+             '" fill="var(--good)" font-size="12">&#127937;</text>';
     }
   });
 
   const px = x(replay.t);
   svg += '<line x1="' + px + '" y1="' + (top - 6) + '" x2="' + px + '" y2="' + (h - 6) +
-         '" stroke="#58a6ff" stroke-width="1.5"/>';
+         '" stroke="var(--accent)" stroke-width="1.5"/>';
   svg += "</svg>";
   chart.innerHTML = svg;
   wireTimelineHover(chart);
@@ -2752,8 +2865,8 @@ function drawRoutes() {
     const shared = g.visitors.get(k).size > 1;
     const isStart = k === g.startKey, isTarget = k === g.targetKey;
     const isCheck = g.checkKeys.has(k);
-    const fill = isTarget ? "#14261a" : isStart ? "#1b2733" : "var(--bg-2)";
-    const stroke = isTarget ? "#3fb950" : isCheck ? "#d29922" : shared ? "#8b98a8" : "#3a4757";
+    const fill = isTarget ? "var(--good-bg)" : isStart ? "var(--raised)" : "var(--bg-2)";
+    const stroke = isTarget ? "var(--good)" : isCheck ? "var(--warn)" : shared ? "#8b98a8" : "var(--line-strong)";
     const rad = Math.round((isStart || isTarget ? 11 : shared ? 9 : 7) * shrink);
 
     const seenBy = [...g.visitors.get(k)].map(n => g.runs.findIndex(r => r.name === n))
@@ -2772,7 +2885,7 @@ function drawRoutes() {
       const drop = tight && (g.pos.get(k).c % 2) ? 13 : 0;
       svg += '<text x="' + c.x + '" y="' + (c.y + rad + 15 + drop) + '" text-anchor="middle" ' +
              'font-size="' + (tight ? 10 : 11.5) + '" fill="' +
-             (isTarget ? "#7ee787" : "var(--fg-dim)") + '">' + esc(short) + "</text>";
+             (isTarget ? "var(--good-fg)" : "var(--fg-dim)") + '">' + esc(short) + "</text>";
     }
     if (isStart || isTarget) {
       svg += '<text x="' + c.x + '" y="' + (c.y - rad - 7) + '" text-anchor="middle" ' +
@@ -2855,7 +2968,7 @@ function wireTimelineHover(chart) {
       el.style.opacity = key == null ? "" : (el.dataset.art === key ? "1" : "0.12");
     }
     for (const el of links) {
-      el.style.stroke = key != null && el.dataset.art === key ? "#58a6ff" : "";
+      el.style.stroke = key != null && el.dataset.art === key ? "var(--accent)" : "";
       el.style.strokeWidth = key != null && el.dataset.art === key ? "2" : "";
     }
   };
@@ -3628,6 +3741,30 @@ $("share-copy").onclick = async () => {
     toast("Press Ctrl+C to copy");
   }
 };
+
+/* Three ways to look at it: light throughout, dark throughout, or dark with
+   the article itself done out as Wikipedia. Kept on this machine, like the
+   name - it's a preference about your eyes, not about the game. */
+const THEMES = ["light", "wiki", "dark"];
+
+function applyTheme(name) {
+  const theme = THEMES.includes(name) ? name : "dark";
+  document.body.dataset.theme = theme;
+  const box = $("theme");
+  box.dataset.at = String(THEMES.indexOf(theme));
+  box.querySelectorAll("button").forEach(b =>
+    b.setAttribute("aria-checked", String(b.dataset.theme === theme)));
+  try { localStorage.setItem("wr_theme", theme); } catch (e) { /* ignore */ }
+}
+
+$("theme").querySelectorAll("button").forEach(b => {
+  b.onclick = () => applyTheme(b.dataset.theme);
+});
+
+// Before anything is drawn, so there's no flash of the wrong one.
+applyTheme((() => {
+  try { return localStorage.getItem("wr_theme"); } catch (e) { return null; }
+})() || "dark");
 
 // -- the sidebar is a drawer on a phone, and always on screen on a desktop --
 function setDrawer(open) {

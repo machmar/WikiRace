@@ -188,6 +188,22 @@ The timer stops while an article is loading. What it measures is your thinking,
 not your bandwidth — so a slow connection doesn't lose you the race. (Borrowed
 from [wikispeedrun.org](https://wikispeedrun.org), which does the same.)
 
+## How it looks
+
+Top right of the bar is a round knob in a three-slot track. Slide it to pick:
+
+| | |
+|---|---|
+| ☀ | light throughout |
+| W | dark game, article done out like Wikipedia |
+| ☾ | dark throughout (the default) |
+
+The middle one is worth a try if the dark article is hard on your eyes but you
+don't want the rest of the screen going white mid-race.
+
+It's a per-browser choice, remembered on your own machine next to your name.
+Nobody else sees your setting, and it isn't part of the race rules.
+
 ## Installing Python
 
 There are **no packages to install** — the game is written against the Python
