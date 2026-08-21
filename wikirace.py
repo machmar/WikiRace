@@ -160,6 +160,7 @@ class GameState:
         self.lan_urls = []
         self.join_code = None           # required to get in when the game is
                                         # reachable beyond your own network
+        self.show_invite = True         # the lobby's "send them this link" card
 
         # peer_id -> presence/live info
         self.peers = {}
@@ -398,6 +399,7 @@ class GameState:
                 "show_opponents": me.show_opponents,
                 "ready": me.ready,
                 "join_urls": self.lan_urls,
+                "show_invite": self.show_invite,
                 "local_players": len(self.locals),
                 "race_count": len(self.races),
                 # Deliberately compact - this rides every snapshot, so full
@@ -1471,6 +1473,10 @@ def main():
                     help="where to keep the standings (default: next to this script). "
                          "Point it at a mounted volume when running in a container. "
                          "Also read from WIKIRACE_DATA.")
+    ap.add_argument("--no-invite", action="store_true", default=env_flag("no_invite"),
+                    help="hide the lobby's invite link. Worth it when people reach the "
+                         "game by an address the server can't know - through a reverse "
+                         "proxy, say. Also read from WIKIRACE_NO_INVITE.")
     ap.add_argument("--no-discovery", action="store_true", default=env_flag("no_discovery"),
                     help="skip the peer-to-peer discovery entirely. Worth it on a "
                          "server, where there are no other copies to find.")
@@ -1503,6 +1509,7 @@ def main():
 
     if args.code:
         state.join_code = args.code.strip()
+    state.show_invite = not args.no_invite
 
     load_history(state)
 

@@ -2441,7 +2441,10 @@ function renderLobby(snap) {
   // separately and type it in.
   const lan = (snap.join_urls || [])[0];
   const link = atTheMachine ? (lan ? lan + suffix : here) : here;
-  setFlag($("share-card"), "hidden", !link);
+  // Somewhere the address is arranged by other means - behind a proxy, or a
+  // server everyone already has bookmarked - the card is just a wrong guess
+  // taking up room, so it can be switched off.
+  setFlag($("share-card"), "hidden", snap.show_invite === false || !link);
   setText($("share-note"), "Send this link — they play in a browser, nothing to install.");
   if (link && document.activeElement !== $("share-url")) {
     $("share-url").value = link;

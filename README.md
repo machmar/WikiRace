@@ -115,6 +115,7 @@ configured — no command line needed:
 | `WIKIRACE_HOST` | `1` — let browsers connect. Already set in the image. |
 | `WIKIRACE_NO_BROWSER` | `1` — don't try to open a window on a headless box |
 | `WIKIRACE_NO_DISCOVERY` | `1` — skip the LAN peer hunt; a server has no neighbours to find |
+| `WIKIRACE_NO_INVITE` | `1` hides the lobby's invite link — the address it guesses is wrong behind a proxy, and people already have the real one |
 | `WIKIRACE_NAME` | the name given to whoever opens it on the machine itself |
 
 `GET /healthz` answers without the join code and returns player and race
@@ -338,6 +339,7 @@ copy on the same network to be confused with. The default is fine.
 --room friday-night   only pair up with copies using this same name (LAN only)
 --port 8500           which port to listen on
 --peer 192.168.1.42   add a peer by hand if broadcast is blocked
+--no-invite           hide the lobby's "send them this link" card
 --no-browser          don't auto-open a tab (use this on a server)
 ```
 
