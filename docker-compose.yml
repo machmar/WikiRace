@@ -23,8 +23,10 @@ services:
       # Without it the game is open to anyone who can reach the port.
       WIKIRACE_CODE: "change-me-before-you-expose-this"
 
-      # Everyone using the same room name plays together; separate names keep
-      # separate groups apart if more than one crowd uses the box.
+      # Only relevant if other copies of the game run on the same network as
+      # the NAS: those ignore each other unless the room names match. It does
+      # NOT split the people connecting to this server - everyone who opens it
+      # shares one game. Leave it be unless you know you need it.
       WIKIRACE_ROOM: "default"
 
       # The rest are already set in the image and are here to be seen rather

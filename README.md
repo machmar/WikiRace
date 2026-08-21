@@ -103,7 +103,7 @@ configured — no command line needed:
 |---|---|
 | `WIKIRACE_CODE` | required to join. **Set this.** |
 | `WIKIRACE_DATA` | where the standings are kept. Mount a volume here. |
-| `WIKIRACE_ROOM` | keeps separate groups apart if more than one crowd uses the box |
+| `WIKIRACE_ROOM` | only matters if other copies run on the same network — see [Rooms](#rooms). It does *not* split the people connecting to this server. |
 | `WIKIRACE_PORT` | which port to listen on (default 8420) |
 | `WIKIRACE_HOST` | `1` — let browsers connect. Already set in the image. |
 | `WIKIRACE_NO_BROWSER` | `1` — don't try to open a window on a headless box |
@@ -295,20 +295,32 @@ racing next to you.
 
 ## Rooms
 
-Everyone on the network running the game lands in the same game by default.
-On a shared network — an office, a dorm, a coworking space — another group
-could be playing too, and you'd end up in each other's races.
-
-Give your group a room name and you'll only see each other:
+A room name decides which **copies of the game** pay attention to each other on
+a local network. It belongs to a running copy and is chosen when it starts:
 
 ```sh
-./play.sh --room friday-night          # Linux/macOS
+./play.sh --room friday-night
 ```
 ```
 "Play WikiRace.bat" --room friday-night
 ```
 
+Copies with the same name find each other and share one game. Copies with
+different names ignore each other completely, even on the same wire — which is
+the point, in an office or a dorm where two groups would otherwise collide.
 Everyone in your group has to pass the same name.
+
+**What it doesn't do** is divide the people connecting to one server. The room
+belongs to the process, not to the connection, so everybody who opens the same
+address is in the same lobby and the same race whatever it's called, and
+there's no `?room=` to ask for a different one.
+
+To run two separate games on one machine, start the game twice on two ports,
+each with its own `--room` *and* its own `--data-dir` — otherwise they'd share
+a scoreboard.
+
+On a NAS this setting usually does nothing, because there's rarely another
+copy on the same network to be confused with. The default is fine.
 
 ## Options
 
@@ -316,7 +328,7 @@ Everyone in your group has to pass the same name.
 --name Marek          your display name
 --host                let people play from a browser instead of installing
 --code ABC123         require this code to join
---room friday-night   only play with people using this same room name
+--room friday-night   only pair up with copies using this same name (LAN only)
 --port 8500           which port to listen on
 --peer 192.168.1.42   add a peer by hand if broadcast is blocked
 --no-browser          don't auto-open a tab (use this on a server)
