@@ -77,7 +77,8 @@
   body[data-theme="wiki"] #article-wrap,
   body[data-theme="wiki"] #toc-panel,
   body[data-theme="wiki"] .spec-view,
-  body[data-theme="wiki"] #myrun-reader {
+  body[data-theme="wiki"] #myrun-reader,
+  body[data-theme="wiki"] #peek-body {
     --bg: #ffffff;
     --bg-2: #f8f9fa;
     --bg-3: #eaecf0;
@@ -263,6 +264,56 @@
   #theme button:hover:not(:disabled) { background: none; color: var(--fg-dim); }
   #theme button[aria-checked="true"] { color: var(--on-accent); font-weight: 700; }
   #theme button[data-theme="wiki"] { font-family: Georgia, "Times New Roman", serif; }
+
+  /* The target, once the table has agreed to open it. Above the drawer and
+     its scrim, because you should be able to read it from anywhere. */
+  #peek-scrim, #vote-scrim { display: none; }
+  #peek-scrim:not([hidden]), #vote-scrim:not([hidden]) {
+    position: fixed; inset: 0; z-index: 100; background: var(--scrim);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  #peek-sheet {
+    display: flex; flex-direction: column; width: min(900px, 100%); height: 100%;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: 0 20px 60px var(--shadow);
+    overflow: hidden;
+  }
+  #peek-head {
+    display: flex; align-items: center; gap: 12px; flex: none;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg-2);
+  }
+  #peek-head .who { flex: 1; min-width: 0; }
+  #peek-head .who b { font-size: 15px; }
+  #peek-head .who div { font-size: 11.5px; color: var(--fg-faint); margin-top: 2px; }
+  #peek-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  /* Reading only. Every link in here is inert - the way out of the target is
+     to race to it, not to click out of the window. */
+  #peek-body .wiki a, #peek-body .wiki a.dead {
+    color: var(--fg); text-decoration: none; cursor: default;
+    border-bottom: 1px dotted var(--line-strong);
+  }
+
+  #vote-card {
+    width: min(430px, 100%); background: var(--bg); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: 0 20px 60px var(--shadow); padding: 20px;
+  }
+  #vote-card h3 { margin: 0 0 8px; font-size: 17px; }
+  #vote-card .why { font-size: 13px; color: var(--fg-dim); line-height: 1.55; margin-bottom: 14px; }
+  #vote-tally { margin-bottom: 16px; }
+  .vote-row {
+    display: flex; align-items: center; gap: 9px; padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
+  }
+  .vote-row:last-child { border-bottom: none; }
+  .vote-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vote-row .st { font-size: 12px; color: var(--fg-faint); }
+  .vote-row.yes .st { color: var(--good-fg); }
+  .vote-row.no .st { color: var(--bad-fg); }
+
+  #btn-peek { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  #btn-peek.granted { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
+  #btn-peek.asked { border-color: var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
+  #btn-peek .cnt { font-family: var(--mono); font-size: 11.5px; opacity: .85; }
 
   #hud { display: flex; align-items: center; gap: 16px; }
   .stat { text-align: right; line-height: 1.15; }
@@ -692,7 +743,7 @@
     }
     #toc-panel.open { transform: translateX(0); }
 
-    #topbar { gap: 8px; padding: 7px 10px; min-height: 46px; }
+    #topbar { gap: 6px; padding: 7px 6px; min-height: 46px; }
     .brandname { display: none; }
     #roomtag { display: none; }
     #goal { font-size: 12.5px; gap: 6px; }
@@ -703,11 +754,13 @@
     .stat .k { font-size: 9px; letter-spacing: .6px; }
     #btn-new { display: none; }          /* the lobby has its own, larger one */
     #theme { padding: 1px; }
-    #theme .knob { top: 1px; left: 1px; width: 22px; height: 22px; }
-    #theme[data-at="1"] .knob { transform: translateX(22px); }
-    #theme[data-at="2"] .knob { transform: translateX(44px); }
-    #theme button { width: 22px; height: 22px; font-size: 11.5px; }
-    #btn-back, #btn-giveup { padding: 6px 10px; font-size: 12.5px; }
+    #theme .knob { top: 1px; left: 1px; width: 19px; height: 19px; }
+    #theme[data-at="1"] .knob { transform: translateX(19px); }
+    #theme[data-at="2"] .knob { transform: translateX(38px); }
+    #theme button { width: 19px; height: 19px; font-size: 10.5px; }
+    #btn-back, #btn-giveup, #btn-peek { padding: 6px 7px; font-size: 12.5px; }
+    /* Icon only - the label is what the tooltip and the prompt are for. */
+    #btn-peek .lbl { display: none; }
 
     /* Everyone else's progress: full width, one line, no horizontal cost. */
     #miniplayers {
@@ -867,8 +920,36 @@
         <button type="button" data-theme="dark" role="radio" title="Dark">☾</button>
       </div>
       <button id="btn-back" disabled>← Back</button>
+      <button id="btn-peek" hidden>Reveal target?</button>
       <button id="btn-giveup" class="danger" hidden>Give up</button>
       <button id="btn-new" class="primary">Set up race</button>
+    </div>
+  </div>
+
+  <div id="peek-scrim" hidden>
+    <div id="peek-sheet">
+      <div id="peek-head">
+        <div class="who"><b id="peek-title">The target</b>
+          <div>Everyone agreed to open this. Links here don't count — and don't work.</div></div>
+        <button id="peek-close" class="ghost">Close</button>
+      </div>
+      <div id="peek-body"></div>
+    </div>
+  </div>
+
+  <div id="vote-scrim" hidden>
+    <div id="vote-card">
+      <h3>Put the target page on screen?</h3>
+      <div class="why">Nobody has to race blind. If <b>everyone still racing</b>
+        agrees, the target opens in a window you can read whenever you like for
+        the rest of the race — you can study it, then close it and carry on.
+        You still can't click through from it.</div>
+      <div id="vote-tally"></div>
+      <div class="row">
+        <button id="vote-yes" class="primary" style="flex:1">I agree</button>
+        <button id="vote-no" class="danger" style="flex:1">Keep it hidden</button>
+      </div>
+      <button id="vote-close" class="ghost" style="width:100%;margin-top:8px">Decide later</button>
     </div>
   </div>
 
@@ -1654,6 +1735,8 @@ function renderRules(race) {
   bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
   bits.push(race.allow_back === false ? "no going back" : "back allowed");
   if (race.allow_find === false) bits.push("no find on page");
+  if (race.peek) bits.push("target revealed");
+  else if (race.allow_peek === false) bits.push("target stays hidden");
   if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
   bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
   if (race.ban_hubs) bits.push("no hub pages");
@@ -3065,6 +3148,7 @@ const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
   ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0,
   allow_find: true,
+  allow_peek: true,
 };
 
 /* A dropdown that behaves itself.
@@ -3250,6 +3334,9 @@ function openConfigurator() {
       '<div class="toggle" id="c-find" style="margin-top:8px"><div class="track"></div>' +
       '<span>Allow find on page <span class="muted tiny">(Ctrl+F — blocks the ' +
       'shortcut, not the browser menu)</span></span></div>' +
+      '<div class="toggle" id="c-peek" style="margin-top:8px"><div class="track"></div>' +
+      '<span>Let players vote to reveal the target <span class="muted tiny">' +
+      '(everyone still racing has to agree)</span></span></div>' +
       '<div class="toggle" id="c-hubs" style="margin-top:8px"><div class="track"></div>' +
       '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
       '<div class="toggle" id="c-handicap" style="margin-top:8px"><div class="track"></div>' +
@@ -3317,6 +3404,7 @@ function openConfigurator() {
   q("#c-positions").classList.toggle("on", cfg.show_positions);
   q("#c-back").classList.toggle("on", cfg.allow_back);
   q("#c-find").classList.toggle("on", cfg.allow_find);
+  q("#c-peek").classList.toggle("on", cfg.allow_peek);
 
   q("#c-hubs").classList.toggle("on", cfg.ban_hubs);
   q("#c-handicap").classList.toggle("on", cfg.handicap);
@@ -3339,6 +3427,7 @@ function openConfigurator() {
   bindToggle("#c-positions", "show_positions");
   bindToggle("#c-back", "allow_back");
   bindToggle("#c-find", "allow_find");
+  bindToggle("#c-peek", "allow_peek");
   bindToggle("#c-hubs", "ban_hubs");
   bindToggle("#c-handicap", "handicap");
 
@@ -3431,6 +3520,7 @@ function openConfigurator() {
         show_positions: cfg.show_positions,
         allow_back: cfg.allow_back,
         allow_find: cfg.allow_find,
+        allow_peek: cfg.allow_peek,
         time_limit: cfg.time_limit,
         ban_hubs: cfg.ban_hubs,
         handicap: cfg.handicap,
@@ -3492,6 +3582,7 @@ function renderSnapshot(snap) {
   ready.classList.toggle("primary", !snap.ready);
 
   renderConfigReady(snap);
+  renderPeek(snap);
   renderRules(snap.race);
   renderRacers(snap);
   updateTicker(snap);
@@ -3742,6 +3833,142 @@ $("share-copy").onclick = async () => {
   }
 };
 
+/* ------------------------------------------------------------------ *
+ * Revealing the target
+ *
+ * Some pairs of articles are unraceable because nobody has the faintest idea
+ * what the destination even is. Rather than abandon the race, the table can
+ * vote to put the target on screen to read. It takes everyone still racing,
+ * and once it opens it stays open - the page is there to study, not a peek on
+ * a timer. Reading it is no shortcut: you still have to get there.
+ * ------------------------------------------------------------------ */
+const peek = { title: null, html: null, loading: false, scroll: 0, seen: false };
+
+function raceNow() {
+  return (S.snap && S.snap.race) || S.race;
+}
+
+function peekAllowed(race) {
+  return !!race && race.allow_peek !== false;
+}
+
+function myVote(snap) {
+  return snap && snap.peek_vote !== undefined ? snap.peek_vote : null;
+}
+
+async function openPeek() {
+  const race = raceNow();
+  if (!race || !race.peek) return;
+  $("peek-scrim").hidden = false;
+  const body = $("peek-body");
+  if (peek.html && peek.title === race.target) {
+    // Coming back to it - land where you left off rather than at the top.
+    body.scrollTop = peek.scroll;
+    return;
+  }
+  if (peek.loading) return;
+  peek.loading = true;
+  setHTML(body, '<div class="spinner"></div>');
+  try {
+    const { title, html } = await fetchArticle(race.target, race.lang || "en");
+    peek.title = race.target;
+    peek.html = '<h1 class="title">' + esc(title) + '</h1><div class="wiki">' + html + "</div>";
+    peek.scroll = 0;
+  } catch (e) {
+    peek.html = "<p>Could not load <b>" + esc(race.target) + "</b>.</p>" +
+                '<p class="tiny">' + esc(e.message) + "</p>";
+    peek.title = null;                       // so a retry actually refetches
+  } finally {
+    peek.loading = false;
+  }
+  setHTML(body, peek.html);
+  // Nothing in here is a move. Stripping the hrefs outright means a stray
+  // click can't navigate this window away from the target either.
+  body.querySelectorAll("a").forEach(a => { a.removeAttribute("href"); a.classList.add("dead"); });
+  body.scrollTop = peek.scroll;
+}
+
+function closePeek() {
+  peek.scroll = $("peek-body").scrollTop;
+  $("peek-scrim").hidden = true;
+}
+
+function openVote() { $("vote-scrim").hidden = false; renderVote(S.snap); }
+function closeVote() { $("vote-scrim").hidden = true; }
+
+function castVote(value) {
+  post("/peek_vote", { value });
+  closeVote();
+}
+
+function renderVote(snap) {
+  if ($("vote-scrim").hidden || !snap) return;
+  const rows = snap.peek_tally || [];
+  const mine = myVote(snap);
+  setHTML($("vote-tally"), rows.length
+    ? rows.map(r => {
+        const cls = r.vote === "yes" ? "yes" : r.vote === "no" ? "no" : "";
+        const label = r.vote === "yes" ? "agreed"
+                    : r.vote === "no" ? "wants it hidden" : "hasn't said";
+        const mark = r.vote === "yes" ? "✓" : r.vote === "no" ? "✗" : "…";
+        return '<div class="vote-row ' + cls + '"><span class="st">' + mark + "</span>" +
+               '<span class="nm">' + esc(r.name) + "</span>" +
+               '<span class="st">' + label + "</span></div>";
+      }).join("")
+    : '<div class="empty tiny">Nobody is racing right now.</div>');
+  setText($("vote-yes"), mine === "yes" ? "✓ You agreed" : "I agree");
+  setText($("vote-no"), mine === "no" ? "✗ You said no" : "Keep it hidden");
+}
+
+function renderPeek(snap) {
+  const race = snap && snap.race;
+  const btn = $("btn-peek");
+  const live = !!race && S.running && !S.done;
+  setFlag(btn, "hidden", !(live && (peekAllowed(race) || race.peek)));
+
+  if (race && race.peek) {
+    setHTML(btn, '<span class="ico">📖</span><span class="lbl">Target</span>');
+    btn.className = "granted";
+    btn.title = "Read the target page - agreed by everyone";
+    if (!peek.seen) {                        // announce the moment it opens
+      peek.seen = true;
+      toast("Everyone agreed — the target is open to study", 3200);
+    }
+  } else {
+    peek.seen = false;
+    const rows = (snap && snap.peek_tally) || [];
+    const yes = rows.filter(r => r.vote === "yes").length;
+    const asked = yes > 0;
+    // The count survives on a phone where the words don't - a vote in progress
+    // is the one thing you can't afford to miss.
+    setHTML(btn, '<span class="ico">👁</span><span class="lbl">Reveal target?</span>' +
+                 (asked ? '<span class="cnt">' + yes + "/" + rows.length + "</span>" : ""));
+    btn.className = asked && myVote(snap) === null ? "asked" : "";
+    btn.title = "Ask everyone to open the target page";
+    // A new race revokes the old one's grant, so don't leave it hanging open.
+    if (!$("peek-scrim").hidden) closePeek();
+  }
+  renderVote(snap);
+}
+
+$("btn-peek").onclick = () => {
+  const race = raceNow();
+  if (race && race.peek) openPeek();
+  else openVote();
+};
+$("peek-close").onclick = closePeek;
+$("peek-scrim").onclick = (ev) => { if (ev.target === $("peek-scrim")) closePeek(); };
+$("vote-close").onclick = closeVote;
+$("vote-scrim").onclick = (ev) => { if (ev.target === $("vote-scrim")) closeVote(); };
+$("vote-yes").onclick = () => castVote(myVote(S.snap) === "yes" ? null : "yes");
+$("vote-no").onclick = () => castVote(myVote(S.snap) === "no" ? null : "no");
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape") return;
+  if (!$("peek-scrim").hidden) { closePeek(); ev.preventDefault(); }
+  else if (!$("vote-scrim").hidden) { closeVote(); ev.preventDefault(); }
+});
+
 /* Three ways to look at it: light throughout, dark throughout, or dark with
    the article itself done out as Wikipedia. Kept on this machine, like the
    name - it's a preference about your eyes, not about the game. */
@@ -3788,7 +4015,7 @@ $("lobby-rematch").onclick = async () => {
   await post("/start_race", {
     start: last.start, target: last.target, lang: cfg.lang,
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
-    allow_find: cfg.allow_find,
+    allow_find: cfg.allow_find, allow_peek: cfg.allow_peek,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
     handicap: cfg.handicap, checkpoints: cfg.checkpoints, mode: cfg.mode,
     toc: cfg.toc,

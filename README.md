@@ -173,6 +173,7 @@ everyone plays the same game rather than each machine applying its own settings.
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
 | **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
 | **Checkpoints** | Up to six articles you must pass through, in any order. They show in a strip above the article and tick off as you reach them; the target won't accept you until they're all done. Enforced by the game itself, not just your browser. |
+| **Vote to reveal the target** | Lets players put the destination on screen to read, if they all agree. See [Nobody knows the target](#nobody-knows-the-target). On by default — the vote itself is the safeguard. |
 | **Table of contents** | A contents list beside the article: *Off*, *Main sections only*, *Sections and subsections*, or *Everything*. Genuinely useful for skimming a long page for the link you want — which is exactly why it's off by default and set for the whole race. |
 | **Time limit** | None, 2, 5 or 10 minutes. Anyone still going is a DNF. |
 
@@ -181,6 +182,37 @@ shows who's in. **Start race** unlocks once everyone's ready, and there's a
 *Start anyway* underneath for when someone wanders off.
 
 Settings persist between races, so a rematch is one click.
+
+## Nobody knows the target
+
+Some pairs are unraceable because nobody has the faintest idea what the
+destination even *is*. Rather than abandon the race, the table can vote to put
+the target page on screen and read it.
+
+Press **👁 Reveal target?** in the top bar. That's your yes, and it raises the
+question for everyone else — the button turns amber and shows the count, so
+nobody misses it. **Every player still racing has to agree.** One refusal and
+it stays shut; anyone can change their mind either way while it's undecided.
+
+Once it's unanimous the page opens and **stays open for the rest of the race**.
+The button becomes **📖 Target**: read it, close it, come back to it as often
+as you like. It remembers where you'd scrolled to. Esc closes it.
+
+Some deliberate limits:
+
+- **Links in that window don't work.** It's there to be read, not to be used as
+  a way round the race. You still have to get to the target yourself.
+- **Your clock keeps running** while you read. Studying the destination is part
+  of your time, the same as thinking is.
+- **Only people still racing get a vote.** Anyone who has finished or given up
+  is out of the count, so a player who has walked away can't hold up the rest.
+- **The grant can't be taken back.** Once it's open it's open, even if someone
+  later changes their vote or drops off the network.
+- Whoever sets up the race can switch the whole thing off, and races that were
+  revealed are marked *target revealed* in the rules strip.
+
+Reading the destination is a real help — you learn what links *into* it, so you
+can work backwards. It is not a shortcut, and it costs everyone the same.
 
 ## The clock is fair
 

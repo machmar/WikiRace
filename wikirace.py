@@ -137,6 +137,7 @@ class Player:
             int(hashlib.md5(pid.encode()).hexdigest(), 16) % len(PALETTE)]
         self.run = None             # clicks, path, times, started_at, finished, elapsed
         self.ready = False
+        self.peek_vote = None       # "yes", "no", or None on the reveal vote
         self.show_opponents = True  # personal preference; the race rule can override
         self.last_seen = now()
         self.streams = 0            # open browser connections
@@ -339,6 +340,53 @@ class GameState:
             parts.append(f"{rid}:{names}")
         return hashlib.md5("|".join(parts).encode()).hexdigest()[:12]
 
+    def peek_participants(self, race):
+        """Everyone whose agreement the reveal needs, with the vote they cast.
+
+        Only people still racing get a say. Someone who has finished or given
+        up has no stake in the target any more, and waiting on them would let a
+        player who walked away hold the rest hostage.
+        """
+        if not race:
+            return []
+        rid = race["race_id"]
+        out = []
+        for p in self.locals.values():
+            if not p.alive():
+                continue
+            run = p.run or {}
+            # No run yet means they have only just joined the race, same as the
+            # racer list reckons it - not that they are sitting it out.
+            if run and run.get("race_id") != rid:
+                continue
+            if run.get("finished") or run.get("gave_up"):
+                continue
+            out.append((p.id, p.name, p.peek_vote))
+        for pid, q in self.peers.items():
+            if q.get("race_id") != rid:
+                continue
+            if q.get("finished") or q.get("gave_up"):
+                continue
+            out.append((pid, q.get("name", "?"), q.get("peek_vote")))
+        return out
+
+    def check_peek(self, race):
+        """Open the target the moment everyone still racing has said yes.
+
+        Each peer works this out for itself from the votes it holds, which is
+        why the grant is sticky: a player finishing, or dropping off the
+        network, must not take the page back off those still studying it.
+        Call with the lock held.
+        """
+        if not race or race.get("peek") or not race.get("allow_peek", True):
+            return False
+        people = self.peek_participants(race)
+        if not people or not all(v == "yes" for _, _, v in people):
+            return False
+        race["peek"] = True
+        self.add_event("Everyone agreed - the target page is open to study", "race")
+        return True
+
     def snapshot(self, sid):
         """Everything one browser needs, in one JSON-able blob.
 
@@ -362,6 +410,7 @@ class GameState:
                     "scroll": run.get("scroll", 0),
                     "path": (run.get("path") or [])[-LIVE_PATH_STEPS:],
                     "times": (run.get("times") or [])[-LIVE_PATH_STEPS:],
+                    "peek_vote": q.peek_vote,
                     # Counted against the whole route, not the trimmed trail.
                     "cp_done": (len(race_checkpoints(race)) -
                                 len(missing_checkpoints(race, run.get("path") or []))
@@ -382,6 +431,7 @@ class GameState:
                     "scroll": p.get("scroll", 0),
                     "path": p.get("path", []), "times": p.get("times", []),
                     "cp_done": p.get("cp_done", 0),
+                    "peek_vote": p.get("peek_vote"),
                     "race_id": p.get("race_id"), "path_len": p.get("path_len", 0),
                     "in_this_race": bool(race) and p.get("race_id") == race["race_id"],
                 })
@@ -398,6 +448,11 @@ class GameState:
                 "events": self.events[-14:],
                 "show_opponents": me.show_opponents,
                 "ready": me.ready,
+                "peek_vote": me.peek_vote,
+                # How the vote stands, so the browser doesn't have to work out
+                # who counts - the rule about who gets a say lives here.
+                "peek_tally": [{"name": n, "vote": v}
+                               for _, n, v in self.peek_participants(race)],
                 "join_urls": self.lan_urls,
                 "show_invite": self.show_invite,
                 "local_players": len(self.locals),
@@ -606,10 +661,13 @@ class PeerNet:
                         peer.pop(k, None)
                 for k in ("article", "clicks", "finished", "elapsed", "race_id",
                           "gave_up", "path_len", "ready", "scroll", "path", "times",
-                          "cp_done"):
+                          "cp_done", "peek_vote"):
                     if k in msg:
                         peer[k] = msg[k]
                 changed = True
+                # That vote may have been the last one outstanding.
+                if st.check_peek(st.active_race()):
+                    changed = True
                 if kind == "hello":
                     self.send_hello(to=(addr[0], DISCOVERY_PORT))
 
@@ -621,6 +679,7 @@ class PeerNet:
                     for p in st.locals.values():
                         p.run = None
                         p.ready = False       # readiness is per-race, not sticky
+                        p.peek_vote = None
                     st.add_event(
                         f"{msg.get('name')} started a race: {race['start']} -> {race['target']}",
                         "race",
@@ -710,12 +769,20 @@ class PeerNet:
                 "checkpoints": list(race_checkpoints(incoming)),
                 "mode": incoming.get("mode", "time"),
                 "toc": incoming.get("toc", 0),
+                "allow_peek": incoming.get("allow_peek", True),
+                "peek": bool(incoming.get("peek", False)),
                 "handicaps": dict(incoming.get("handicaps", {})),
             }
             st.races[rid] = race
             st.trim_races()
             return True
         touched = False
+        # The reveal only ever goes one way. Merging it as an OR means a peer
+        # that was asleep for the vote still learns the target is open, and no
+        # ordering of packets can close it again.
+        if incoming.get("peek") and not existing.get("peek"):
+            existing["peek"] = True
+            touched = True
         for key, res in incoming.get("results", {}).items():
             if key not in existing.setdefault("results", {}):
                 existing["results"][key] = res
@@ -732,7 +799,7 @@ class PeerNet:
             for p in st.locals.values():
                 m = {"type": "hello", "from": p.id, "name": p.name, "color": p.color,
                      "http_port": st.http_port, "race_id": st.active_race_id,
-                     "ready": p.ready}
+                     "ready": p.ready, "peek_vote": p.peek_vote}
                 if p.run:
                     m.update({
                         "article": p.run.get("article"),
@@ -763,7 +830,7 @@ class PeerNet:
                     "finished": run.get("finished", False),
                     "gave_up": run.get("gave_up", False),
                     "elapsed": run.get("elapsed"), "path_len": len(run.get("path", [])),
-                    "ready": p.ready,
+                    "ready": p.ready, "peek_vote": p.peek_vote,
                     # How far down the article they are, 0..1, so spectators can
                     # mirror their view rather than just naming the page.
                     "scroll": run.get("scroll", 0),
@@ -1147,6 +1214,7 @@ def make_handler(state, net, hub):
                 "/api/give_up": self.act_give_up,
                 "/api/toggle_opponents": self.act_toggle,
                 "/api/ready": self.act_ready,
+                "/api/peek_vote": self.act_peek_vote,
                 "/api/scroll": self.act_scroll,
                 "/api/reset_scores": self.act_reset,
             }
@@ -1265,6 +1333,12 @@ def make_handler(state, net, hub):
                 # 2 subsections, 3 everything. Off by default - being handed the
                 # shape of an article is a real advantage.
                 "toc": max(0, min(3, int(body.get("toc") or 0))),
+                # Whether players may vote to put the target page on screen to
+                # read. The vote has to be unanimous, so the rule is really
+                # just about whether the option exists at all.
+                "allow_peek": bool(body.get("allow_peek", True)),
+                # Set once everyone still racing has agreed, and never unset.
+                "peek": False,
                 "handicaps": {},
             }
             with state.lock:
@@ -1275,6 +1349,7 @@ def make_handler(state, net, hub):
                 for p in state.locals.values():
                     p.run = None
                     p.ready = False
+                    p.peek_vote = None
                 state.add_event(f"{me.name} started a race: {start} -> {target}", "race")
                 state.bump()
             net.send({"type": "race_start", "race": race,
@@ -1359,6 +1434,9 @@ def make_handler(state, net, hub):
                 verb = "finished" if finished else "gave up"
                 extra = f" in {result['clicks']} clicks / {result['elapsed']:.1f}s" if finished else ""
                 state.add_event(f"{me.name} {verb}{extra}", "finish")
+                # Bowing out shrinks the electorate, which can leave the people
+                # still going unanimous without anyone casting another vote.
+                state.check_peek(race)
                 state.bump()
 
             net.send({"type": "result", "race_id": race["race_id"],
@@ -1388,6 +1466,32 @@ def make_handler(state, net, hub):
                 me.ready = bool(body.get("value"))
                 state.bump()
             net.send_hello()      # tell the lobby straight away, don't wait a tick
+
+        def act_peek_vote(self, body, me):
+            """Cast, change or withdraw a vote on revealing the target.
+
+            There is no separate motion to open: the first yes is the asking,
+            which is one less thing to keep in step between machines.
+            """
+            value = body.get("value")
+            if value not in ("yes", "no", None):
+                raise ValueError("a vote is yes, no, or nothing")
+            with state.lock:
+                race = state.active_race()
+                if not race:
+                    return {"ok": False, "error": "no active race"}
+                if not race.get("allow_peek", True):
+                    return {"ok": False, "error": "this race keeps the target hidden"}
+                if me.peek_vote == value:
+                    return {"ok": True}
+                asked = any(v == "yes" for _, _, v in state.peek_participants(race))
+                me.peek_vote = value
+                if value == "yes" and not asked and not race.get("peek"):
+                    state.add_event(f"{me.name} asked to reveal the target", "info")
+                state.check_peek(race)
+                state.bump()
+            net.send_hello()          # so the others see the tally move at once
+            return {"ok": True}
 
         def act_reset(self, body, me):
             """Local wipe only - peers keep their copies unless they wipe too."""
