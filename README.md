@@ -116,8 +116,11 @@ thing to point a monitor at.
 
 ### Before you put it on the open internet
 
-- **Set a code.** Without one, whoever finds the port is in your game. With
-  one, the game shows a small door asking for it and answers nothing else.
+- **Set a code, unless something else is asking.** Without one, whoever
+  reaches the port is in your game. With one, the game shows a small door and
+  answers nothing else. If you're putting it behind a reverse proxy with its
+  own login, drop `WIKIRACE_CODE` — two doors to the same room is just two
+  things to type.
 - **Terminate TLS in front of it.** This speaks plain HTTP, so on a bare port
   the code and everything else travels in the clear. TrueNAS can reverse proxy
   it behind a certificate; do that rather than forwarding 8420 directly.
@@ -128,6 +131,21 @@ thing to point a monitor at.
 - **The standings are written on every finish**, not only at shutdown, so a
   yanked power cord costs at most the race in progress. A clean stop
   (`docker stop`, or the Apps page) flushes the rest.
+
+### Behind a reverse proxy
+
+It needs no special configuration, but two things are worth knowing, because
+the whole game runs on a long-lived event stream rather than polling:
+
+- **Buffering must be off for that stream**, or updates arrive in lumps. The
+  game sends `X-Accel-Buffering: no`, which nginx — and therefore Nginx Proxy
+  Manager, which most NAS boxes use — honours on its own. Traefik, Caddy and
+  HAProxy don't buffer responses anyway. Nothing to configure either way.
+- **Read timeouts want to be generous.** The stream is deliberately never idle
+  for more than about ten seconds, so a default 60-second timeout is fine, but
+  if yours is shorter than that players will see it reconnect.
+
+No WebSocket upgrade is needed — it's plain HTTP all the way down.
 
 ## Race setup
 

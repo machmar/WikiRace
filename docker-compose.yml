@@ -18,7 +18,9 @@ services:
       - "8420:8420"
 
     environment:
-      # CHANGE THIS. Without it, whoever finds the port is in your game.
+      # A code to get in. Delete this line if something in front already does
+      # the asking - a reverse proxy with its own login, or a private network.
+      # Without it the game is open to anyone who can reach the port.
       WIKIRACE_CODE: "change-me-before-you-expose-this"
 
       # Everyone using the same room name plays together; separate names keep

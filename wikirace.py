@@ -1175,6 +1175,11 @@ def make_handler(state, net, hub):
             # An HTTP/1.1 body needs explicit framing, and a stream has no
             # length up front - so chunk it, or the browser drops the socket.
             self.send_header("Transfer-Encoding", "chunked")
+            # nginx buffers proxied responses by default, which for a stream
+            # means the updates arrive in lumps or not at all. It honours this
+            # header without needing anything in its config, so the game works
+            # behind a reverse proxy as shipped. Others don't buffer anyway.
+            self.send_header("X-Accel-Buffering", "no")
             self._cors()
             self.end_headers()
             sid = self.session_id()
