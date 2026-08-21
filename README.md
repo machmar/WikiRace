@@ -80,6 +80,13 @@ docker compose up -d
 To take a new version later, `docker compose pull && docker compose up -d`, or
 hit **Update** on the TrueNAS app.
 
+**Portainer** takes the same file as a stack, with one caveat: don't add a
+`build:` line. Portainer runs builds with nowhere to put a Docker config, so
+it fails with `mkdir /.docker: permission denied` — the compose file here has
+no `build:` for exactly that reason. If you do want to build rather than pull,
+do it on a machine with a shell (`docker build -t wikirace .`) and point the
+stack at the tag you get.
+
 The package is public, so the NAS pulls it without logging in to anything —
 checked by fetching the manifest anonymously, which is exactly what `docker
 pull` does. If you fork this and your copy comes out private, the pull fails

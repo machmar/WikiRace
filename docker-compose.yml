@@ -1,15 +1,14 @@
-# Paste this into TrueNAS SCALE: Apps -> Discover Apps -> Custom App ->
-# "Install via YAML". It also works with plain `docker compose up -d`.
+# Paste into TrueNAS SCALE (Apps -> Custom App -> Install via YAML), into
+# Portainer as a stack, or run it with `docker compose up -d`.
+#
+# There is deliberately no `build:` here. The image is built by GitHub Actions
+# and published, so nothing is compiled on the NAS - and Portainer cannot
+# build from a pasted stack anyway: it fails with "mkdir /.docker: permission
+# denied", because the build runs with nowhere to put a Docker config.
 services:
   wikirace:
     container_name: wikirace
-    # Built by GitHub Actions on every push and published here, so the NAS
-    # only has to pull it. Change the owner if you forked this.
     image: ghcr.io/machmar/wikirace:latest
-    pull_policy: always
-    # To build it on the NAS instead, comment the two lines above out and
-    # uncomment this:
-    # build: .
 
     restart: unless-stopped
 
