@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-WikiRace LAN - serverless multiplayer Wikipedia racing.
+WikiRace - multiplayer Wikipedia racing.
 
-Every player runs this script. Peers find each other on the local network with
-UDP multicast + broadcast; there is no central server. Game state is gossiped
-between peers and each peer derives the leaderboard independently, so nobody's
-machine is special and nobody's exit ends the game.
+Two ways to run it. On a local network every player can run this script and
+the copies find each other over UDP, with no server at all: state is gossiped
+between peers and each derives the leaderboard itself, so no machine is
+special. Or run one copy with --host and everybody else just opens a browser
+at it - which is also how you leave it running on an always-on box.
 
-    py wikirace.py                 # play
-    py wikirace.py --name Marek    # set your display name
-    py wikirace.py --peer 192.168.1.42   # manual peer if broadcast is blocked
+    py wikirace.py                       # play, finding others on the LAN
+    py wikirace.py --name Marek          # set your display name
+    py wikirace.py --host                # let browsers connect to this machine
+    py wikirace.py --host --code SECRET  # ...and require a code to get in
 
 Requires Python 3.9+. Standard library only.
 """
@@ -19,10 +21,8 @@ import hashlib
 import json
 import os
 import random
-import re
 import socket
 import struct
-import subprocess
 import sys
 import threading
 import time
@@ -32,11 +32,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# The interface lives in docs/ so GitHub Pages can serve the very same file
-# this script does - one copy, no drift. Older layouts kept it alongside.
+# The interface, read from disk on every request - so editing it needs no
+# restart. The docs/ location is still understood, for copies that predate
+# the move back.
 UI_CANDIDATES = [
-    os.path.join(HERE, "docs", "index.html"),
     os.path.join(HERE, "ui.html"),
+    os.path.join(HERE, "docs", "index.html"),
 ]
 
 
@@ -156,8 +157,8 @@ class GameState:
         self.locals = {}                # session id -> Player
         self.known_names = {}           # session id -> name, survives a disconnect
         self.lan_urls = []
-        self.public_url = None          # set once an internet tunnel is up
-        self.join_code = None           # required to get in, when playing publicly
+        self.join_code = None           # required to get in when the game is
+                                        # reachable beyond your own network
 
         # peer_id -> presence/live info
         self.peers = {}
@@ -396,7 +397,6 @@ class GameState:
                 "show_opponents": me.show_opponents,
                 "ready": me.ready,
                 "join_urls": self.lan_urls,
-                "public_url": self.public_url,
                 "local_players": len(self.locals),
                 "race_count": len(self.races),
                 # Deliberately compact - this rides every snapshot, so full
@@ -932,96 +932,6 @@ background:#1f6feb;color:#fff;font-weight:600;cursor:pointer}
 </div></body></html>"""
 
 
-class Tunnel:
-    """A public HTTPS address for the game, forwarded over ssh.
-
-    Two things decide whether this survives a game night.
-
-    ssh has to keep its session open. Given stdin at EOF it finishes
-    immediately and takes the forward down with it, so the link dies the
-    moment somebody tries to use it. Holding an stdin pipe open - and never
-    writing to it - is what keeps the session up. (Passing -N would be the
-    tidy way to say "just forward", but the address only arrives as part of
-    the session banner, so it has to stay.)
-
-    And free tunnels drop from time to time. Rather than leave the host
-    holding a dead link, this reopens one and announces the new address.
-    """
-
-    RETRY_DELAYS = [3, 5, 10, 20, 30]
-
-    def __init__(self, port, on_url):
-        self.port = port
-        self.on_url = on_url
-        self.proc = None
-        self.running = True
-
-    def start(self):
-        threading.Thread(target=self._loop, daemon=True).start()
-        return self
-
-    def stop(self):
-        self.running = False
-        proc, self.proc = self.proc, None
-        if proc:
-            try:
-                proc.terminate()
-            except OSError:
-                pass
-
-    def _spawn(self):
-        cmd = ["ssh",
-               "-o", "StrictHostKeyChecking=accept-new",
-               "-o", "UserKnownHostsFile=" + os.devnull,
-               "-o", "ServerAliveInterval=20",
-               "-o", "ServerAliveCountMax=3",
-               "-o", "ExitOnForwardFailure=yes",
-               "-R", f"80:localhost:{self.port}", "nokey@localhost.run"]
-        return subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            stdin=subprocess.PIPE,          # kept open on purpose - see above
-            text=True, bufsize=1, encoding="utf-8", errors="replace")
-
-    def _loop(self):
-        pattern = re.compile(r"https://[a-z0-9-]+\.lhr\.life")
-        attempt = 0
-        first = True
-        while self.running:
-            try:
-                self.proc = self._spawn()
-            except OSError as e:
-                log("could not start ssh, so there's no public link:", e)
-                log(f"either install ssh, or forward port {self.port} on your router.")
-                return
-
-            got = None
-            for line in self.proc.stdout:
-                if not self.running:
-                    break
-                match = pattern.search(line)
-                if match and not got:
-                    got = match.group(0)
-                    attempt = 0
-                    self.on_url(got, first)
-                    first = False
-
-            if not self.running:
-                return
-
-            # ssh exited on its own.
-            if got:
-                log("")
-                log("  The public link just dropped. Reconnecting...")
-            else:
-                log("  Couldn't get a public link that time. Trying again...")
-            delay = self.RETRY_DELAYS[min(attempt, len(self.RETRY_DELAYS) - 1)]
-            attempt += 1
-            for _ in range(delay * 10):
-                if not self.running:
-                    return
-                time.sleep(0.1)
-
-
 def make_handler(state, net, hub):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -1067,7 +977,7 @@ def make_handler(state, net, hub):
                 return None
             return uuid.uuid4().hex[:24]
 
-        # -- join code (only when playing over the internet) ----------------
+        # -- join code, when the game asks for one --------------------------
 
         def code_ok(self):
             if not state.join_code:
@@ -1496,17 +1406,9 @@ def main():
     ap.add_argument("--host", action="store_true",
                     help="host for people who haven't installed anything: they just "
                          "open the printed link in a browser and each becomes a player")
-    ap.add_argument("--internet", action="store_true",
-                    help="play with people anywhere: opens a public HTTPS link over "
-                         "ssh. Implies --host, and adds a join code to the link.")
-    ap.add_argument("--code", default=None,
-                    help="join code required to enter (auto-generated for --internet)")
-    ap.add_argument("--no-code", action="store_true",
-                    help="with --internet, let anyone who has the link straight in")
-    ap.add_argument("--pages", default=None, metavar="URL",
-                    help="your GitHub Pages address, e.g. https://you.github.io/WikiRace/ "
-                         "- the shared link then goes through it, so friends open a "
-                         "page that stays put between games")
+    ap.add_argument("--code", default=None, metavar="CODE",
+                    help="require this code to join. Worth setting whenever the game "
+                         "is reachable from outside your own network.")
     ap.add_argument("--no-browser", action="store_true", help="don't open a browser window")
     args = ap.parse_args()
 
@@ -1519,16 +1421,7 @@ def main():
     port = pick_http_port(args.port)
     state = GameState(name, port, room=args.room.strip() or "default")
 
-    if args.internet:
-        args.host = True
-        if args.code:
-            state.join_code = args.code.strip()
-        elif not args.no_code:
-            # A public link that anybody could stumble onto deserves a lock.
-            # It rides in the URL, so friends still only get sent one thing.
-            state.join_code = "".join(
-                random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
-    elif args.code:
+    if args.code:
         state.join_code = args.code.strip()
 
     load_history(state)
@@ -1546,63 +1439,26 @@ def main():
     log(f"you are '{name}' in room '{state.room}'")
     log(f"UI ready at {url}")
 
-    tunnel = None
-    if args.internet:
+    if args.host:
         log("")
-        log("  Opening a public link (this takes a few seconds)...")
-
-        def announce(public, first):
-            direct = public + ("/?code=" + state.join_code if state.join_code else "/")
-            link = direct
-            if args.pages:
-                # Send friends through the published page instead: it's a URL
-                # they can bookmark once, while the game address changes every
-                # session.
-                from urllib.parse import quote
-                base = args.pages if args.pages.endswith("/") else args.pages + "/"
-                link = base + "?server=" + quote(public, safe="")
-                if state.join_code:
-                    link += "&code=" + state.join_code
-            with state.lock:
-                state.public_url = link
-                state.bump()
-            hub.publish()
-            log("")
-            log("  ==================================================================")
-            if first:
-                log("  PLAY OVER THE INTERNET - send this one link to anyone, anywhere:")
-            else:
-                log("  BACK UP - but the address changed. Send out this new link:")
-            log("")
-            log(f"      {link}")
-            log("")
-            if state.join_code:
-                log(f"  (the code {state.join_code} is already in the link)")
-            if args.pages:
-                log(f"  Direct link, if the page above ever misbehaves: {direct}")
-            if first:
-                log("  It stays up while this window is open.")
-            else:
-                log("  Anyone still on the old link needs this one instead.")
-            log("  ==================================================================")
-            log("")
-
-        tunnel = Tunnel(port, announce).start()
-
-    if args.host and not args.internet:
-        log("")
-        log("  HOSTING - anyone on this network can just open a browser at:")
+        log("  HOSTING - open a browser at any of these and you're a player:")
         for u in state.lan_urls:
             log(f"      {u}")
-        log("  They need nothing installed. Each browser becomes its own player.")
-        log("  Friends who ran this script themselves still join the same game.")
-        log("  (use --internet instead to play with people outside your network)")
+        log("  Nothing to install. Each browser that connects becomes its own")
+        log("  player, and friends running the script themselves join the same game.")
+        if state.join_code:
+            log("")
+            log(f"  Join code: {state.join_code}"
+                f"   (append ?code={state.join_code} to the link to skip typing it)")
+        else:
+            log("  If this machine is reachable from outside your network, give it")
+            log("  a --code so passers-by can't wander in.")
         log("")
-    elif not args.host:
+    else:
         if state.lan_urls:
             log("this machine on the LAN:", ", ".join(net._local_ips()))
         log("waiting for peers... (everyone just runs this script)")
-        log("tip: --host shares a link on your network, --internet shares one anywhere")
+        log("tip: --host lets people play from a browser without installing anything")
 
     if not args.no_browser:
         local = url + ("?code=" + state.join_code if state.join_code else "")
@@ -1614,8 +1470,6 @@ def main():
         log("shutting down")
     finally:
         net.stop()
-        if tunnel:
-            tunnel.stop()
         save_history(state)
 
 

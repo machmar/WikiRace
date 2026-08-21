@@ -965,17 +965,14 @@ function toast(msg, ms = 2000) {
 }
 
 /* ------------------------------------------------------------------ *
- * Where the game lives
+ * Talking to the game
  *
- * Normally the page is served by the game itself, so the API is same-origin.
- * But this same file is also published to GitHub Pages, where it has to reach
- * a game running on somebody's machine behind an HTTPS tunnel. Hence a
- * configurable base, and a session id carried in the query string - a cookie
- * would be a third-party cookie there, and browsers increasingly drop those.
+ * The game serves this page, so the API is always same-origin. The session id
+ * rides in the query string rather than a cookie so that a browser which has
+ * blocked cookies still gets its own seat.
  * ------------------------------------------------------------------ */
 
 const conn = {
-  base: "",          // "" = same origin, else e.g. https://xxxx.lhr.life
   code: "",          // join code, when the game asks for one
   sid: "",           // this browser's seat
   name: "",          // what you call yourself, kept on this machine
@@ -991,18 +988,14 @@ function loadConn() {
     }
     conn.name = localStorage.getItem("wr_name") || "";
     const q = new URLSearchParams(location.search);
-    // A link someone shared wins; otherwise fall back to the last game joined.
-    const server = q.get("server") || localStorage.getItem("wr_server") || "";
-    const code = q.get("code") || localStorage.getItem("wr_code") || "";
-    conn.base = server.replace(/\/+$/, "");
-    conn.code = code;
+    // A code in the link wins; otherwise reuse the one that worked last time.
+    conn.code = q.get("code") || localStorage.getItem("wr_code") || "";
   } catch (e) { /* private mode: stay same-origin with a throwaway id */ }
 }
 
 /* The name belongs to the person, not to the game they happen to be in, so
-   it lives here rather than on whichever machine is hosting. A host restart,
-   a new tunnel address, a different port - none of them should cost you your
-   name. */
+   it lives here rather than on whichever machine is hosting. Restarting the
+   game shouldn't cost anybody their name. */
 function rememberName(name) {
   conn.name = name;
   try {
@@ -1020,8 +1013,6 @@ function claimName(snap) {
 
 function rememberConn() {
   try {
-    if (conn.base) localStorage.setItem("wr_server", conn.base);
-    else localStorage.removeItem("wr_server");
     if (conn.code) localStorage.setItem("wr_code", conn.code);
     else localStorage.removeItem("wr_code");
   } catch (e) { /* ignore */ }
@@ -1032,7 +1023,7 @@ function apiUrlFor(path, extra) {
   if (conn.sid) q.set("sid", conn.sid);
   if (conn.code) q.set("code", conn.code);
   const qs = q.toString();
-  return conn.base + "/api" + path + (qs ? (path.includes("?") ? "&" : "?") + qs : "");
+  return "/api" + path + (qs ? (path.includes("?") ? "&" : "?") + qs : "");
 }
 
 async function post(path, body) {
@@ -2440,15 +2431,18 @@ function renderLobby(snap) {
   setText(rdy, snap.ready ? "✓ You're ready" : "Mark me ready");
   rdy.classList.toggle("primary", !snap.ready);
 
-  // A public link beats a LAN address; otherwise fall back to the local one,
-  // and if this page itself came from somewhere shareable, offer that.
-  const here = location.origin + "/";
-  const localish = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(here);
-  const link = snap.public_url || (localish ? (snap.join_urls || [])[0] : here);
+  // Whatever address this page was opened at is the one that works for
+  // everybody else too - unless you're at the machine itself, in which case
+  // hand out its network address instead of localhost.
+  const suffix = conn.code ? "?code=" + conn.code : "";
+  const here = location.origin + "/" + suffix;
+  const atTheMachine = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(location.origin);
+  // Carry the code in the link, or everyone you send it to has to be told it
+  // separately and type it in.
+  const lan = (snap.join_urls || [])[0];
+  const link = atTheMachine ? (lan ? lan + suffix : here) : here;
   setFlag($("share-card"), "hidden", !link);
-  setText($("share-note"), snap.public_url
-    ? "Anyone, anywhere can play from this link — nothing to install."
-    : "Anyone on this network can play from this link — nothing to install.");
+  setText($("share-note"), "Send this link — they play in a browser, nothing to install.");
   if (link && document.activeElement !== $("share-url")) {
     $("share-url").value = link;
   }
@@ -3752,8 +3746,8 @@ function startLive() {
     streamFails++;
     // A brief blip just reconnects; a game that has genuinely gone away
     // shouldn't leave you staring at a frozen lobby forever.
-    if (streamFails >= 5 && conn.base) {
-      showConnect("Lost the game — has the host closed it?");
+    if (streamFails >= 5) {
+      showOffline("down");
       return;
     }
     if (streamFails >= 3) showLostBanner();
@@ -3788,78 +3782,58 @@ async function probe() {
   } catch (e) { return "down"; }
 }
 
-/* Accepts anything a host might paste: a full share link with the code in it,
-   or just the address on its own. */
-function parseJoin(text) {
-  const t = (text || "").trim();
-  if (!t) return null;
-  let u;
-  try { u = new URL(t.includes("://") ? t : "https://" + t); }
-  catch (e) { return null; }
-  if (!/^https?:$/.test(u.protocol)) return null;
-  return { base: u.origin, code: u.searchParams.get("code") || "" };
-}
-
-function showConnect(message) {
-  document.querySelectorAll("#connect-overlay").forEach(o => o.remove());
+/* The game serves this page, so if it stops answering there is nothing to
+   reconnect to but itself. Codes are handled by the game's own door - reload
+   and it asks - so this only has to say when the lights have gone out. */
+function showOffline(reason) {
+  document.querySelectorAll("#offline-overlay").forEach(o => o.remove());
   const ov = document.createElement("div");
   ov.className = "overlay";
-  ov.id = "connect-overlay";
+  ov.id = "offline-overlay";
+  const needsCode = reason === "code";
   ov.innerHTML =
     '<div class="card">' +
-    '<div style="text-align:center;font-size:40px;line-height:1">&#127937;</div>' +
-    '<h2 style="text-align:center">Join a game</h2>' +
-    '<p class="lede" style="text-align:center">Paste the link the host sent you.</p>' +
-    (message ? '<div class="tiny" style="color:var(--warn);text-align:center;margin-bottom:12px">' +
-       esc(message) + "</div>" : "") +
-    '<div class="field"><input type="text" id="join-link" autocomplete="off" ' +
-    'placeholder="https://something.lhr.life/?code=ABC123"></div>' +
-    '<div class="actions"><button class="primary" id="join-go" style="flex:1">Join</button></div>' +
-    '<p class="tiny muted" style="margin-top:18px;text-align:center;line-height:1.7">' +
-    "Want to host instead? Download the game, then run<br>" +
-    '<code style="font-family:var(--mono);color:var(--accent)">python wikirace.py --internet</code><br>' +
-    "and share the link it prints.</p>" +
+    '<div style="text-align:center;font-size:40px;line-height:1">' +
+    (needsCode ? "&#128274;" : "&#128268;") + "</div>" +
+    '<h2 style="text-align:center">' +
+    (needsCode ? "This game wants a code" : "Lost the game") + "</h2>" +
+    '<p class="lede" style="text-align:center">' +
+    (needsCode
+      ? "The code this browser remembers isn't the one in use any more."
+      : "The game stopped answering. It may have been closed, or this " +
+        "machine may have dropped off the network.") +
+    "</p>" +
+    '<div class="actions"><button class="primary" id="off-retry" style="flex:1">' +
+    (needsCode ? "Enter a code" : "Try again") + "</button></div>" +
     "</div>";
   $("stage").appendChild(ov);
 
-  const input = ov.querySelector("#join-link");
-  const go = ov.querySelector("#join-go");
-  if (conn.base) input.value = conn.base + (conn.code ? "/?code=" + conn.code : "");
-
-  const attempt = async () => {
-    const parsed = parseJoin(input.value);
-    if (!parsed) { toast("That doesn't look like a link"); return; }
-    go.disabled = true; go.textContent = "Connecting…";
-    const prev = { base: conn.base, code: conn.code };
-    conn.base = parsed.base;
-    conn.code = parsed.code;
-    const status = await probe();
-    if (status === "ok") {
-      rememberConn();
+  ov.querySelector("#off-retry").onclick = async () => {
+    if (needsCode) {
+      // The game's own door does codes properly, so go and knock on it.
+      try { localStorage.removeItem("wr_code"); } catch (e) { /* ignore */ }
+      location.href = location.pathname;
+      return;
+    }
+    const btn = ov.querySelector("#off-retry");
+    btn.disabled = true; btn.textContent = "Trying…";
+    if (await probe() === "ok") {
       ov.remove();
       streamFails = 0;
       startLive();
-      toast("Connected");
+      toast("Back on");
       return;
     }
-    conn.base = prev.base;
-    conn.code = prev.code;
-    go.disabled = false;
-    go.textContent = "Join";
-    toast(status === "code" ? "That link's code was rejected" : "Couldn't reach that game");
+    btn.disabled = false; btn.textContent = "Try again";
+    toast("Still no answer");
   };
-  go.onclick = attempt;
-  input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
-  setTimeout(() => input.focus(), 40);
 }
 
 async function boot() {
   loadConn();
   const status = await probe();
   if (status === "ok") { rememberConn(); startLive(); return; }
-  // Same-origin with nothing answering means this is the static copy on the
-  // web, so ask which game to join.
-  showConnect(status === "code" ? "This game needs a code." : "");
+  showOffline(status);
 }
 
 boot();

@@ -3,22 +3,21 @@
 Multiplayer Wikipedia racing. Everyone gets the same start and target article;
 first one there by clicking links only wins.
 
-Play on your own network, or with anyone anywhere.
-
 On a local network it needs **no server at all**: each player runs the same
 script, the copies find each other, and they gossip directly — nobody hosts,
-and nobody closing their laptop ends the game. To play with people further
-away, one person hosts and everybody else just opens a link.
+and nobody closing their laptop ends the game. Or run one copy in host mode
+and everybody else just opens a browser at it, which is also how you leave it
+running on a NAS or home server.
 
 Runs on **Windows, Linux and macOS**.
 
-## Three ways to play
+## Two ways to play
 
-Pick whichever suits the room. **They work at the same time** — half your
-friends can install it, the other half can just open a link, and everyone is in
-the same game seeing each other as equals.
+They work at the same time — half your friends can install it and the other
+half can just open a link, and everyone is in the same game seeing each other
+as equals.
 
-### 1. Everyone installs (fully serverless)
+### 1. Everyone installs (no server at all)
 
 Copy this folder to each machine, then:
 
@@ -28,11 +27,10 @@ time if the machine doesn't have it.
 **Linux / macOS** — `./play.sh` in a terminal. (If it says permission denied,
 run `chmod +x play.sh setup.sh` first.)
 
-Nobody hosts, nobody is special, and one person quitting doesn't end the game.
+The copies find each other over the local network. Nobody hosts, nobody is
+special, and one person quitting doesn't end the game.
 
-### 2. You host, everyone else just opens a link
-
-One machine runs it with `--host`:
+### 2. One machine hosts, everyone else opens a link
 
 ```sh
 ./play.sh --host
@@ -41,70 +39,42 @@ One machine runs it with `--host`:
 "Play WikiRace.bat" --host
 ```
 
-It prints a link like `http://192.168.1.42:8420/`. Everyone else opens that in a
-browser — phone, laptop, anything — and each browser becomes its own player.
-**They install nothing.** The lobby shows the link with a Copy button so you can
-paste it into a group chat.
+It prints a link like `http://192.168.1.42:8420/`. Everyone else opens that in
+a browser — phone, laptop, anything — and each browser becomes its own player.
+**They install nothing.** The lobby shows the link with a Copy button so you
+can paste it into a group chat.
 
-The trade-off: if the host closes the app, the browser-only players drop out.
-Anyone running their own copy keeps playing regardless.
+Type your name in the sidebar, and when everyone shows up hit **Set up a
+race**. Everyone gets a 3-2-1 countdown together.
 
-### 3. Play with people anywhere in the world
+## Running it somewhere always on
 
-One machine runs it with `--internet`:
-
-```sh
-./play.sh --internet
-```
-```
-"Play WikiRace.bat" --internet
-```
-
-After a few seconds it prints something like:
-
-```
-  PLAY OVER THE INTERNET - send this one link to anyone, anywhere:
-
-      https://ba43815099273f.lhr.life/?code=R76PYJ
-```
-
-Send that link to anyone. They open it in a browser and they're in — no
-install, no account, nothing to configure. The join code is already in the
-link, so a stranger who stumbles onto the bare address can't wander in.
-
-Under the hood it forwards your game through `ssh`, which Windows, macOS and
-Linux all ship with. Nothing to install, no port forwarding, no router
-settings. **The link lives only as long as that window stays open**, and you
-get a fresh one each session.
-
-Whichever way you play, type your name in the sidebar, and when everyone shows
-up hit **Set up a race**. Everyone gets a 3-2-1 countdown together.
-
-## A permanent home on GitHub Pages
-
-The interface is a single static file (`docs/index.html`), so GitHub can host
-it for free at a URL that never changes — handy when the game address is
-different every session.
-
-1. Push this repo to GitHub.
-2. **Settings → Pages → Source: Deploy from a branch**, branch `main`,
-   folder **`/docs`**. Save.
-3. A minute later it's live at `https://YOU.github.io/REPO/`.
-
-Friends bookmark that page. When you start a game, they open it and paste the
-link you sent — or you can skip the pasting entirely:
+Host mode is all you need to put the game on a NAS, a home server or a VPS, so
+it's there whenever people want a game rather than only while someone's laptop
+is open:
 
 ```sh
-./play.sh --internet --pages https://YOU.github.io/REPO/
+python3 wikirace.py --host --no-browser --code SOMETHINGSECRET
 ```
 
-Now the link it prints goes *through* your page, with the game address already
-filled in. One click and they're playing.
+Then everybody opens `http://your-server:8420/?code=SOMETHINGSECRET`. The code
+is remembered per browser, so it's asked for once.
 
-The page is also where people can grab the download to host games themselves.
+A few things worth knowing before you point it at the open internet:
 
-*What Pages can't do:* it only serves files, so it can't run the game. Somebody
-still has to be hosting for there to be a game to join.
+- **Set a code.** Without one, anyone who finds the port is in your game. With
+  one, the game shows a small door asking for it and answers nothing else.
+- **Put TLS in front of it.** This speaks plain HTTP, so on a bare port the
+  code and everything else travels in the clear. Most NAS boxes can reverse
+  proxy it behind their own certificate; do that rather than exposing 8420
+  directly.
+- **It is a small standard-library HTTP server**, not hardened software. It
+  serves exactly two things — the page and its own API — and reads no file
+  paths from the request, so there's nothing to traverse. Still: put it behind
+  the reverse proxy your NAS already runs, and don't run it as root.
+- **`--room`** keeps separate groups apart if more than one crowd uses the box.
+- The peer-to-peer discovery keeps running and simply finds nobody, which is
+  harmless. `--no-browser` stops it trying to open a window on a headless box.
 
 ## Race setup
 
@@ -182,13 +152,10 @@ Your name is saved in your own browser, not on the host, so restarting the game
 doesn't cost anyone their name — each player's browser simply reclaims it on
 reconnect.
 
-One wrinkle worth knowing: browsers file that memory under the address you're
-visiting. Open the game through a **fixed** address — your GitHub Pages link, or
-a LAN address that doesn't move — and your name sticks forever, however often
-the game itself restarts or changes port. Open a **fresh tunnel link** each
-session instead and every one is a new address to the browser, so you'll be
-asked for your name again. This is the practical reason to send friends the
-Pages link rather than the raw one.
+One wrinkle worth knowing: browsers file that memory under the address you
+visit. As long as the game keeps the same address — which it does on a server
+that stays put — your name survives restarts. If the address changes, browsers
+treat it as a different site and you'll be asked again.
 
 ## Seeing each other
 
@@ -276,15 +243,12 @@ Everyone in your group has to pass the same name.
 
 ```
 --name Marek          your display name
---host                let people on your network play from a browser
---internet            let anyone anywhere play from a browser (public link)
---pages URL           route the shared link through your GitHub Pages address
---code ABC123         require a join code (auto-generated by --internet)
---no-code             with --internet, let anyone with the link straight in
+--host                let people play from a browser instead of installing
+--code ABC123         require this code to join
 --room friday-night   only play with people using this same room name
---port 8500           different local UI port
+--port 8500           which port to listen on
 --peer 192.168.1.42   add a peer by hand if broadcast is blocked
---no-browser          don't auto-open a tab
+--no-browser          don't auto-open a tab (use this on a server)
 ```
 
 On Windows pass these after the .bat, e.g. `"Play WikiRace.bat" --name Marek`.
@@ -327,7 +291,7 @@ On Windows pass these after the .bat, e.g. `"Play WikiRace.bat" --name Marek`.
 | | |
 |---|---|
 | `wikirace.py` | the peer: discovery, gossip, scoring, local UI server |
-| `docs/index.html` | the game interface — served by the script, and by GitHub Pages |
+| `ui.html` | the game interface, served straight from disk |
 | `Play WikiRace.bat` / `play.sh` | launchers (install Python if needed) |
 | `Setup.bat` / `setup.sh` | explicit Python setup |
 | `wikirace_history.json` | your local copy of past races (created on first finish) |
