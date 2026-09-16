@@ -885,6 +885,83 @@
   .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
   .leg.pick { cursor: pointer; transition: opacity .12s; }
   .leg.pick.faded { opacity: .3; }
+  /* ---- the big moments: a checkpoint, the finish ----
+     Deliberately loud and arcade-like - it's a celebration, not a notice. A
+     checkpoint lets clicks straight through so the race doesn't stall; the
+     finish holds the screen for a moment and can be tapped away. */
+  #fanfare {
+    position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; pointer-events: none; opacity: 0;
+    --ff-ray: rgba(255, 210, 70, .26);
+    --ff-fill: linear-gradient(180deg, #fffbe0 0%, #ffe066 38%, #ffb300 58%, #e07800 100%);
+    --ff-edge: rgba(70, 30, 0, .55);
+    --ff-top: #ffe27a;
+  }
+  #fanfare[hidden] { display: none; }
+  #fanfare.ff-checkpoint {
+    --ff-ray: rgba(110, 210, 255, .22);
+    --ff-fill: linear-gradient(180deg, #f2fdff 0%, #9ae6ff 40%, #37aef5 58%, #1a5fd1 100%);
+    --ff-edge: rgba(0, 25, 70, .55);
+    --ff-top: #b8ecff;
+    background: radial-gradient(circle at 50% 50%, rgba(5, 12, 24, .34), rgba(5, 12, 24, .12) 60%, transparent 80%);
+  }
+  #fanfare.ff-finish {
+    pointer-events: auto; cursor: pointer;
+    background: radial-gradient(circle at 50% 45%, rgba(40, 20, 0, .25), rgba(3, 6, 12, .78) 75%);
+  }
+  #fanfare.ff-on { opacity: 1; animation: ff-fade-in .18s ease-out both; }
+  #fanfare.ff-off { animation: ff-fade-out .36s ease-in both; }
+  .ff-rays {
+    position: absolute; left: 50%; top: 50%; width: 170vmax; height: 170vmax;
+    margin: -85vmax 0 0 -85vmax; border-radius: 50%;
+    background: repeating-conic-gradient(var(--ff-ray) 0deg 7deg, transparent 7deg 20deg);
+    -webkit-mask: radial-gradient(circle, #000 0, rgba(0, 0, 0, .7) 18%, transparent 52%);
+            mask: radial-gradient(circle, #000 0, rgba(0, 0, 0, .7) 18%, transparent 52%);
+    animation: ff-spin 14s linear infinite, ff-rays-in .6s ease-out both;
+  }
+  .ff-card {
+    position: relative; text-align: center; padding: 0 20px; max-width: 100%;
+    transform: skewX(-9deg); animation: ff-slam .55s cubic-bezier(.18, 1.5, .4, 1) both;
+  }
+  .ff-top {
+    font: italic 900 clamp(22px, 5.4vw, 46px)/1 Impact, "Haettenschweiler", "Arial Narrow Bold", "Arial Black", system-ui, sans-serif;
+    text-transform: uppercase; letter-spacing: .04em; color: var(--ff-top);
+    text-shadow: 0 3px 0 var(--ff-edge), 0 0 22px rgba(0, 0, 0, .35);
+    animation: ff-rise .45s .08s cubic-bezier(.2, 1.4, .4, 1) both;
+  }
+  .ff-title {
+    font: italic 900 clamp(54px, 15vw, 150px)/.92 Impact, "Haettenschweiler", "Arial Narrow Bold", "Arial Black", system-ui, sans-serif;
+    text-transform: uppercase; letter-spacing: .01em; margin: 4px 0 10px;
+    background: var(--ff-fill); -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 2px var(--ff-edge);
+    filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .45)) drop-shadow(0 0 30px rgba(0, 0, 0, .3));
+    overflow-wrap: anywhere;
+  }
+  .ff-sub {
+    display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; max-width: 92vw;
+    font: 700 clamp(14px, 2.6vw, 20px)/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff;
+    background: rgba(5, 10, 20, .62); border: 1px solid rgba(255, 255, 255, .18); border-radius: 999px;
+    padding: 7px 18px; transform: skewX(9deg);
+    animation: ff-rise .45s .18s cubic-bezier(.2, 1.4, .4, 1) both;
+  }
+  .ff-sub .ff-time { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .ff-hint { display: block; margin-top: 14px; font: 12px system-ui, sans-serif; color: rgba(255, 255, 255, .65); transform: skewX(9deg); }
+  @keyframes ff-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ff-fade-out { from { opacity: 1; } to { opacity: 0; transform: scale(1.05); } }
+  @keyframes ff-spin { to { transform: rotate(360deg); } }
+  @keyframes ff-rays-in { from { opacity: 0; transform: scale(.4); } }
+  @keyframes ff-slam {
+    0% { opacity: 0; transform: skewX(-9deg) scale(2.3); filter: blur(6px); }
+    60% { opacity: 1; filter: blur(0); }
+    100% { transform: skewX(-9deg) scale(1); }
+  }
+  @keyframes ff-rise { from { opacity: 0; transform: translateY(18px) skewX(9deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .ff-rays, .ff-card, .ff-top, .ff-sub { animation: none; }
+    #fanfare.ff-on { animation: ff-fade-in .15s both; }
+    #fanfare.ff-off { animation: ff-fade-out .2s both; }
+  }
+
   /* ---- routes: the race as a map ---- */
   #replay-pane.wide { max-width: 1240px; }
   .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
@@ -1047,6 +1124,8 @@
       <button id="vote-close" class="ghost" style="width:100%;margin-top:8px">Decide later</button>
     </div>
   </div>
+
+  <div id="fanfare" role="status" aria-live="assertive" hidden></div>
 
   <div id="miniplayers"></div>
 
@@ -1551,8 +1630,11 @@ async function navigate(title, countsAsClick) {
     const { title: canon, html } = await fetchArticle(title, S.lang);
     S.current = canon;
     if (countsAsClick) {
+      const stops = raceCheckpoints(S.race);
+      const newStop = stops.some(c => norm(c) === norm(canon)) && !S.path.some(t => norm(t) === norm(canon));
       S.clicks++;
       S.path.push(canon);
+      if (newStop) celebrateCheckpoint(canon, stops);
       S.stepTimes.push(round1(elapsed()));   // when, on the fair clock
     }
     showArticle(canon, html);
@@ -1996,6 +2078,7 @@ async function win() {
     return;
   }
   openHub("results");
+  celebrateFinish(secs);
 }
 
 async function outOfTime() {
@@ -2022,6 +2105,63 @@ async function giveUp() {
                            path: S.path, times: S.stepTimes });
   $("btn-giveup").hidden = true;
   openHub("watch");
+}
+
+/* ------------------------------------------------------------------ *
+ * The big moments
+ * ------------------------------------------------------------------ */
+const fanfare = { timer: 0 };
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"));
+
+function celebrate(kind, top, title, sub, ms, hint) {
+  const el = $("fanfare");
+  clearTimeout(fanfare.timer);
+  el.className = "";
+  el.innerHTML = '<div class="ff-rays"></div><div class="ff-card">' +
+    '<div class="ff-top">' + top + "</div>" +
+    '<div class="ff-title">' + title + "</div>" +
+    '<div class="ff-sub">' + sub + "</div>" +
+    (hint ? '<span class="ff-hint">' + hint + "</span>" : "") + "</div>";
+  el.hidden = false;
+  void el.offsetWidth;                    // restart the animations if one is already up
+  el.className = "ff-" + kind + " ff-on";
+  fanfare.timer = setTimeout(dismissFanfare, ms);
+}
+
+function dismissFanfare() {
+  const el = $("fanfare");
+  if (el.hidden) return;
+  clearTimeout(fanfare.timer);
+  el.classList.remove("ff-on");
+  el.classList.add("ff-off");
+  fanfare.timer = setTimeout(() => { el.hidden = true; el.className = ""; el.innerHTML = ""; }, 380);
+}
+
+$("fanfare").addEventListener("click", dismissFanfare);
+document.addEventListener("keydown", e => { if (e.key === "Escape") dismissFanfare(); });
+
+/* Checkpoints count in the order you reach them, whatever order they were set in. */
+function celebrateCheckpoint(page, stops) {
+  const reached = stops.filter(c => S.path.some(t => norm(t) === norm(c))).length;
+  const total = stops.length, left = total - reached;
+  celebrate("checkpoint", reached + " of " + total, "Checkpoint",
+    "<span>" + esc(page) + '</span><span class="ff-time">' + fmtTime(elapsed()) + "</span>" +
+      "<span>" + (left ? left + " to go" : "Now for " + esc(S.race.target)) + "</span>",
+    2300);
+}
+
+/* The place shown is arrival order - the one thing that can't change after you
+   cross the line, since someone finishing later can still post a better time. */
+function celebrateFinish(secs) {
+  const race = S.snap && S.snap.race;
+  const me = norm(S.snap && S.snap.me ? S.snap.me.name : "");
+  const before = race ? Object.values(race.results || {}).filter(r => r.finished && norm(r.name) !== me).length : 0;
+  const place = before + 1;
+  celebrate("finish", "#" + place, "Finished",
+    "<span>" + (place === 1 ? "First to arrive" : ordinal(place) + " to arrive") + "</span>" +
+      '<span class="ff-time">' + fmtTime(secs) + "</span>" +
+      "<span>" + S.clicks + (S.clicks === 1 ? " click" : " clicks") + "</span>",
+    4600, "tap anywhere to see the results");
 }
 
 /* ------------------------------------------------------------------ *
