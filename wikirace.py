@@ -87,6 +87,22 @@ def norm_name(name):
     return " ".join((name or "").split()).lower()
 
 
+def player_key(sid):
+    """Who a player is, as opposed to what they're called.
+
+    Derived from the browser's session id, which the browser keeps for good, so
+    it survives renames and restarts. It's a one-way hash: other players see it
+    in results, and it must not let anyone take over somebody else's seat.
+    """
+    return hashlib.sha256(("wikirace-player:" + (sid or "")).encode()).hexdigest()[:16]
+
+
+def result_key(res):
+    """Where a result sits in a race's results. Keyed by player where the
+    result carries one; races from before player keys are keyed by name."""
+    return "k:" + res["pkey"] if res.get("pkey") else norm_name(res.get("name", ""))
+
+
 def rank_finishers(race):
     """Finishers in winning order for this race's mode.
 
@@ -144,6 +160,9 @@ class Player:
         self.show_opponents = True  # personal preference; the race rule can override
         self.last_seen = now()
         self.streams = 0            # open browser connections
+        self.pkey = ""              # who this is, independent of the name - see player_key()
+        self.guest = False          # playing without saving: in results, never in the standings
+        self.named = False          # chose a name, rather than being handed "Player 3"
 
     def alive(self):
         # A browser that closed keeps its seat briefly, so a refresh mid-race
@@ -161,6 +180,9 @@ class GameState:
         self.seed_used = False
         self.locals = {}                # session id -> Player
         self.known_names = {}           # session id -> name, survives a disconnect
+        # player key -> {"name", "norm", "first_seen"}: which saved player owns
+        # which name. Kept in the database, so a name stays yours across restarts.
+        self.registry = {}
         self.lan_urls = []
         self.join_code = None           # required to get in when the game is
                                         # reachable beyond your own network
@@ -185,7 +207,9 @@ class GameState:
         if p is None and create:
             # Someone coming back after a dropped connection keeps the name
             # they chose, rather than reappearing as "Player 4".
-            name = self.known_names.get(sid)
+            pkey = player_key(sid)
+            owned = self.registry.get(pkey)
+            name = self.known_names.get(sid) or (owned and owned["name"])
             if not name and at_console and not self.seed_used:
                 # --name belongs to whoever is sitting at this machine, not to
                 # the first stranger who happens to open the link.
@@ -194,6 +218,8 @@ class GameState:
             if not name:
                 name = self.next_guest_name()
             p = Player(uuid.uuid4().hex[:12], name, self.free_color())
+            p.pkey = pkey
+            p.named = bool(owned)
             self.locals[sid] = p
             self.add_event(f"{name} joined", "join")
             self.bump()
@@ -215,11 +241,46 @@ class GameState:
     def next_guest_name(self):
         taken = {norm_name(x.name) for x in self.locals.values()}
         taken |= {norm_name(n) for n in self.known_names.values()}
+        taken |= {e["norm"] for e in self.registry.values()}
         for i in range(1, 100):
             candidate = f"Player {i}"
             if norm_name(candidate) not in taken:
                 return candidate
         return "Player"
+
+    def name_owner(self, norm):
+        """The saved player who holds this name, if any - the first to claim it."""
+        owners = [(e.get("first_seen", 0), k) for k, e in self.registry.items() if e["norm"] == norm]
+        return min(owners)[1] if owners else None
+
+    def name_taken(self, name, me):
+        """Whether somebody else already answers to this name, here or on the LAN.
+
+        Names are unique so the standings and the race list never show two
+        people who look the same, not because anything would break: results
+        are keyed by player, so a clash can no longer overwrite anybody.
+        """
+        key = norm_name(name)
+        for p in self.locals.values():
+            if p is not me and p.pkey != me.pkey and p.alive() and norm_name(p.name) == key:
+                return True
+        for peer in self.peers.values():
+            if norm_name(peer.get("name")) == key and peer.get("pkey") != me.pkey:
+                return True
+        owner = self.name_owner(key)
+        return bool(owner) and owner != me.pkey
+
+    def standings_key(self, res):
+        """Whose standings a result counts towards - None for a guest.
+
+        A result from before player keys belongs to whoever owns that name now,
+        so the players who were already racing keep their points."""
+        if res.get("guest"):
+            return None
+        if res.get("pkey"):
+            return res["pkey"]
+        norm = norm_name(res.get("name", ""))
+        return self.name_owner(norm) or "name:" + norm
 
     def prune_locals(self):
         gone = [sid for sid, p in self.locals.items() if not p.alive()]
@@ -272,15 +333,23 @@ class GameState:
         Because every peer merges the same set of race results, every peer
         arrives at the same table without anyone owning the truth.
         """
-        tally = {}
+        tally, newest = {}, {}
 
-        def slot(display):
-            key = norm_name(display)
+        def slot(res, created):
+            key = self.standings_key(res)
+            if key is None:
+                return None
             if key not in tally:
                 tally[key] = {
-                    "name": display, "points": 0, "wins": 0, "races": 0,
+                    "key": key, "name": res.get("name", "?"), "points": 0, "wins": 0, "races": 0,
                     "finished": 0, "clicks": 0, "best_time": None, "best_clicks": None,
                 }
+            # A renamed player shows under the name they use now.
+            if key in self.registry:
+                tally[key]["name"] = self.registry[key]["name"]
+            elif created >= newest.get(key, -1):
+                newest[key] = created
+                tally[key]["name"] = res.get("name", "?")
             return tally[key]
 
         for race in self.races.values():
@@ -297,12 +366,18 @@ class GameState:
                 bonus_key, bonus_best = "clicks", min(
                     (r.get("clicks", 999) for r in finishers), default=None)
 
+            created = race.get("created", 0)
             for r in results.values():
-                e = slot(r.get("name", "?"))
-                e["races"] += 1
+                e = slot(r, created)
+                if e:
+                    e["races"] += 1
 
+            # Guests still take their place in the finishing order - beating a
+            # guest is still beating somebody - they just don't collect points.
             for i, r in enumerate(finishers):
-                e = slot(r.get("name", "?"))
+                e = slot(r, created)
+                if not e:
+                    continue
                 e["finished"] += 1
                 e["clicks"] += r.get("clicks", 0)
                 e["points"] += POINTS_BY_RANK[i] if i < len(POINTS_BY_RANK) else POINTS_FINISH_OTHER
@@ -331,7 +406,7 @@ class GameState:
         """
         scored = [e for e in self.leaderboard() if e["points"] > 0]
         return {
-            norm_name(e["name"]): HANDICAP_SECONDS[i]
+            e["key"]: HANDICAP_SECONDS[i]
             for i, e in enumerate(scored[:len(HANDICAP_SECONDS)])
         }
 
@@ -423,11 +498,13 @@ class GameState:
                     "in_this_race": bool(race) and (
                         run.get("race_id") == race["race_id"] or not run),
                     "local": True,
+                    "pkey": q.pkey, "guest": q.guest,
                 })
 
             for pid, p in self.peers.items():
                 live.append({
                     "id": pid, "name": p.get("name", "?"), "color": p.get("color", "#888"),
+                    "pkey": p.get("pkey", ""), "guest": bool(p.get("guest")),
                     "article": p.get("article"), "clicks": p.get("clicks", 0),
                     "finished": p.get("finished", False), "elapsed": p.get("elapsed"),
                     "gave_up": p.get("gave_up", False), "ready": p.get("ready", False),
@@ -443,7 +520,8 @@ class GameState:
             return {
                 "version": self.version,
                 "room": self.room,
-                "me": {"id": me.id, "name": me.name, "color": me.color},
+                "me": {"id": me.id, "name": me.name, "color": me.color,
+                       "pkey": me.pkey, "guest": me.guest, "named": me.named},
                 "peers": live,
                 "race": race,
                 "my_run": me.run,
@@ -664,7 +742,7 @@ class PeerNet:
                         peer.pop(k, None)
                 for k in ("article", "clicks", "finished", "elapsed", "race_id",
                           "gave_up", "path_len", "ready", "scroll", "path", "times",
-                          "cp_done", "peek_vote"):
+                          "cp_done", "peek_vote", "pkey", "guest"):
                     if k in msg:
                         peer[k] = msg[k]
                 changed = True
@@ -697,7 +775,7 @@ class PeerNet:
                     race = st.races.get(rid)
                 if race is not None:
                     res = msg["result"]
-                    key = norm_name(res.get("name", ""))
+                    key = result_key(res)
                     if key not in race.setdefault("results", {}):
                         race["results"][key] = res
                         verb = "finished" if res.get("finished") else "gave up"
@@ -806,7 +884,8 @@ class PeerNet:
             for p in st.locals.values():
                 m = {"type": "hello", "from": p.id, "name": p.name, "color": p.color,
                      "http_port": st.http_port, "race_id": st.active_race_id,
-                     "ready": p.ready, "peek_vote": p.peek_vote}
+                     "ready": p.ready, "peek_vote": p.peek_vote,
+                     "pkey": p.pkey, "guest": p.guest}
                 if p.run:
                     m.update({
                         "article": p.run.get("article"),
@@ -837,7 +916,7 @@ class PeerNet:
                     "finished": run.get("finished", False),
                     "gave_up": run.get("gave_up", False),
                     "elapsed": run.get("elapsed"), "path_len": len(run.get("path", [])),
-                    "ready": p.ready, "peek_vote": p.peek_vote,
+                    "ready": p.ready, "peek_vote": p.peek_vote, "pkey": p.pkey, "guest": p.guest,
                     # How far down the article they are, 0..1, so spectators can
                     # mirror their view rather than just naming the page.
                     "scroll": run.get("scroll", 0),
@@ -962,7 +1041,15 @@ class Store:
                                    created REAL NOT NULL DEFAULT 0,
                                    data    TEXT NOT NULL)""")
             self.db.execute("CREATE INDEX IF NOT EXISTS races_by_created ON races(created)")
-            self.db.execute("PRAGMA user_version = 1")
+            # Who owns which name. A player is their key; the name can change.
+            self.db.execute("""CREATE TABLE IF NOT EXISTS players (
+                                   pkey       TEXT PRIMARY KEY,
+                                   name       TEXT NOT NULL,
+                                   norm       TEXT NOT NULL,
+                                   first_seen REAL NOT NULL,
+                                   last_seen  REAL NOT NULL)""")
+            self.db.execute("CREATE INDEX IF NOT EXISTS players_by_name ON players(norm)")
+            self.db.execute("PRAGMA user_version = 2")
             self.db.commit()
 
     @staticmethod
@@ -1026,6 +1113,21 @@ class Store:
                 pass
         return out
 
+    def claim(self, pkey, entry):
+        """Record which name a saved player uses. The first claim's date stays."""
+        with self.lock:
+            with self.db:
+                self.db.execute(
+                    """INSERT INTO players (pkey, name, norm, first_seen, last_seen) VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(pkey) DO UPDATE SET name = excluded.name, norm = excluded.norm,
+                                                       last_seen = excluded.last_seen""",
+                    (pkey, entry["name"], entry["norm"], entry["first_seen"], now()))
+
+    def players(self):
+        with self.lock:
+            rows = self.db.execute("SELECT pkey, name, norm, first_seen FROM players").fetchall()
+        return {k: {"name": n, "norm": nn, "first_seen": f} for k, n, nn, f in rows}
+
     def count(self):
         with self.lock:
             return self.db.execute("SELECT COUNT(*) FROM races").fetchone()[0]
@@ -1064,7 +1166,9 @@ def load_history(state):
         except (OSError, ValueError, AttributeError) as e:
             log(f"could not import {legacy}: {e}")
     races = STORE.recent(MAX_RACES_KEPT)
+    owners = STORE.players()
     with state.lock:
+        state.registry.update(owners)
         for race in races:
             state.races[race["race_id"]] = race
         state.trim_races()
@@ -1439,13 +1543,31 @@ def make_handler(state, net, hub):
         # Every one of these acts on `me`, the player behind this browser.
 
         def act_name(self, body, me):
-            name = (body.get("name") or "").strip()[:24]
-            if name:
-                with state.lock:
-                    me.name = name
-                    state.known_names[self.session_id()] = name
-                    state.bump()
-                net.send_hello()
+            """Take a name - saved to this player, or just for now as a guest."""
+            name = " ".join((body.get("name") or "").split())[:24]
+            guest = bool(body.get("guest"))
+            if not name:
+                return {"ok": False, "error": "empty"}
+            with state.lock:
+                if state.name_taken(name, me):
+                    return {"ok": False, "error": "taken", "name": name}
+                me.name = name
+                me.guest = guest
+                me.named = True
+                state.known_names[self.session_id()] = name
+                if not guest:
+                    prior = state.registry.get(me.pkey, {})
+                    state.registry[me.pkey] = {"name": name, "norm": norm_name(name),
+                                               "first_seen": prior.get("first_seen", now())}
+                    entry = dict(state.registry[me.pkey])
+                state.bump()
+            if not guest and STORE is not None:
+                try:
+                    STORE.claim(me.pkey, entry)
+                except sqlite3.Error as e:
+                    log("could not save the name:", e)
+            net.send_hello()
+            return {"ok": True, "name": name, "guest": guest}
 
         def act_start_race(self, body, me):
             start = (body.get("start") or "").strip()
@@ -1574,8 +1696,10 @@ def make_handler(state, net, hub):
                     "path": run.get("path", []),
                     "times": run.get("times", []),
                     "at": now(),
+                    "pkey": me.pkey,
+                    "guest": me.guest,
                 }
-                race.setdefault("results", {})[norm_name(me.name)] = result
+                race.setdefault("results", {})[result_key(result)] = result
                 verb = "finished" if finished else "gave up"
                 extra = f" in {result['clicks']} clicks / {result['elapsed']:.1f}s" if finished else ""
                 state.add_event(f"{me.name} {verb}{extra}", "finish")

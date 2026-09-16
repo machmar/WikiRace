@@ -299,12 +299,19 @@ history, so every player's scoreboard agrees without anyone owning it. Older
 races aren't lost: every race ever played stays in `wikirace.db`, and its replay
 still opens.
 
-**Your name is your scoreboard identity.** Two players using the same name pool
-their points — the sidebar warns you if that happens.
+**You're a player, not a name.** Each browser has its own player key — a one-way
+hash of an id the browser keeps, so nobody has to log in and nobody can take
+over someone else's seat. Results and standings follow the key, which means you
+can rename yourself and keep your points, and two players can never overwrite
+each other's results.
 
-Your name is saved in your own browser, not on the host, so restarting the game
-doesn't cost anyone their name — each player's browser simply reclaims it on
-reconnect.
+**A name belongs to one player.** Once you've saved a name on a server, nobody
+else there can take it, in any mix of capitals and spaces. Races from before
+player keys were recorded under names, so whoever saves a name also inherits
+that name's old results — the people who were already racing keep their points.
+
+Your name is saved in your own browser as well as on the host, so restarting
+the game doesn't cost anyone their name.
 
 One wrinkle worth knowing: browsers file that memory under the address you
 visit. As long as the game keeps the same address — which it does on a server

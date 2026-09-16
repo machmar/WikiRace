@@ -1226,9 +1226,6 @@
         <input type="text" id="myname" maxlength="24" placeholder="your name">
         <button id="btn-savename" class="ghost">Save</button>
       </div>
-      <div id="name-clash" class="tiny" style="color:var(--warn);margin-top:7px" hidden>
-        Someone else is using this name — your scores will be pooled. Pick another.
-      </div>
     </div>
 
     <div class="panel">
@@ -1368,6 +1365,14 @@ function rememberName(name) {
     if (name) localStorage.setItem("wr_name", name);
     else localStorage.removeItem("wr_name");
   } catch (e) { /* private mode: it just won't persist */ }
+}
+
+/* Whether a result is this browser's. Results carry a player key; races from
+   before player keys only have the name to go on. */
+function isMine(r, snap) {
+  snap = snap || S.snap;
+  if (!r || !snap || !snap.me) return false;
+  return r.pkey ? r.pkey === snap.me.pkey : norm(r.name) === norm(snap.me.name);
 }
 
 /* Tell this game who we are, once per connection. */
@@ -1976,7 +1981,8 @@ async function enterRace(race, myRun) {
 
   // Leaders start late. The clock is already running, so the wait is the
   // penalty - it isn't excluded the way loading time is.
-  const penalty = (race.handicaps || {})[norm(S.snap ? S.snap.me.name : "")] || 0;
+  const hc = race.handicaps || {}, me = S.snap ? S.snap.me : null;
+  const penalty = (me && (hc[me.pkey] || hc["name:" + norm(me.name)] || hc[norm(me.name)])) || 0;
   if (penalty > 0) await servePenalty(penalty);
 
   await navigate(race.start, false);
@@ -2154,8 +2160,7 @@ function celebrateCheckpoint(page, stops) {
    cross the line, since someone finishing later can still post a better time. */
 function celebrateFinish(secs) {
   const race = S.snap && S.snap.race;
-  const me = norm(S.snap && S.snap.me ? S.snap.me.name : "");
-  const before = race ? Object.values(race.results || {}).filter(r => r.finished && norm(r.name) !== me).length : 0;
+  const before = race ? Object.values(race.results || {}).filter(r => r.finished && !isMine(r)).length : 0;
   const place = before + 1;
   celebrate("finish", "#" + place, "Finished",
     "<span>" + (place === 1 ? "First to arrive" : ordinal(place) + " to arrive") + "</span>" +
@@ -2302,7 +2307,7 @@ function renderResults(snap) {
   const fin = rankFinishers(race);
   const out = all.filter(r => !r.finished);
   const medals = ["🥇", "🥈", "🥉"];
-  const mine = all.find(r => norm(r.name) === norm(snap.me.name));
+  const mine = all.find(r => isMine(r, snap));
 
   let head;
   if (mine && mine.finished) head = fin[0] === mine ? "🎉 You won" : "You made it";
@@ -2497,7 +2502,6 @@ async function findGhost(snap) {
   // Your best previous attempt at this exact pairing, drawn as a shadow.
   const race = snap.race;
   if (!race || !snap.races_list) return null;
-  const me = norm(snap.me.name);
   const prior = snap.races_list
     .filter(r => r.race_id !== race.race_id &&
                  norm(r.start) === norm(race.start) &&
@@ -2506,7 +2510,7 @@ async function findGhost(snap) {
   for (const row of prior.slice(0, 4)) {
     try {
       const full = await (await fetch(apiUrlFor("/race", { id: row.race_id }))).json();
-      const mine = Object.values(full.results || {}).find(r => norm(r.name) === me && r.finished);
+      const mine = Object.values(full.results || {}).find(r => isMine(r, snap) && r.finished);
       if (mine) {
         const path = mine.path || [];
         const times = (mine.times && mine.times.length === path.length) ? mine.times : null;
@@ -4718,9 +4722,6 @@ function renderSnapshot(snap) {
   setFlag(roomTag, "hidden", !snap.room || snap.room === "default");
   setText(roomTag, "· room: " + (snap.room || ""));
 
-  // The scoreboard is keyed on name, so a duplicate silently merges two people.
-  setFlag($("name-clash"), "hidden",
-          !snap.peers.some(p => norm(p.name) === norm(snap.me.name)));
 
   $("netdot").classList.toggle("off", snap.peers.length === 0);
   setText($("peercount"), snap.peers.length
@@ -5226,13 +5227,17 @@ $("btn-back").onclick = async () => {
   reportProgress();
 };
 
-$("btn-savename").onclick = () => {
+$("btn-savename").onclick = async () => {
   const v = $("myname").value.trim();
   if (!v) return;
+  const res = await post("/name", { name: v });
+  if (!res || res.ok === false) {
+    toast(res && res.error === "taken" ? v + " is already somebody else's name here" : "Couldn't save that name");
+    return;
+  }
   setDrawer(false);
-  rememberName(v);
+  rememberName(res.name || v);
   conn.named = true;          // this is now the name to reclaim on reconnect
-  post("/name", { name: v });
   toast("Name saved on this device");
 };
 $("myname").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-savename").click(); });
