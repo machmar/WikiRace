@@ -316,6 +316,13 @@ same name would become one player, which is why the name picker says so if you
 type a name that's already on the scoreboard or in the game right now, and why
 the names it suggests are ones nobody has used.
 
+**A name races once per race.** If two people in the game share a name, the
+sidebar says so before the race. Whoever joins the race first gets the name;
+anyone else under it is stopped at the start line and asked to pick another,
+then joins the same race. That goes for a second device of your own too, and for
+guests. While a race is on, nobody can rename themselves into a name that's in
+it; once everyone's done, the name is free again.
+
 Your name is saved in your own browser, not on the host, so restarting the game
 doesn't cost anyone their name — each browser simply reclaims it on reconnect.
 

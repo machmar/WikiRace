@@ -928,6 +928,9 @@
   }
   #guest-note { margin-top: 8px; font-size: 12px; color: var(--fg-dim); line-height: 1.4; }
   #guest-note[hidden] { display: none; }
+  #name-twin { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--warn-fg); }
+  #name-twin[hidden] { display: none; }
+  #name-twin a { color: var(--accent); }
   #guest-note a { color: var(--accent); }
   #btn-rollname { flex: none; padding: 6px 9px; font-size: 15px; line-height: 1; }
 
@@ -1296,6 +1299,8 @@
         <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
       </div>
+      <div id="name-twin" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
+        of you can race under it. <a href="#" id="name-twin-pick">Pick another name</a></div>
       <div id="guest-note" hidden>Playing as a guest — this name isn't saved and won't count in the
         standings. <a href="#" id="guest-keep">Keep this name</a></div>
     </div>
@@ -1870,11 +1875,14 @@ setInterval(() => {
 let reportTimer = null;
 function reportProgress() {
   clearTimeout(reportTimer);
-  reportTimer = setTimeout(() => {
-    post("/progress", {
+  reportTimer = setTimeout(async () => {
+    const res = await post("/progress", {
       article: S.current, clicks: S.clicks, path: S.path,
       times: S.stepTimes, elapsed: elapsed(),
     });
+    // Somebody is already racing under this name - on another device, or
+    // another person entirely. One name, one runner, so pick another to join.
+    if (res && res.error === "name_in_race" && !picker.open) openNamePicker({ clash: res.name || (S.snap && S.snap.me.name) });
   }, 60);
 }
 
@@ -2164,6 +2172,7 @@ async function win() {
     S.running = true;
     S.finalElapsed = null;
     updateHud();
+    if (res.error === "name_in_race") { openNamePicker({ clash: res.name }); return; }
     toast(res.missing && res.missing.length
       ? "Still to visit: " + res.missing.join(", ")
       : "That didn't count — " + (res.error || "try again"));
@@ -2305,12 +2314,17 @@ async function rollName(input, button) {
   }
 }
 
+function clashMessage(name) {
+  return "<b>" + esc(name) + "</b> is already in this race — only one player can race under a name. " +
+         "Pick another one to join in.";
+}
+
 function openNamePicker(opts) {
   opts = opts || {};
   const el = $("namepick"), input = $("np-name");
   picker.open = true;
   el.hidden = false;
-  npError("");
+  npError(opts.clash ? clashMessage(opts.clash) : "");
   input.value = opts.prefill || "";
   if (input.value) npReady(); else rollName(input, $("np-roll"));
   setTimeout(() => input.focus(), 30);
@@ -2325,7 +2339,8 @@ async function submitName(guest) {
   picker.busy = false;
   npReady();
   if (!res || res.ok === false) {
-    npError("Couldn't reach the game. Check your connection and try again.");
+    npError(res && res.error === "name_in_race" ? clashMessage(res.name || name)
+                                                : "Couldn't reach the game. Check your connection and try again.");
     $("np-name").focus();
     return;
   }
@@ -2333,6 +2348,12 @@ async function submitName(guest) {
   conn.named = true;
   picker.open = false;
   $("namepick").hidden = true;
+  // Held up mid-race by a name clash: now join in, and if the target was
+  // already reached, claim it.
+  if (S.running && !S.done) {
+    reportProgress();
+    if (S.current && norm(S.current) === S.targetCanon) win();
+  }
   toast(guest ? "Playing as " + res.name + " — not saved" : "You're " + res.name, 2400);
 }
 
@@ -2343,12 +2364,16 @@ $("np-name").addEventListener("input", () => { npError(""); npReady(); });
 $("np-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(false); } });
 
 $("btn-rollname").onclick = () => rollName($("myname"), $("btn-rollname"));
+$("name-twin-pick").onclick = e => { e.preventDefault(); setDrawer(false); openNamePicker({}); };
 $("guest-keep").onclick = async e => {
   e.preventDefault();
   const name = S.snap && S.snap.me ? S.snap.me.name : "";
   if (!name) return;
   const res = await post("/name", { name });
-  if (!res || res.ok === false) { toast("Couldn't save that name"); return; }
+  if (!res || res.ok === false) {
+    toast(res && res.error === "name_in_race" ? (res.name || "That name") + " is racing right now — pick another" : "Couldn't save that name");
+    return;
+  }
   rememberName(res.name);
   toast("Name saved on this device");
 };
@@ -4936,6 +4961,9 @@ function renderSnapshot(snap) {
 
   claimName(snap);
   setFlag($("guest-note"), "hidden", !snap.me.guest);
+  const twin = (snap.peers || []).find(p => norm(p.name) === norm(snap.me.name));
+  if (twin) setText($("name-twin-who"), snap.me.name);
+  setFlag($("name-twin"), "hidden", !twin);
   if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
 
   const ready = $("btn-ready");
@@ -5475,7 +5503,10 @@ $("btn-savename").onclick = async () => {
   const v = $("myname").value.trim();
   if (!v) return;
   const res = await post("/name", { name: v });
-  if (!res || res.ok === false) { toast("Couldn't save that name"); return; }
+  if (!res || res.ok === false) {
+    toast(res && res.error === "name_in_race" ? (res.name || "That name") + " is racing right now — pick another" : "Couldn't save that name");
+    return;
+  }
   setDrawer(false);
   rememberName(res.name || v);
   conn.named = true;          // this is now the name to reclaim on reconnect

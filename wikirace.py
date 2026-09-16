@@ -231,6 +231,38 @@ class GameState:
                 return candidate
         return "Player"
 
+    def name_in_race(self, name, me, race):
+        """Whoever already races - or has finished - this race under this name.
+
+        A name is a player, and a player only runs a race once: without this,
+        Kody racing on a laptop and a phone at once would file two results under
+        one name, and the second would silently replace the first.
+        Call with the lock held.
+        """
+        if not race:
+            return None
+        key, rid = norm_name(name), race["race_id"]
+        for p in self.locals.values():
+            if p is not me and (p.run or {}).get("race_id") == rid and norm_name(p.name) == key:
+                return p.name
+        for peer in self.peers.values():
+            if peer.get("race_id") == rid and peer.get("article") and norm_name(peer.get("name")) == key:
+                return peer.get("name")
+        for res in (race.get("results") or {}).values():
+            if norm_name(res.get("name")) == key and res.get("peer_id") != me.id:
+                return res.get("name")
+        return None
+
+    def race_live(self, race):
+        """Whether anybody is still going in this race."""
+        if not race:
+            return False
+        rid = race["race_id"]
+        if any((p.run or {}).get("race_id") == rid and not p.run.get("done") for p in self.locals.values()):
+            return True
+        return any(q.get("race_id") == rid and q.get("article") and not q.get("finished") and not q.get("gave_up")
+                   for q in self.peers.values())
+
     def standings_key(self, res):
         """Whose standings a result counts towards - the name, or None for a guest."""
         return None if res.get("guest") else norm_name(res.get("name", ""))
@@ -1476,6 +1508,13 @@ def make_handler(state, net, hub):
             if not name:
                 return {"ok": False, "error": "empty"}
             with state.lock:
+                # While a race is on, a name already in it can't be taken - you
+                # could race under it, or rename into it halfway through.
+                race = state.active_race()
+                if state.race_live(race):
+                    clash = state.name_in_race(name, me, race)
+                    if clash:
+                        return {"ok": False, "error": "name_in_race", "name": clash}
                 me.name = name
                 me.guest = guest
                 me.named = True
@@ -1546,6 +1585,10 @@ def make_handler(state, net, hub):
                     return {"ok": False, "error": "no active race"}
                 run = me.run
                 if run is None or run.get("race_id") != race["race_id"]:
+                    # Joining the race: only one player per name gets to.
+                    clash = state.name_in_race(me.name, me, race)
+                    if clash:
+                        return {"ok": False, "error": "name_in_race", "name": clash}
                     run = {"race_id": race["race_id"], "clicks": 0, "path": [],
                            "times": [], "started_at": now(), "finished": False,
                            "gave_up": False, "done": False, "elapsed": None}
@@ -1589,6 +1632,12 @@ def make_handler(state, net, hub):
                     if norm_name(route[-1] if route else "") != norm_name(race.get("target")):
                         return {"ok": False, "error": "not at the target"}
 
+                # Somebody who never joined can't finish or give up under a name
+                # that's already in the race - a give-up would overwrite a win.
+                if not (me.run and me.run.get("race_id") == race["race_id"]):
+                    clash = state.name_in_race(me.name, me, race)
+                    if clash:
+                        return {"ok": False, "error": "name_in_race", "name": clash}
                 run = me.run or {"clicks": 0, "path": [], "times": [],
                                  "race_id": race["race_id"]}
                 run["finished"] = finished
