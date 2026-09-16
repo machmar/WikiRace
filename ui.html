@@ -861,7 +861,7 @@
   }
   .tl-hit { cursor: pointer; }
   .tl-dot { cursor: pointer; }
-  #rp-chart svg [class^="tl-"] { transition: opacity .1s; }
+  #rp-chart [data-art] { transition: opacity .1s; }
   .rp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12.5px; }
   .leg { display: inline-flex; align-items: center; gap: 6px; }
   .leg .sw { width: 16px; height: 3px; border-radius: 2px; }
@@ -2978,7 +2978,8 @@ function replayTypes() {
   return {
     timeline: { label: "Timeline", name: "Timeline",
       caption: "Each player gets a lane, left to right in race time. Dotted links join the pages more than one " +
-        "player visited; hover a dot to see the page." },
+        "player visited — hover one to pick out everyone who reached that page. An amber ring is a checkpoint and " +
+        "a green one the target; hover a dot to see the page." },
     ...ROUTE_TYPES,
   };
 }
@@ -3117,28 +3118,68 @@ function drawPlaces(t, active) {
 
 /* The timeline as a view of the replay. */
 function timelineStage(host) {
-  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"></div></div>';
-  const chart = $("rp-chart");
-  let last = { t: 0, active: false }, width = 0;
+  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"><div class="rp-tl-svg"></div><div class="rp-tip" hidden></div></div></div>';
+  const chart = $("rp-chart"), svgHost = chart.firstChild, tip = chart.lastChild;
+  // What the pointer is on, kept across redraws so a replay running
+  // underneath doesn't throw the highlight away.
+  let last = { t: 0, active: false }, width = 0, hover = null;
+
+  /* Hovering a dot names the page. Hovering a dotted link picks out every
+     point that page was reached at and fades the rest of the race away. */
+  const highlight = () => {
+    const svg = svgHost.firstChild;
+    const el = hover && svg ? svg.querySelector('[data-id="' + CSS.escape(hover) + '"]') : null;
+    const key = el ? el.dataset.art : null;
+    for (const node of svg ? svg.querySelectorAll("[data-art]") : []) {
+      if (node.classList.contains("tl-hit")) continue;
+      const on = key != null && node.dataset.art === key;
+      node.style.opacity = key == null ? "" : on ? "1" : "0.12";
+      if (node.classList.contains("tl-link")) {
+        node.style.stroke = on ? "var(--accent)" : "";
+        node.style.strokeWidth = on ? "2" : "";
+      }
+    }
+    if (!el) { tip.hidden = true; return; }
+    const cr = chart.getBoundingClientRect(), er = el.getBoundingClientRect();
+    tip.textContent = el.dataset.label;
+    tip.hidden = false;
+    const left = er.left - cr.left + er.width / 2;
+    tip.style.left = Math.max(60, Math.min(left, cr.width - 60)) + "px";
+    tip.style.top = (er.top - cr.top - 30) + "px";
+  };
+  const redraw = () => { drawTimeline(svgHost, last.t, last.active); if (hover) highlight(); };
+
+  svgHost.addEventListener("pointerover", (e) => {
+    const el = e.target.closest("[data-art]");
+    if (el) { hover = el.dataset.id; highlight(); }
+  });
+  svgHost.addEventListener("pointerout", (e) => {
+    const from = e.target.closest("[data-art]");
+    const to = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest("[data-art]") : null;
+    if (from && from !== to) { hover = to ? to.dataset.id : null; highlight(); }
+  });
+  chart.addEventListener("pointerleave", () => { hover = null; highlight(); });
+
   const ro = new ResizeObserver(() => {
-    if (chart.clientWidth && chart.clientWidth !== width) { width = chart.clientWidth; drawTimeline(chart, last.t, last.active); }
+    if (chart.clientWidth && chart.clientWidth !== width) { width = chart.clientWidth; redraw(); }
   });
   ro.observe(chart);
   return {
-    draw(t, active) { last = { t, active }; width = chart.clientWidth; drawTimeline(chart, t, active); },
+    draw(t, active) { last = { t, active }; width = chart.clientWidth; redraw(); },
     destroy() { ro.disconnect(); },
   };
 }
 
-function drawTimeline(chart, t, active) {
+function drawTimeline(host, t, active) {
   const lanes = replay.lanes;
-  const w = Math.max(280, chart.clientWidth || 700);
+  const w = Math.max(280, host.clientWidth || 700);
   const narrow = w < 520;
   const padL = narrow ? 80 : 108, padR = narrow ? 16 : 22, rowH = narrow ? 36 : 38, top = 14;
   const h = top + lanes.length * rowH + 28;
   const x = (s) => padL + (Math.min(s, replay.maxT) / replay.maxT) * (w - padL - padR);
   const focus = focusLane();
   const faded = (l) => focus && l !== focus;
+  const DOT = 5;   // every page the same size; checkpoints and the target get a coloured ring
 
   // The pages that carry meaning, marked the same way as in My run:
   // amber for a required stop, green for the target.
@@ -3146,11 +3187,14 @@ function drawTimeline(chart, t, active) {
   const checkKeys = new Set(raceCheckpoints(race).map(norm));
   const targetKey = norm((race && race.target) || "");
 
-  // Pages that more than one player set foot on.
-  const counts = new Map();
+  // Who set foot on each page.
+  const visitors = new Map();
   for (const l of lanes) {
     if (l.ghost) continue;
-    for (const t of new Set(l.steps.map(s => s.title))) counts.set(t, (counts.get(t) || 0) + 1);
+    for (const k of new Set(l.steps.map(s => norm(s.title)))) {
+      if (!visitors.has(k)) visitors.set(k, []);
+      visitors.get(k).push(l.name);
+    }
   }
 
   let svg = '<svg viewBox="0 0 ' + w + " " + h + '" width="100%" height="' + h + '" style="overflow:visible">';
@@ -3164,26 +3208,30 @@ function drawTimeline(chart, t, active) {
            'font-family="var(--mono)">' + clockText(s) + "</text>";
   }
 
-  for (const [title, n] of counts) {
-    if (n < 2) continue;
+  // Dotted links join the points where more than one player reached a page.
+  let links = "", hits = "";
+  for (const [key, who] of visitors) {
+    if (who.length < 2) continue;
     const pts = [];
+    let title = key;
     lanes.forEach((l, i) => {
-      const s = l.steps.find(s => s.title === title);
-      if (s && !l.ghost) pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2, l });
+      if (l.ghost) return;
+      const s = l.steps.find(s => norm(s.title) === key);
+      if (s) { pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2, l }); title = s.title; }
     });
-    const key = norm(title);
+    const label = title + " — " + who.join(", ");
     for (let i = 1; i < pts.length; i++) {
-      // A wide transparent line underneath gives the thin dotted one a
-      // hit area you can actually land on.
       const geom = 'x1="' + pts[i - 1].x.toFixed(1) + '" y1="' + pts[i - 1].y +
                    '" x2="' + pts[i].x.toFixed(1) + '" y2="' + pts[i].y + '"';
       const dim = focus && pts[i - 1].l !== focus && pts[i].l !== focus;
-      svg += "<line " + geom + ' stroke="transparent" stroke-width="12" ' +
-             'data-art="' + esc(key) + '" class="tl-hit"/>';
-      svg += "<line " + geom + ' stroke="var(--line-strong)" stroke-width="1" ' +
-             'stroke-dasharray="2 3" data-art="' + esc(key) + '" class="tl-link"' + (dim ? ' opacity=".2"' : "") + "/>";
+      const attrs = ' data-art="' + esc(key) + '" data-id="' + esc("l:" + key + ":" + i) + '" data-label="' + esc(label) + '"';
+      links += "<line " + geom + ' class="tl-link"' + attrs + ' stroke="var(--line-strong)" stroke-width="1" ' +
+               'stroke-dasharray="2 3"' + (dim ? ' opacity=".2"' : "") + "/>";
+      // A wide invisible line is what the pointer actually catches.
+      hits += "<line " + geom + ' class="tl-hit"' + attrs + ' stroke="transparent" stroke-width="12"/>';
     }
   }
+  svg += links + hits;
 
   lanes.forEach((l, i) => {
     const y = top + i * rowH + rowH / 2, end = laneEnd(l);
@@ -3203,28 +3251,26 @@ function drawTimeline(chart, t, active) {
            '" font-size="12" font-weight="600">' +
            esc(l.name.length > max ? l.name.slice(0, max - 1) + "…" : l.name) + "</text>";
 
-    for (const s of l.steps) {
-      const shared = !l.ghost && (counts.get(s.title) || 0) > 1;
+    l.steps.forEach((s, si) => {
       const dim = active && s.t > t;
       const key = norm(s.title);
       const isCheck = checkKeys.has(key);
       const isGoal = key === targetKey;
       // The ring says what the page is; the fill still says whose dot it is.
       const ring = isGoal ? "var(--good)" : isCheck ? "var(--warn-fg)" : l.color;
-      const rad = isGoal || isCheck ? 6.5 : shared ? 5.5 : 4;
       const label = s.title + " · " + fmtTime(s.t) +
                     (isGoal ? " · target" : isCheck ? " · checkpoint" : "");
-      svg += '<circle class="tl-dot" data-art="' + esc(key) +
+      svg += '<circle class="tl-dot" data-art="' + esc(key) + '" data-id="d:' + i + ":" + si +
              '" data-label="' + esc(label) +
-             '" cx="' + x(s.t).toFixed(1) + '" cy="' + y + '" r="' + rad +
+             '" cx="' + x(s.t).toFixed(1) + '" cy="' + y + '" r="' + DOT +
              '" fill="' + (dim ? "var(--sunken)" : l.color) + '" stroke="' + ring +
              '" stroke-width="' + (isGoal || isCheck ? 2.5 : 1.5) + '"' +
              (isCheck ? ' stroke-dasharray="4 3"' : "") +
              ' opacity="' + (l.ghost ? .55 : 1) + '"/>';
-    }
+    });
     if (l.finished && (!active || l.elapsed <= t)) {
       svg += '<text x="' + (x(l.elapsed) + 9).toFixed(1) + '" y="' + (y + 4) +
-             '" fill="var(--good)" font-size="12">&#127937;</text>';
+             '" fill="var(--good)" font-size="12" pointer-events="none">&#127937;</text>';
     }
     if (live) {
       svg += '<g transform="translate(' + x(Math.min(t, end)).toFixed(1) + " " + y + ')" pointer-events="none">' +
@@ -3239,9 +3285,7 @@ function drawTimeline(chart, t, active) {
     svg += '<line x1="' + px + '" y1="' + (top - 6) + '" x2="' + px + '" y2="' + (h - 24) +
            '" stroke="var(--accent)" stroke-width="1.5" pointer-events="none"/>';
   }
-  svg += "</svg>";
-  chart.innerHTML = svg;
-  wireTimelineHover(chart);
+  host.innerHTML = svg + "</svg>";
 }
 
 /* ------------------------------------------------------------------ *
@@ -4830,63 +4874,6 @@ const RouteMap = (() => {
 
   return { render };
 })();
-
-/* Hovering a dot names the page it is; hovering one of the dotted links
-   between lanes picks out everywhere that page was reached and fades the rest
-   of the race away. */
-function wireTimelineHover(chart) {
-  const svg = chart.querySelector("svg");
-  if (!svg) return;
-  let tip = chart.querySelector(".rp-tip");
-  if (!tip) {
-    tip = document.createElement("div");
-    tip.className = "rp-tip";
-    tip.hidden = true;
-    chart.appendChild(tip);
-  }
-
-  const dots = [...svg.querySelectorAll(".tl-dot")];
-  const links = [...svg.querySelectorAll(".tl-link")];
-  const all = dots.concat(links);
-
-  const focusArticle = (key) => {
-    for (const el of all) {
-      el.style.opacity = key == null ? "" : (el.dataset.art === key ? "1" : "0.12");
-    }
-    for (const el of links) {
-      el.style.stroke = key != null && el.dataset.art === key ? "var(--accent)" : "";
-      el.style.strokeWidth = key != null && el.dataset.art === key ? "2" : "";
-    }
-  };
-
-  const showTip = (el, text) => {
-    const cr = chart.getBoundingClientRect(), er = el.getBoundingClientRect();
-    tip.textContent = text;
-    tip.hidden = false;
-    const left = er.left - cr.left + er.width / 2;
-    tip.style.left = Math.max(4, Math.min(left, cr.width - 8)) + "px";
-    tip.style.top = (er.top - cr.top - 30) + "px";
-  };
-
-  for (const d of dots) {
-    d.addEventListener("mouseenter", () => {
-      showTip(d, d.dataset.label);
-      focusArticle(d.dataset.art);
-    });
-    d.addEventListener("mouseleave", () => { tip.hidden = true; focusArticle(null); });
-  }
-
-  // The invisible wide lines are what the pointer actually catches.
-  for (const hit of svg.querySelectorAll(".tl-hit")) {
-    hit.addEventListener("mouseenter", () => {
-      const key = hit.dataset.art;
-      const shown = dots.find(d => d.dataset.art === key);
-      if (shown) showTip(hit, (shown.dataset.label || "").split(" · ")[0] + " — shared");
-      focusArticle(key);
-    });
-    hit.addEventListener("mouseleave", () => { tip.hidden = true; focusArticle(null); });
-  }
-}
 
 /* ------------------------------------------------------------------ *
  * New-race dialog
