@@ -855,10 +855,80 @@
   .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
   .leg.pick { cursor: pointer; transition: opacity .12s; }
   .leg.pick.faded { opacity: .3; }
-  #rp-routes svg [data-run], #rp-routes svg [data-seen] { transition: opacity .12s; }
-  /* a fatter invisible hit area would be nicer, but pointer-events on the
-     stroke itself is enough at this line width */
-  #rp-routes svg path { stroke-linecap: round; }
+  /* ---- routes: the race as a map ---- */
+  #replay-pane.wide { max-width: 1240px; }
+  .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+  .rm-bar .seg { max-width: 100%; overflow-x: auto; }
+  .rm-bar .seg button { white-space: nowrap; }
+  .rp-legend .leg.still { cursor: default; }
+  /* The diagram's own names for colours, mapped onto the theme so all three
+     appearances draw it properly. */
+  .rm-screen {
+    --dg-bg: var(--bg); --dg-glass: color-mix(in srgb, var(--bg) 90%, transparent);
+    --dg-node: var(--bg-2); --dg-node-line: var(--line-strong); --dg-line: var(--line);
+    --dg-shared: var(--fg-faint); --dg-text: var(--fg); --dg-ink: var(--fg-dim); --dg-faint: var(--fg-faint);
+    --dg-accent: var(--accent); --dg-good: var(--good); --dg-good-bg: var(--good-bg); --dg-warn: var(--warn);
+    --dg-station: var(--bg); --dg-station-line: var(--fg);
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--dg-bg);
+  }
+  .rm-map {
+    position: relative; overflow: hidden; height: clamp(380px, 64vh, 680px);
+    cursor: grab; outline: none; background: var(--dg-bg);
+    /* Until the map is taken over, a vertical swipe still scrolls the page. */
+    touch-action: pan-y;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .rm-map.rm-engaged { touch-action: none; box-shadow: inset 0 0 0 2px var(--dg-accent); }
+  .rm-map:focus-visible { box-shadow: inset 0 0 0 2px var(--dg-accent); }
+  .rm-map.rm-dragging, .rm-map.rm-dragging * { cursor: grabbing; }
+  .rm-map svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+  .rm-map text { font-family: var(--mono); }
+  .rm-map .rm-lbl text { fill: var(--dg-ink); paint-order: stroke; stroke: var(--dg-bg); stroke-width: 3.5px; stroke-linejoin: round; }
+  .rm-map:not(.rm-labels) .rm-lbl { display: none; }
+  .rm-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; }
+  .rm-tools button {
+    min-width: 34px; height: 34px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid var(--dg-line); background: var(--dg-glass); color: var(--dg-text); font-size: 15px; line-height: 1;
+  }
+  .rm-tools button[data-act="done"] { background: var(--accent-solid); border-color: var(--accent-line); color: var(--on-accent); font-weight: 600; }
+  .rm-zoom { font: 12px var(--mono); color: var(--dg-faint); min-width: 44px; text-align: right; }
+  .rm-hint {
+    position: absolute; left: 10px; bottom: 10px; z-index: 2; pointer-events: none; max-width: calc(100% - 20px);
+    font-size: 12px; color: var(--dg-faint); background: var(--dg-glass);
+    border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px; transition: color .25s, border-color .25s;
+  }
+  .rm-hint.nudge { color: var(--dg-text); border-color: var(--dg-accent); }
+  .rm-info {
+    position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
+    max-width: min(380px, calc(100% - 200px)); background: var(--dg-glass);
+    border: 1px solid var(--dg-line); border-radius: 8px; padding: 7px 11px;
+    color: var(--dg-text); font-size: 13.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 2px;
+  }
+  .rm-info[hidden] { display: none; }
+  .rm-info span { color: var(--dg-ink); font-size: 12px; }
+  .rm-multi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+  .rm-multi .rm-map { height: clamp(300px, 42vh, 440px); }
+  .rm-multi .rm-info { top: 48px; }
+  .rm-multi .rm-map:not(:first-child) .rm-hint { display: none; }
+  .rm-multi .rm-map:not(:first-child) .rm-tools > :not([data-act="done"]) { display: none; }
+  .rm-pname {
+    position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
+    display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--dg-text);
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px;
+  }
+  .rm-pname .c { font: 11.5px var(--mono); color: var(--dg-faint); font-weight: 400; }
+  .rm-caption { margin-top: 12px; }
+  @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: 17px; } }
+  @media (prefers-reduced-motion: reduce) { .rm-hint { transition: none; } }
+  /* After the rules above, or they would win: one panel per row on a phone. */
+  @media (max-width: 760px) {
+    .rm-map { height: clamp(340px, 62vh, 540px); }
+    .rm-info { top: 62px; max-width: calc(100% - 20px); }
+    .rm-zoom { display: none; }
+    .rm-multi { grid-template-columns: 1fr; }
+    .rm-multi .rm-map { height: 340px; }
+    .rm-multi .rm-map:first-child .rm-info { top: 62px; }
+  }
 
   /* compact per-player pill for the mobile strip */
   .mp {
@@ -2207,7 +2277,13 @@ function renderMyRun() {
 
 const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null,
                  raceId: null, view: "timeline", sig: null, ghost: null,
-                 locked: null, colWidth: 168 };
+                 // Which map the Routes view draws, and how - remembered per browser.
+                 focus: null, mapType: "aligned", mapMode: "combined" };
+try {
+  const saved = JSON.parse(localStorage.getItem("wr_routes") || "{}");
+  if (["aligned", "metro", "spring", "collapsed"].includes(saved.type)) replay.mapType = saved.type;
+  if (saved.mode === "separate") replay.mapMode = "separate";
+} catch (e) { /* first visit, or storage blocked */ }
 
 /* What the replay is drawn from. If this hasn't moved, neither has the
    picture, so there's no reason to rebuild it. */
@@ -2367,6 +2443,8 @@ function drawCurrentReplayView() {
   const showRoutes = replay.view === "routes";
   timeline.hidden = showRoutes;
   routes.hidden = !showRoutes;
+  // Four linked maps need more room than a column of text does.
+  $("replay-pane").classList.toggle("wide", showRoutes);
   if (showRoutes) drawRoutes(); else drawReplay();
 }
 
@@ -2817,205 +2895,1134 @@ function distinctColors(names) {
   return out;
 }
 
-function routeGraph(race) {
-  const all = Object.values(race.results || {}).filter(r => (r.path || []).length);
-  const colors = distinctColors(all.map(r => r.name));
-  const runs = all.map(r => ({
-    name: r.name, color: colors.get(r.name), path: (r.path || []).slice(),
-    finished: !!r.finished, clicks: r.clicks, elapsed: r.elapsed,
-  }));
-  if (!runs.length) return null;
+/* ------------------------------------------------------------------ *
+ * Routes: the race as a map you can pan and zoom
+ *
+ * No single drawing of four tangled routes suits everyone, so there are four,
+ * each a different trade-off:
+ *   aligned   - routes lined up like a diff, so meetings become merges
+ *   metro     - laid out like a flowchart, drawn as a transit map
+ *   spring    - pages float to wherever their links pull them
+ *   collapsed - stretches only one player saw shrink to a single "+N" link
+ * Combined puts everyone on one map; separate gives each player a panel, and
+ * the panels pan and zoom together.
+ * ------------------------------------------------------------------ */
 
-  const startKey = norm(race.start);
-  const targetKey = norm(race.target);
-  const checkKeys = new Set(raceCheckpoints(race).map(norm));
+const ROUTE_TYPES = {
+  aligned: { label: "Aligned", name: "Aligned routes",
+    caption: "Routes are lined up so the pages players shared fall in the same column. Everyone keeps a " +
+      "lane and moves left to right; where lines merge into one dot, those players were on that page at " +
+      "the same point in their race. A faint arc joins a page two players reached in a different order, " +
+      "and an amber ring means someone came back to a page." },
+  metro: { label: "Metro", name: "Metro map",
+    caption: "Every player is a line on a transit map. Players who clicked the same link run side by side, " +
+      "a hollow interchange is a page more than one player visited, and a dashed arc is a step back to " +
+      "somewhere earlier." },
+  spring: { label: "Spring", name: "Spring layout",
+    caption: "Pages settle wherever their links pull them, so the pages players shared draw their routes " +
+      "together. Arrows show the direction; a dashed line is a return to a page already visited." },
+  collapsed: { label: "Collapsed", name: "Collapsed stretches",
+    caption: "A stretch of pages only one player saw shrinks to a thick line with a +N badge — tap the " +
+      "badge to see them. What's left is where routes met, split and looped." },
+};
 
-  // Column = the earliest step at which anybody reached the page, which puts
-  // shared pages in the same place for everyone.
-  const col = new Map(), label = new Map(), visitors = new Map();
-  for (const r of runs) {
-    r.path.forEach((title, i) => {
-      const k = norm(title);
-      if (!label.has(k)) label.set(k, title);
-      col.set(k, Math.min(col.has(k) ? col.get(k) : Infinity, i));
+const RouteMap = (() => {
+  const W = 1000, PAD = 44;
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)");
+  // Where each map is looking, kept across redraws so a late finisher or a
+  // highlighted player doesn't throw your zoom away. Reset for a new race.
+  const views = new Map();
+  let controllers = [], viewsRace = null;
+  const fitCol = (n, lo, hi) => Math.max(lo, Math.min(hi, (W - PAD * 2) / Math.max(1, n)));
+
+  /* ------------------------------------------------------------ the data */
+  function model(race) {
+    const all = Object.values(race.results || {}).filter(r => (r.path || []).length)
+      .sort((a, b) => (b.finished - a.finished) || ((a.elapsed || 0) - (b.elapsed || 0)));
+    const colors = distinctColors(all.map(r => r.name));
+    const runs = all.map(r => ({ name: r.name, color: colors.get(r.name), path: r.path.slice(),
+                                 clicks: r.clicks, finished: !!r.finished }));
+    const label = new Map(), visitors = new Map();
+    runs.forEach(r => r.path.forEach(t => {
+      const k = norm(t);
+      if (!label.has(k)) label.set(k, t);
       if (!visitors.has(k)) visitors.set(k, new Set());
       visitors.get(k).add(r.name);
+    }));
+    // The start and target as typed can be redirects, so read the real titles
+    // off the routes wherever there is one to read.
+    const done = runs.find(r => r.finished);
+    return {
+      runs, label, visitors,
+      startKey: runs.length ? norm(runs[0].path[0]) : norm(race.start),
+      targetKey: done ? norm(done.path[done.path.length - 1]) : norm(race.target),
+      checkKeys: new Set(raceCheckpoints(race).map(norm)),
+    };
+  }
+
+  function edgeList(m) {
+    const out = [];
+    m.runs.forEach((r, ri) => {
+      for (let i = 1; i < r.path.length; i++) {
+        out.push({ ri, color: r.color, a: norm(r.path[i - 1]), b: norm(r.path[i]),
+                   revisit: r.path.slice(0, i).some(t => norm(t) === norm(r.path[i])) });
+      }
     });
-  }
-  // Pin the ends: the start opens the map, the target closes it, so a run
-  // that overshoots and comes back reads as the loop it was.
-  if (col.has(startKey)) col.set(startKey, 0);
-  let widest = 0;
-  for (const [k, c] of col) if (k !== targetKey) widest = Math.max(widest, c);
-  if (col.has(targetKey)) col.set(targetKey, widest + 1);
-
-  const columns = new Map();
-  for (const [k, c] of col) {
-    if (!columns.has(c)) columns.set(c, []);
-    columns.get(c).push(k);
+    return out;
   }
 
-  const pos = new Map();
-  const rows = Math.max(...[...columns.values()].map(v => v.length));
-  for (const [c, keys] of columns) {
-    keys.forEach((k, i) => pos.set(k, { c, r: i - (keys.length - 1) / 2 }));
+  /* How far through their own race people were when they reached each page,
+     averaged over every visit. Start pinned first, target last. */
+  function progressOf(m) {
+    const acc = new Map();
+    m.runs.forEach(r => r.path.forEach((t, i) => {
+      const k = norm(t), p = r.path.length > 1 ? i / (r.path.length - 1) : 0;
+      if (!acc.has(k)) acc.set(k, []);
+      acc.get(k).push(p);
+    }));
+    const out = new Map([...acc].map(([k, v]) => [k, v.reduce((a, b) => a + b, 0) / v.length]));
+    if (out.has(m.startKey)) out.set(m.startKey, -1);
+    if (out.has(m.targetKey)) out.set(m.targetKey, 2);
+    return out;
   }
 
-  return { runs, pos, label, visitors, rows,
-           cols: Math.max(...col.values()) + 1,
-           startKey, targetKey, checkKeys };
-}
+  /* ------------------------------------------------------------ geometry */
+  function bowControl(a, b, bow, side) {
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    return { x: mx + (-dy / len) * bow * side, y: my + (dx / len) * bow * side };
+  }
+  const quadAt = (a, c, b, t) => ({
+    x: (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * c.x + t * t * b.x,
+    y: (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * c.y + t * t * b.y,
+  });
+  const polyLen = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - pts[i].x, p.y - pts[i].y), 0);
+  /* A horizontal S-bend from a to b - how storyline charts join points. */
+  function sBend(a, b) {
+    const h = Math.max(6, (b.x - a.x) / 2);
+    return { c1: { x: a.x + h, y: a.y }, c2: { x: b.x - h, y: b.y } };
+  }
+  /* 45-degree routing: flat, diagonal, flat - or diagonal, vertical, diagonal
+     when the drop is bigger than the distance. */
+  function octi(a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, ady = Math.abs(dy), sy = Math.sign(dy);
+    if (ady < 0.5 || dx <= 0) return [b];
+    if (ady <= dx) { const flat = (dx - ady) / 2; return [{ x: a.x + flat, y: a.y }, { x: b.x - flat, y: b.y }, b]; }
+    const h = dx / 2;
+    return [{ x: a.x + h, y: a.y + sy * h }, { x: a.x + h, y: b.y - sy * h }, b];
+  }
+
+  /* ----------------------------------------------------- grid (collapsed) */
+  function columnsOf(m) {
+    const col = new Map();
+    m.runs.forEach(r => r.path.forEach((t, i) => {
+      const k = norm(t);
+      col.set(k, Math.min(col.has(k) ? col.get(k) : Infinity, i));
+    }));
+    if (col.has(m.startKey)) col.set(m.startKey, 0);
+    let widest = 0;
+    for (const [k, c] of col) if (k !== m.targetKey) widest = Math.max(widest, c);
+    if (col.has(m.targetKey)) col.set(m.targetKey, widest + 1);
+    return col;
+  }
+
+  function gridLayout(m) {
+    const col = columnsOf(m);
+    const columns = new Map();
+    for (const [k, c] of col) {
+      if (!columns.has(c)) columns.set(c, []);
+      columns.get(c).push(k);
+    }
+    const cols = Math.max(...col.values()) + 1;
+    const rowsMax = Math.max(...[...columns.values()].map(v => v.length));
+    const COL = fitCol(cols - 1, 12, 90), ROW = 66;
+    const h = Math.max(420, PAD * 2 + (rowsMax - 1) * ROW + 40);
+    const nodes = new Map();
+    for (const [c, keys] of columns) {
+      keys.forEach((k, i) => nodes.set(k, { key: k, x: PAD + c * COL, y: h / 2 + (i - (keys.length - 1) / 2) * ROW }));
+    }
+    return { nodes, w: PAD * 2 + (cols - 1) * COL, h, spread: 5, col: COL };
+  }
+
+  function layoutCollapsed(m) {
+    const keep = new Set([m.startKey, m.targetKey, ...m.checkKeys]);
+    for (const [k, v] of m.visitors) if (v.size > 1) keep.add(k);
+    m.runs.forEach(r => {
+      const seen = new Set();
+      r.path.forEach(t => { const k = norm(t); if (seen.has(k)) keep.add(k); seen.add(k); });
+    });
+    const runs = m.runs.map(r => {
+      const stops = [];
+      let hidden = [];
+      r.path.forEach((t, i) => {
+        const k = norm(t);
+        if (keep.has(k) || i === 0 || i === r.path.length - 1) { stops.push({ key: k, hidden }); hidden = []; }
+        else hidden.push(t);
+      });
+      return { ...r, path: stops.map(x => x.key), stops };
+    });
+    const L = gridLayout({ ...m, runs });
+    L.edges = [];
+    runs.forEach((r, ri) => {
+      for (let i = 1; i < r.stops.length; i++) {
+        L.edges.push({ ri, color: r.color, a: r.stops[i - 1].key, b: r.stops[i].key,
+          skipped: r.stops[i].hidden.length, hidden: r.stops[i].hidden, who: r.name,
+          revisit: r.stops.slice(0, i).some(x => x.key === r.stops[i].key) });
+      }
+    });
+    return L;
+  }
+
+  /* ------------------------------------------------------------- aligned */
+  /* Progressive global alignment (Needleman-Wunsch), the way a diff lines
+     files up: a column may hold different pages for different players, but a
+     shared page is worth a few gaps of stretch to line up. */
+  function alignRoutes(m) {
+    const R = m.runs.length;
+    const seqs = m.runs.map(r => r.path.map(norm));
+    const pinned = new Set([m.startKey, m.targetKey]);
+    const MATCH = 4, PIN = 60, GAP = -0.6;
+    const single = ri => seqs[ri].map(k => { const c = new Array(R).fill(null); c[ri] = k; return c; });
+
+    function align(profile, ri) {
+      const seq = seqs[ri], n = profile.length, q = seq.length;
+      const D = Array.from({ length: n + 1 }, () => new Float64Array(q + 1));
+      const B = Array.from({ length: n + 1 }, () => new Uint8Array(q + 1));
+      for (let i = 1; i <= n; i++) { D[i][0] = i * GAP; B[i][0] = 1; }
+      for (let j = 1; j <= q; j++) { D[0][j] = j * GAP; B[0][j] = 2; }
+      for (let i = 1; i <= n; i++) {
+        const col = profile[i - 1];
+        const colPinned = col.some(c => c != null && pinned.has(c));
+        for (let j = 1; j <= q; j++) {
+          const k = seq[j - 1];
+          let gain;
+          if (col.includes(k)) gain = pinned.has(k) ? PIN : MATCH;
+          else gain = pinned.has(k) || colPinned ? -PIN : 0;   // start and target only line up with themselves
+          const diag = D[i - 1][j - 1] + gain, up = D[i - 1][j] + GAP, left = D[i][j - 1] + GAP;
+          if (diag >= up && diag >= left) { D[i][j] = diag; B[i][j] = 0; }
+          else if (up >= left) { D[i][j] = up; B[i][j] = 1; }
+          else { D[i][j] = left; B[i][j] = 2; }
+        }
+      }
+      const cols = [];
+      let i = n, j = q;
+      while (i > 0 || j > 0) {
+        const b = i > 0 && j > 0 ? B[i][j] : i > 0 ? 1 : 2;
+        if (b === 0) { const c = profile[i - 1].slice(); c[ri] = seq[j - 1]; cols.push(c); i--; j--; }
+        else if (b === 1) { cols.push(profile[i - 1].slice()); i--; }
+        else { const c = new Array(R).fill(null); c[ri] = seq[j - 1]; cols.push(c); j--; }
+      }
+      return { cols: cols.reverse(), score: D[n][q] };
+    }
+
+    if (R === 1) return single(0);
+    // Start from the two routes that agree most, then fold the rest in.
+    let best = null;
+    for (let a = 0; a < R; a++) for (let b = a + 1; b < R; b++) {
+      const res = align(single(a), b);
+      if (!best || res.score > best.res.score) best = { res, used: [a, b] };
+    }
+    let profile = best.res.cols;
+    const used = new Set(best.used);
+    while (used.size < R) {
+      let pick = null;
+      for (let ri = 0; ri < R; ri++) {
+        if (used.has(ri)) continue;
+        const res = align(profile, ri);
+        if (!pick || res.score > pick.res.score) pick = { res, ri };
+      }
+      profile = pick.res.cols;
+      used.add(pick.ri);
+    }
+    return profile;
+  }
+
+  /* Which lane each player gets: the people who met most sit together. */
+  function bestLaneOrder(R, meet) {
+    const idx = [...Array(R).keys()];
+    if (R > 7) return idx;
+    let best = idx.slice(), cost = Infinity;
+    const walk = (arr, l) => {
+      if (l === arr.length) {
+        const pos = [];
+        arr.forEach((ri, p) => { pos[ri] = p; });
+        let c = 0;
+        for (let a = 0; a < R; a++) for (let b = a + 1; b < R; b++) c += meet[a][b] * Math.abs(pos[a] - pos[b]);
+        if (c < cost) { cost = c; best = pos; }
+        return;
+      }
+      for (let i = l; i < arr.length; i++) {
+        [arr[l], arr[i]] = [arr[i], arr[l]]; walk(arr, l + 1); [arr[l], arr[i]] = [arr[i], arr[l]];
+      }
+    };
+    walk(idx.slice(), 0);
+    return best;
+  }
+
+  function layoutAligned(m) {
+    const cols = alignRoutes(m), R = m.runs.length;
+    const meet = Array.from({ length: R }, () => new Array(R).fill(0));
+    for (const c of cols) for (let a = 0; a < R; a++) for (let b = a + 1; b < R; b++)
+      if (c[a] != null && c[a] === c[b]) { meet[a][b]++; meet[b][a]++; }
+    const laneOf = bestLaneOrder(R, meet);
+    const COL = fitCol(cols.length - 1, 10, 90), LANE = 112, mid = (R - 1) / 2;
+    const h = Math.max(420, PAD * 2 + (R - 1) * LANE + 80);
+
+    const nodes = new Map(), runEdges = [], last = new Array(R).fill(null), seen = m.runs.map(() => new Set());
+    cols.forEach((c, ci) => {
+      const groups = new Map();
+      c.forEach((k, ri) => { if (k == null) return; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(ri); });
+      for (const [k, rs] of groups) {
+        const id = ci + ":" + k;
+        const lane = rs.reduce((a, ri) => a + laneOf[ri], 0) / rs.length;
+        nodes.set(id, { key: id, page: k, runs: rs, col: ci, x: PAD + ci * COL, y: h / 2 + (lane - mid) * LANE,
+                        again: rs.some(ri => seen[ri].has(k)) });
+        for (const ri of rs) {
+          if (last[ri]) runEdges.push({ ri, a: last[ri], b: id, color: m.runs[ri].color });
+          last[ri] = id;
+          seen[ri].add(k);
+        }
+      }
+    });
+    // A meeting must not land on top of someone else's page in that column.
+    const byCol = new Map();
+    for (const n of nodes.values()) { if (!byCol.has(n.col)) byCol.set(n.col, []); byCol.get(n.col).push(n); }
+    for (const [, list] of byCol) {
+      list.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < list.length; i++) {
+        if (list[i].y - list[i - 1].y >= 36) continue;
+        if (list[i].runs.length > 1) list[i].y = list[i - 1].y + 36;
+        else list[i - 1].y = list[i].y - 36;
+      }
+    }
+    // The same page seen at different points in the race gets a faint arc.
+    const byPage = new Map();
+    for (const n of nodes.values()) { if (!byPage.has(n.page)) byPage.set(n.page, []); byPage.get(n.page).push(n); }
+    const ties = [];
+    for (const [, g] of byPage) {
+      g.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < g.length; i++) ties.push([g[i - 1], g[i]]);
+    }
+    return { flow: true, nodes, runEdges, ties, laneOf, lane: LANE, col: COL, w: PAD * 2 + (cols.length - 1) * COL, h };
+  }
+
+  /* ----------------------------------------------------- layered (metro) */
+  /* The Sugiyama pipeline Graphviz's dot uses: break cycles with as few
+     reversed clicks as possible, give pages layers that keep links short while
+     every forward link still points right, thread long links through
+     waypoints, then order rows to uncross and straighten. */
+  function layoutLayered(m) {
+    const keys = [...m.label.keys()];
+    const prog = progressOf(m);
+    const byProg = [...keys].sort((a, b) => prog.get(a) - prog.get(b));
+    const firstRun = new Map();
+    m.runs.forEach((r, ri) => r.path.forEach(t => { const k = norm(t); if (!firstRun.has(k)) firstRun.set(k, ri); }));
+
+    const out = new Map(keys.map(k => [k, new Map()])), inn = new Map(keys.map(k => [k, new Map()]));
+    for (const e of edgeList(m)) {
+      if (e.a === e.b) continue;
+      out.get(e.a).set(e.b, (out.get(e.a).get(e.b) || 0) + 1);
+      inn.get(e.b).set(e.a, (inn.get(e.b).get(e.a) || 0) + 1);
+    }
+
+    // 1. An order that the fewest clicks run against (Eades-Lin-Smyth).
+    const alive = new Set(keys), head = [], tail = [];
+    const live = mp => { let t = 0; for (const [n, w] of mp) if (alive.has(n)) t += w; return t; };
+    const hasStart = alive.has(m.startKey), hasTarget = alive.has(m.targetKey) && m.targetKey !== m.startKey;
+    if (hasStart) { head.push(m.startKey); alive.delete(m.startKey); }
+    if (hasTarget) alive.delete(m.targetKey);
+    while (alive.size) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const k of byProg) if (alive.has(k) && live(out.get(k)) === 0) { tail.unshift(k); alive.delete(k); changed = true; }
+        for (const k of byProg) if (alive.has(k) && live(inn.get(k)) === 0) { head.push(k); alive.delete(k); changed = true; }
+      }
+      if (!alive.size) break;
+      let best = null, bd = -Infinity;
+      for (const k of byProg) if (alive.has(k)) {
+        const d = live(out.get(k)) - live(inn.get(k));
+        if (d > bd) { bd = d; best = k; }
+      }
+      head.push(best); alive.delete(best);
+    }
+    const seq = [...head, ...tail];
+    if (hasTarget) seq.push(m.targetKey);
+    const rank = new Map(seq.map((k, i) => [k, i]));
+    const preds = k => [...inn.get(k)].filter(([p]) => rank.get(p) < rank.get(k));
+    const succs = k => [...out.get(k)].filter(([n]) => rank.get(n) > rank.get(k));
+
+    // 2. Layers: longest path first, then each page slides toward the pages it
+    //    links to, never so far that a forward link stops pointing right.
+    const layer = new Map();
+    for (const k of seq) layer.set(k, k === m.startKey ? 0 : Math.max(1, ...preds(k).map(([p]) => layer.get(p) + 1)));
+    for (let pass = 0; pass < 80; pass++) {
+      let moved = false;
+      for (const k of seq) {
+        if (k === m.startKey || k === m.targetKey) continue;
+        const ps = preds(k), ss = succs(k);
+        const lo = Math.max(1, ...ps.map(([p]) => layer.get(p) + 1));
+        const hi = ss.length ? Math.min(...ss.map(([n]) => layer.get(n) - 1)) : Infinity;
+        const wants = [];
+        for (const [p, w] of ps) for (let i = 0; i < w; i++) wants.push(layer.get(p) + 1);
+        for (const [n, w] of ss) for (let i = 0; i < w; i++) wants.push(layer.get(n) - 1);
+        if (!wants.length) continue;
+        wants.sort((a, b) => a - b);
+        const t = Math.max(lo, Math.min(hi, wants[Math.floor((wants.length - 1) / 2)]));
+        if (t !== layer.get(k)) { layer.set(k, t); moved = true; }
+      }
+      if (!moved) break;
+    }
+    if (hasTarget) {
+      let mx = 0;
+      for (const [k, l] of layer) if (k !== m.targetKey) mx = Math.max(mx, l);
+      layer.set(m.targetKey, mx + 1);
+    }
+
+    // 3. Waypoints for links that cross more than one layer.
+    const isDummy = id => id.charCodeAt(0) === 126;   // "~"
+    const nodeLayer = new Map(layer), chains = new Map(), hint = new Map();
+    const up = new Map(), down = new Map();
+    const addSeg = (u, v, w) => {
+      if (!up.has(v)) up.set(v, []);
+      if (!down.has(u)) down.set(u, []);
+      up.get(v).push([u, w]); down.get(u).push([v, w]);
+    };
+    for (const k of keys) hint.set(k, (firstRun.get(k) || 0) + prog.get(k) * 0.01);
+    for (const k of keys) for (const [n, w] of succs(k)) {
+      const id = k + ">" + n, chain = [k];
+      for (let x = layer.get(k) + 1; x < layer.get(n); x++) {
+        const d = "~" + id + "~" + x;
+        nodeLayer.set(d, x); hint.set(d, hint.get(k)); chain.push(d);
+      }
+      chain.push(n);
+      chains.set(id, chain);
+      for (let i = 1; i < chain.length; i++) addSeg(chain[i - 1], chain[i], w);
+    }
+    const depth = Math.max(...nodeLayer.values()) + 1;
+    const layers = Array.from({ length: depth }, () => []);
+    for (const [id, x] of nodeLayer) layers[x].push(id);
+    for (const L of layers) L.sort((a, b) => hint.get(a) - hint.get(b));
+
+    // 4. Order rows to uncross: barycentre sweeps, keeping the best seen.
+    const pos = new Map();
+    const index = () => layers.forEach(L => L.forEach((id, i) => pos.set(id, i)));
+    index();
+    const crossings = () => {
+      let c = 0;
+      for (let i = 0; i + 1 < layers.length; i++) {
+        const es = [];
+        for (const id of layers[i]) for (const [v, w] of down.get(id) || []) es.push([pos.get(id), pos.get(v), w]);
+        for (let a = 0; a < es.length; a++) for (let b = a + 1; b < es.length; b++)
+          if ((es[a][0] - es[b][0]) * (es[a][1] - es[b][1]) < 0) c += es[a][2] * es[b][2];
+      }
+      return c;
+    };
+    let bestOrder = layers.map(L => L.slice()), bestC = crossings();
+    for (let pass = 0; pass < 32; pass++) {
+      const downward = pass % 2 === 0;
+      const order = downward ? [...layers.keys()] : [...layers.keys()].reverse();
+      for (const i of order) {
+        const nb = downward ? up : down;
+        const score = new Map(layers[i].map(id => {
+          const ns = nb.get(id) || [];
+          if (!ns.length) return [id, pos.get(id)];
+          let t = 0, w = 0;
+          for (const [n, ww] of ns) { t += pos.get(n) * ww; w += ww; }
+          return [id, t / w];
+        }));
+        layers[i].sort((a, b) => score.get(a) - score.get(b) || pos.get(a) - pos.get(b));
+        layers[i].forEach((id, j) => pos.set(id, j));
+      }
+      const c = crossings();
+      if (c < bestC) { bestC = c; bestOrder = layers.map(L => L.slice()); }
+    }
+    bestOrder.forEach((L, i) => { layers[i] = L; });
+    index();
+
+    // 5. Heights: pages need room, waypoints pack tightly; then pull things
+    //    level with what they link to, so long links run straight.
+    const REAL = 64, DUMMY = 22;
+    const gap = (a, b) => (isDummy(a) || isDummy(b) ? DUMMY : REAL);
+    const y = new Map();
+    for (const L of layers) {
+      let acc = 0;
+      L.forEach((id, j) => { if (j) acc += gap(L[j - 1], id); y.set(id, acc); });
+      L.forEach(id => y.set(id, y.get(id) - acc / 2));
+    }
+    const nbrs = id => [...(up.get(id) || []), ...(down.get(id) || [])];
+    for (let pass = 0; pass < 48; pass++) {
+      const order = pass % 2 ? [...layers.keys()].reverse() : [...layers.keys()];
+      for (const i of order) {
+        const L = layers[i];
+        if (!L.length) continue;
+        const want = L.map(id => {
+          if (id === m.startKey || id === m.targetKey) return 0;
+          const ns = nbrs(id);
+          if (!ns.length) return y.get(id);
+          let t = 0, w = 0;
+          for (const [n, ww] of ns) { const k = ww * (isDummy(id) || isDummy(n) ? 2 : 1); t += y.get(n) * k; w += k; }
+          return y.get(id) * 0.3 + (t / w) * 0.7;
+        });
+        const Y = want.slice();
+        for (let j = 1; j < Y.length; j++) Y[j] = Math.max(Y[j], Y[j - 1] + gap(L[j - 1], L[j]));
+        for (let j = Y.length - 2; j >= 0; j--) Y[j] = Math.min(Y[j], Y[j + 1] - gap(L[j], L[j + 1]));
+        const drift = (want.reduce((a, b) => a + b, 0) - Y.reduce((a, b) => a + b, 0)) / Y.length;
+        L.forEach((id, j) => y.set(id, Y[j] + drift));
+      }
+    }
+
+    const COL = fitCol(depth - 1, 10, 90);
+    const ys = [...y.values()], lo = Math.min(...ys), hi = Math.max(...ys);
+    const h = Math.max(420, hi - lo + PAD * 2 + 50);
+    const posOut = new Map();
+    for (const [id, x] of nodeLayer) posOut.set(id, { x: PAD + x * COL, y: y.get(id) - (lo + hi) / 2 + h / 2 });
+    const nodes = new Map(keys.map(k => [k, { key: k, x: posOut.get(k).x, y: posOut.get(k).y }]));
+    return { layered: true, pos: posOut, chains, real: keys, nodes, w: PAD * 2 + (depth - 1) * COL, h, col: COL };
+  }
+
+  /* -------------------------------------------------------------- spring */
+  /* A first guess for the spring layout: every link argues to be one step
+     long, and pages start in the lane of whoever found them first. */
+  function relaxedSeed(m) {
+    const keys = [...m.label.keys()];
+    const col = columnsOf(m);
+    const maxC = Math.max(...col.values());
+    const pinned = new Set([m.startKey, m.targetKey]);
+    const forward = edgeList(m).filter(e => !e.revisit && e.a !== e.b);
+    const x = new Map(keys.map(k => [k, col.get(k)]));
+    for (let it = 0; it < 200; it++) {
+      for (const e of forward) {
+        const push = (x.get(e.b) - x.get(e.a) - 1) * 0.12;
+        if (!pinned.has(e.a)) x.set(e.a, x.get(e.a) + push);
+        if (!pinned.has(e.b)) x.set(e.b, x.get(e.b) - push);
+      }
+      for (const k of keys) if (!pinned.has(k)) x.set(k, Math.max(0.4, Math.min(maxC - 0.4, x.get(k))));
+    }
+    const firstRun = new Map();
+    m.runs.forEach((r, ri) => r.path.forEach(t => { const k = norm(t); if (!firstRun.has(k)) firstRun.set(k, ri); }));
+    const mid = (m.runs.length - 1) / 2;
+    const COL = fitCol(maxC, 12, 90);
+    return new Map(keys.map(k => [k, { x: PAD + x.get(k) * COL, y: (pinned.has(k) ? 0 : firstRun.get(k) - mid) * 96 + 300 }]));
+  }
+
+  function layoutSpring(m) {
+    const keys = [...m.label.keys()];
+    const prog = progressOf(m);
+    const P = relaxedSeed(m);
+    const cy = 300;
+    const pinned = new Set([m.startKey, m.targetKey]);
+    if (P.has(m.startKey)) Object.assign(P.get(m.startKey), { x: PAD, y: cy });
+    if (P.has(m.targetKey) && m.targetKey !== m.startKey) Object.assign(P.get(m.targetKey), { x: W - PAD, y: cy });
+    const links = new Map();
+    for (const e of edgeList(m)) {
+      if (e.a === e.b) continue;
+      const id = e.a < e.b ? e.a + "|" + e.b : e.b + "|" + e.a;
+      links.set(id, { a: e.a, b: e.b, w: (links.has(id) ? links.get(id).w : 0) + 1 });
+    }
+    const K = 60, list = keys.map(k => [k, P.get(k)]), N = 420;
+    for (let it = 0; it < N; it++) {
+      const temp = 24 * (1 - it / N) + 0.5;
+      const F = new Map(keys.map(k => [k, { x: 0, y: 0 }]));
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const [ka, a] = list[i], [kb, b] = list[j];
+        let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
+        if (d2 > 90000) continue;
+        if (d2 < 0.01) { dx = 0.1 * (i - j); dy = 0.1; d2 = 0.02; }
+        const d = Math.sqrt(d2), f = K * K / d;
+        const fa = F.get(ka), fb = F.get(kb);
+        fa.x += dx / d * f; fa.y += dy / d * f; fb.x -= dx / d * f; fb.y -= dy / d * f;
+      }
+      for (const { a, b, w } of links.values()) {
+        const pa = P.get(a), pb = P.get(b);
+        const dx = pb.x - pa.x, dy = pb.y - pa.y, d = Math.hypot(dx, dy) || 0.01;
+        const f = d * d / K * (0.7 + 0.3 * w);
+        const fa = F.get(a), fb = F.get(b);
+        fa.x += dx / d * f; fa.y += dy / d * f; fb.x -= dx / d * f; fb.y -= dy / d * f;
+      }
+      for (const k of keys) {
+        if (pinned.has(k)) continue;
+        const p = P.get(k), f = F.get(k);
+        // A gentle current from start to target keeps it reading as a race.
+        f.x += (PAD + Math.max(0, Math.min(1, prog.get(k))) * (W - PAD * 2) - p.x) * 0.35;
+        f.y += (cy - p.y) * 0.04;
+        const mag = Math.hypot(f.x, f.y) || 1, step = Math.min(mag, temp);
+        p.x += f.x / mag * step; p.y += f.y / mag * step;
+      }
+    }
+    const pts = [...P.values()];
+    const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
+    const minY = Math.min(...pts.map(p => p.y)), maxY = Math.max(...pts.map(p => p.y));
+    const scale = (W - PAD * 2) / Math.max(1, maxX - minX);
+    const h = Math.max(420, (maxY - minY) * scale + PAD * 2 + 50);
+    const nodes = new Map(keys.map(k => {
+      const p = P.get(k);
+      return [k, { key: k, x: PAD + (p.x - minX) * scale, y: h / 2 + (p.y - (minY + maxY) / 2) * scale }];
+    }));
+    const longest = Math.max(...m.runs.map(r => r.path.length));
+    return { nodes, w: W, h, spread: 4, col: fitCol(longest - 1, 10, 90) };
+  }
+
+  const BUILD = { aligned: layoutAligned, metro: layoutLayered, spring: layoutSpring, collapsed: layoutCollapsed };
+
+  /* ------------------------------------------------------------- drawing
+     Lines live in a "world" group the map scales, with strokes that keep
+     their width at any zoom. Anything with a size of its own - dots, arrows,
+     badges, names - is a mark: placed at a world point but drawn in screen
+     units, so zooming in spreads things apart instead of inflating them. */
+  function mark(x, y, inner, o) {
+    o = o || {};
+    return '<g class="rm-mk' + (o.cls ? " " + o.cls : "") + '" data-x="' + x.toFixed(1) + '" data-y="' + y.toFixed(1) + '"' +
+      (o.rot != null ? ' data-rot="' + o.rot.toFixed(1) + '"' : "") +
+      (o.sticky ? ' data-sticky="1"' : "") +
+      (o.title ? ' data-title="' + esc(o.title) + '" data-detail="' + esc(o.detail || "") + '"' : "") +
+      ">" + inner + "</g>";
+  }
+
+  function nodeLook(m, key) {
+    const isStart = key === m.startKey, isTarget = key === m.targetKey;
+    const shared = (m.visitors.get(key) || new Set()).size > 1;
+    const isCheck = m.checkKeys.has(key);
+    return {
+      fill: isTarget ? "var(--dg-good-bg)" : "var(--dg-node)",
+      stroke: isTarget ? "var(--dg-good)" : isCheck ? "var(--dg-warn)" : shared ? "var(--dg-shared)" : "var(--dg-node-line)",
+      dash: isCheck && !isTarget ? ' stroke-dasharray="3 2"' : "",
+      rad: isStart || isTarget ? 8 : shared ? 6.5 : 5,
+      isStart, isTarget, isCheck,
+    };
+  }
+
+  function draw(m, L, kind, focus) {
+    const faded = ri => focus >= 0 && ri !== focus;
+    const NS = ' vector-effect="non-scaling-stroke"';
+    let under = "", lines = "", stations = "", arrows = "", dots = "", labels = "", lanes = "";
+
+    // Page names only show once zoomed in; neighbouring columns alternate
+    // heights so their names miss each other.
+    const nameMark = (x, y, text, rad, dim) => {
+      const short = text.length > 20 ? text.slice(0, 19) + "…" : text;
+      const drop = Math.abs(Math.round((x - PAD) / L.col)) % 2 ? 13 : 0;
+      return mark(x, y, '<text y="' + (rad + 15 + drop) + '" text-anchor="middle" font-size="10.5"' +
+        (dim ? ' opacity=".3"' : "") + ">" + esc(short) + "</text>", { cls: "rm-lbl" });
+    };
+    const tagFor = (look, rad) => look.isStart || look.isTarget
+      ? '<text y="' + (-rad - 10) + '" text-anchor="middle" font-size="9.5" letter-spacing="1.2" fill="var(--dg-faint)">' +
+        (look.isStart ? "START" : "TARGET") + "</text>" : "";
+    const arrowMark = (mid, color, o) => {
+      const ax = (mid[0].x + mid[1].x) / 2, ay = (mid[0].y + mid[1].y) / 2;
+      const ang = Math.atan2(mid[1].y - mid[0].y, mid[1].x - mid[0].x) * 180 / Math.PI;
+      return mark(ax, ay, '<polygon points="-4,-4 4,0 -4,4" fill="' + color + '" opacity="' + o + '"/>', { rot: ang });
+    };
+    const bowed = (A, B, s, back) => {
+      const c = bowControl(A, B, (back ? 46 : 12) + Math.abs(s), back ? 1 : -1);
+      return { d: "M" + A.x.toFixed(1) + " " + A.y.toFixed(1) + " Q" + c.x.toFixed(1) + " " + c.y.toFixed(1) + " " +
+                  B.x.toFixed(1) + " " + B.y.toFixed(1),
+               pts: [A, quadAt(A, c, B, .25), quadAt(A, c, B, .5), quadAt(A, c, B, .75), B],
+               mid: [quadAt(A, c, B, .47), quadAt(A, c, B, .53)] };
+    };
+    const whoSaw = key => [...(m.visitors.get(key) || [])].map(nm => m.runs.findIndex(r => r.name === nm)).filter(i => i >= 0);
+
+    if (L.flow) {
+      const mid = (m.runs.length - 1) / 2;
+      for (const [p, q] of L.ties) {
+        const lift = Math.min(70, 20 + (q.x - p.x) * 0.1);
+        const cx = (p.x + q.x) / 2, cy = Math.min(p.y, q.y) - lift;
+        const dim = focus >= 0 && !p.runs.includes(focus) && !q.runs.includes(focus);
+        under += '<path d="M' + p.x.toFixed(1) + " " + p.y.toFixed(1) + " Q" + cx.toFixed(1) + " " + cy.toFixed(1) + " " +
+          q.x.toFixed(1) + " " + q.y.toFixed(1) + '" fill="none" stroke="var(--dg-shared)" stroke-width="1" stroke-dasharray="2 4"' +
+          NS + ' opacity="' + (dim ? .07 : .35) + '"/>';
+      }
+      for (const e of L.runEdges) {
+        const na = L.nodes.get(e.a), nb = L.nodes.get(e.b);
+        const s = (L.laneOf[e.ri] - mid) * 3.2;
+        const A = { x: na.x, y: na.y + s }, B = { x: nb.x, y: nb.y + s };
+        const { c1, c2 } = sBend(A, B);
+        lines += '<path d="M' + A.x.toFixed(1) + " " + A.y.toFixed(1) + " C" + c1.x.toFixed(1) + " " + c1.y.toFixed(1) + " " +
+          c2.x.toFixed(1) + " " + c2.y.toFixed(1) + " " + B.x.toFixed(1) + " " + B.y.toFixed(1) +
+          '" fill="none" stroke="' + e.color + '" stroke-width="2.3" stroke-linecap="round"' + NS +
+          ' opacity="' + (faded(e.ri) ? .1 : .92) + '"/>';
+      }
+      m.runs.forEach((r, ri) => {
+        // The player's name rides along the left edge as you pan.
+        lanes += mark(PAD, L.h / 2 + (L.laneOf[ri] - mid) * L.lane, '<text x="-6" y="-26" font-size="11.5" letter-spacing=".5" fill="' +
+          (faded(ri) ? "var(--dg-faint)" : r.color) + '">' + esc(r.name) + "</text>", { cls: "rm-lane", sticky: true });
+      });
+      for (const n of L.nodes.values()) {
+        const look = nodeLook(m, n.page);
+        const off = focus >= 0 && !n.runs.includes(focus);
+        const rad = look.isStart || look.isTarget ? 8 : n.runs.length > 1 ? 6 + n.runs.length * 0.7 : 4.8;
+        const elsewhere = (m.visitors.get(n.page) || new Set()).size > n.runs.length;
+        const stroke = n.again ? "var(--dg-warn)" : look.isCheck || look.isTarget ? look.stroke
+                     : n.runs.length > 1 ? "var(--dg-shared)" : look.stroke;
+        dots += mark(n.x, n.y, '<circle r="' + rad + '" fill="' + look.fill + '" stroke="' + stroke +
+          '" stroke-width="' + (n.again ? 2.4 : 1.8) + '"' + (n.again ? "" : look.dash) + ' opacity="' + (off ? .18 : 1) + '"/>' +
+          tagFor(look, rad),
+          { title: m.label.get(n.page),
+            detail: n.runs.map(ri => m.runs[ri].name).join(", ") + (look.isCheck ? " · checkpoint" : "") +
+                    (n.again ? " · came back here" : "") + (elsewhere ? " · others saw it at a different point" : "") });
+        labels += nameMark(n.x, n.y, m.label.get(n.page), rad, off);
+      }
+    } else if (L.layered) {
+      const mid = (m.runs.length - 1) / 2;
+      const offset = ri => (ri - mid) * 5;
+      for (const e of edgeList(m)) {
+        if (e.a === e.b) continue;
+        const pa = L.pos.get(e.a), pb = L.pos.get(e.b), s = offset(e.ri), o = faded(e.ri) ? .1 : .9;
+        if (!pa || !pb) continue;
+        const chain = L.chains.get(e.a + ">" + e.b);
+        let d, pts, midp;
+        if (chain) {
+          const Q = chain.map(id => ({ x: L.pos.get(id).x, y: L.pos.get(id).y + s }));
+          pts = [Q[0]];
+          for (let i = 1; i < Q.length; i++) pts.push(...octi(Q[i - 1], Q[i]));
+          d = "M" + pts.map(p => p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" L");
+        } else {
+          // Clicks that run against the order: a real step back.
+          const arc = bowed({ x: pa.x, y: pa.y + s }, { x: pb.x, y: pb.y + s }, s, true);
+          d = arc.d; pts = arc.pts; midp = arc.mid;
+        }
+        lines += '<path d="' + d + '" fill="none" stroke="' + e.color + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"' +
+          NS + ' opacity="' + o + '"' + (e.revisit || !chain ? ' stroke-dasharray="6 4"' : "") + "/>";
+        if (!chain && polyLen(pts) > 30) arrows += arrowMark(midp, e.color, o);
+      }
+      for (const k of L.real) {
+        const p = L.pos.get(k), look = nodeLook(m, k), who = whoSaw(k);
+        const dim = focus >= 0 && !who.includes(focus);
+        const detail = (who.length === 1 ? "only " + m.runs[who[0]].name : who.map(i => m.runs[i].name).join(", ")) +
+                       (look.isCheck ? " · checkpoint" : "");
+        const edge = look.isCheck ? "var(--dg-warn)" : "var(--dg-station-line)";
+        if (look.isStart || look.isTarget) {
+          dots += mark(p.x, p.y, '<circle r="9" fill="var(--dg-station)" stroke="' + (look.isTarget ? "var(--dg-good)" : "var(--dg-station-line)") +
+            '" stroke-width="3.5"/>' + tagFor(look, 9), { title: m.label.get(k), detail });
+        } else if (who.length > 1) {
+          // An interchange spans the lines through it, so it lives with them.
+          const offs = who.map(offset);
+          const y0 = p.y + Math.min(...offs) - 6, y1 = p.y + Math.max(...offs) + 6;
+          stations += '<rect x="' + (p.x - 6).toFixed(1) + '" y="' + y0.toFixed(1) + '" width="12" height="' + (y1 - y0).toFixed(1) +
+            '" rx="6" fill="var(--dg-station)" stroke="' + edge + '" stroke-width="2"' + NS + look.dash + ' opacity="' + (dim ? .25 : 1) + '"/>';
+          dots += mark(p.x, p.y, '<circle r="9" fill="transparent"/>', { title: m.label.get(k), detail });
+        } else {
+          const ri = who[0];
+          dots += mark(p.x, p.y + offset(ri), '<circle r="3.8" fill="var(--dg-bg)" stroke="' +
+            (look.isCheck ? "var(--dg-warn)" : m.runs[ri].color) + '" stroke-width="2.2"' + look.dash +
+            ' opacity="' + (dim ? .2 : 1) + '"/>', { title: m.label.get(k), detail });
+        }
+        labels += nameMark(p.x, p.y, m.label.get(k), 9, dim);
+      }
+    } else {
+      const edges = L.edges || edgeList(m);
+      const spreadOf = ri => (ri - (m.runs.length - 1) / 2) * L.spread;
+      edges.forEach(e => {
+        const na = L.nodes.get(e.a), nb = L.nodes.get(e.b);
+        if (!na || !nb) return;
+        const s = spreadOf(e.ri);
+        const A = { x: na.x, y: na.y + s }, B = { x: nb.x, y: nb.y + s };
+        const o = faded(e.ri) ? .1 : .88;
+        const arc = bowed(A, B, s, B.x <= A.x + 0.5);
+        lines += '<path d="' + arc.d + '" fill="none" stroke="' + e.color + '" stroke-width="' + (e.skipped ? 3.4 : 2.2) +
+          '" stroke-linecap="round"' + NS + ' opacity="' + o + '"' + (e.revisit ? ' stroke-dasharray="6 4"' : "") + "/>";
+        if (e.skipped) {
+          const ax = (arc.mid[0].x + arc.mid[1].x) / 2, ay = (arc.mid[0].y + arc.mid[1].y) / 2;
+          const text = "+" + e.skipped, wd = 12 + text.length * 6.5, dim = faded(e.ri) ? .2 : 1;
+          arrows += mark(ax, ay, '<rect x="' + (-wd / 2) + '" y="-9" width="' + wd + '" height="18" rx="9" fill="var(--dg-bg)" stroke="' +
+            e.color + '" stroke-width="1.2" opacity="' + dim + '"/><text y="4" text-anchor="middle" font-size="11" fill="' + e.color +
+            '" opacity="' + dim + '">' + text + "</text>",
+            { title: e.skipped + (e.skipped === 1 ? " page only " : " pages only ") + e.who + " saw", detail: e.hidden.join(" → ") });
+        } else if (polyLen(arc.pts) > 30) {
+          arrows += arrowMark(arc.mid, e.color, o);
+        }
+      });
+      for (const n of L.nodes.values()) {
+        const look = nodeLook(m, n.key);
+        const seen = [...(m.visitors.get(n.key) || [])];
+        const off = focus >= 0 && !seen.includes(m.runs[focus].name);
+        dots += mark(n.x, n.y, '<circle r="' + look.rad + '" fill="' + look.fill + '" stroke="' + look.stroke +
+          '" stroke-width="1.8"' + look.dash + ' opacity="' + (off ? .18 : 1) + '"/>' + tagFor(look, look.rad),
+          { title: m.label.get(n.key),
+            detail: (seen.length === 1 ? "only " + seen[0] : seen.join(", ")) + (look.isCheck ? " · checkpoint" : "") });
+        labels += nameMark(n.x, n.y, m.label.get(n.key), look.rad, off);
+      }
+    }
+    return { world: under + lines + stations, marks: arrows + dots + labels + lanes };
+  }
+
+  /* ----------------------------------------------------------------- map */
+  class MapView {
+    constructor(el, key, L, grouped) {
+      this.el = el; this.key = key; this.L = L; this.grouped = grouped;
+      this.world = el.querySelector(".rm-world");
+      this.zoomEl = el.querySelector(".rm-zoom");
+      this.hint = el.querySelector(".rm-hint");
+      this.info = el.querySelector(".rm-info");
+      this.doneBtn = el.querySelector('[data-act="done"]');
+      this.marks = [...el.querySelectorAll(".rm-mk")].map(g => ({
+        g, x: +g.dataset.x, y: +g.dataset.y, rot: g.dataset.rot || "", sticky: !!g.dataset.sticky,
+        text: g.classList.contains("rm-lbl") || g.classList.contains("rm-lane"), pick: !!g.dataset.title,
+      }));
+      this.v = views.get(key) || null;
+      this.pointers = new Map();
+      this.touch = matchMedia("(pointer: coarse)").matches;
+      this.engaged = false; this.multi = false; this.lastTap = null;
+      this.labels = null; this.raf = 0; this.anim = 0; this.nudgeTimer = 0;
+      this.setHint();
+      this.bind();
+      this.resized();
+      this.ro = new ResizeObserver(() => this.resized());
+      this.ro.observe(el);
+    }
+
+    destroy() { this.ro.disconnect(); cancelAnimationFrame(this.raf); cancelAnimationFrame(this.anim); clearTimeout(this.nudgeTimer); }
+    members() { return this.grouped ? controllers.filter(c => c.key === this.key) : [this]; }
+    box() { return { w: this.el.clientWidth, h: this.el.clientHeight }; }
+    local(e) { const r = this.el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    limits() { const f = this.v.fitK; return [f * 0.5, Math.max(f * 14, 4)]; }
+
+    fitted() {
+      const { w, h } = this.box();
+      if (!w || !h) return null;
+      const k = Math.min(w / this.L.w, h / this.L.h) * 0.94;
+      return { k, fitK: k, tx: (w - this.L.w * k) / 2, ty: (h - this.L.h * k) / 2, moved: false };
+    }
+
+    /* Update the view in place, so every map sharing it sees the change. */
+    setView(next) {
+      if (this.v) Object.assign(this.v, next); else this.v = next;
+      views.set(this.key, this.v);
+    }
+
+    resized() {
+      const f = this.fitted();
+      if (!f) return;
+      if (!this.v || !this.v.moved) this.setView(f);
+      else { this.v.fitK = f.fitK; this.clamp(); }
+      this.paintAll();
+    }
+
+    /* Never let the race drift entirely off screen. */
+    clamp() {
+      const { w, h } = this.box(), v = this.v;
+      const [lo, hi] = this.limits();
+      v.k = Math.max(lo, Math.min(hi, v.k));
+      const keep = Math.min(100, w / 3, h / 3);
+      v.tx = Math.min(w - keep, Math.max(keep - this.L.w * v.k, v.tx));
+      v.ty = Math.min(h - keep, Math.max(keep - this.L.h * v.k, v.ty));
+    }
+
+    zoomAt(px, py, f) {
+      const v = this.v; if (!v) return;
+      const [lo, hi] = this.limits();
+      const wx = (px - v.tx) / v.k, wy = (py - v.ty) / v.k;
+      const k = Math.max(lo, Math.min(hi, v.k * f));
+      v.k = k; v.tx = px - wx * k; v.ty = py - wy * k; v.moved = true;
+      this.clamp(); this.schedule();
+    }
+
+    panBy(dx, dy) {
+      const v = this.v; if (!v) return;
+      v.tx += dx; v.ty += dy; v.moved = true;
+      this.clamp(); this.schedule();
+    }
+
+    zoomSmooth(px, py, f) {
+      cancelAnimationFrame(this.anim);
+      if (REDUCED.matches) return this.zoomAt(px, py, f);
+      const t0 = performance.now();
+      let applied = 1;
+      const step = now => {
+        const t = Math.min(1, (now - t0) / 200), e = 1 - Math.pow(1 - t, 3);
+        const want = Math.pow(f, e);
+        this.zoomAt(px, py, want / applied);
+        applied = want;
+        if (t < 1) this.anim = requestAnimationFrame(step);
+      };
+      this.anim = requestAnimationFrame(step);
+    }
+
+    fit() {
+      const target = this.fitted();
+      if (!target) return;
+      cancelAnimationFrame(this.anim);
+      if (REDUCED.matches || !this.v) { this.setView(target); this.paintAll(); return; }
+      const from = { k: this.v.k, tx: this.v.tx, ty: this.v.ty }, t0 = performance.now();
+      const step = now => {
+        const t = Math.min(1, (now - t0) / 240), e = 1 - Math.pow(1 - t, 3);
+        this.v.k = from.k * Math.pow(target.k / from.k, e);
+        this.v.tx = from.tx + (target.tx - from.tx) * e;
+        this.v.ty = from.ty + (target.ty - from.ty) * e;
+        if (t === 1) this.setView(target);
+        this.paintAll();
+        if (t < 1) this.anim = requestAnimationFrame(step);
+      };
+      this.anim = requestAnimationFrame(step);
+    }
+
+    schedule() {
+      if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.paintAll(); });
+    }
+
+    paintAll() {
+      const all = this.members();
+      for (const c of all) { c.v = this.v; c.paint(); }
+      if (!all.includes(this)) this.paint();
+    }
+
+    paint() {
+      const v = this.v; if (!v) return;
+      this.world.setAttribute("transform", "matrix(" + v.k + " 0 0 " + v.k + " " + v.tx + " " + v.ty + ")");
+      // Marks grow a little as you zoom in and shrink as you pull back, so a
+      // zoomed-out race doesn't become a solid blob of dots.
+      const ms = Math.max(.6, Math.min(1.7, Math.sqrt(v.k)));
+      const ts = Math.min(ms, 1.15);
+      for (const mk of this.marks) {
+        let sx = mk.x * v.k + v.tx;
+        const sy = mk.y * v.k + v.ty;
+        if (mk.sticky) sx = Math.max(sx, 18);
+        mk.g.setAttribute("transform", "translate(" + sx.toFixed(1) + " " + sy.toFixed(1) + ") scale(" +
+          (mk.text ? ts : ms).toFixed(3) + ")" + (mk.rot ? " rotate(" + mk.rot + ")" : ""));
+      }
+      const on = this.L.col * v.k >= 64;
+      if (on !== this.labels) { this.labels = on; this.el.classList.toggle("rm-labels", on); }
+      this.zoomEl.textContent = Math.round(v.k / v.fitK * 100) + "%";
+    }
+
+    engage() {
+      if (this.engaged) return;
+      this.engaged = true;
+      this.el.classList.add("rm-engaged");
+      this.doneBtn.hidden = !this.touch;
+      this.setHint();
+    }
+
+    disengage() {
+      if (!this.engaged) return;
+      this.engaged = false;
+      this.el.classList.remove("rm-engaged");
+      this.doneBtn.hidden = true;
+      this.setHint();
+    }
+
+    setHint() {
+      this.hint.textContent = this.touch
+        ? (this.engaged ? "Drag to move · pinch to zoom · Done to scroll the page" : "Pinch to zoom · tap to take over the map")
+        : (this.engaged ? "Scroll to zoom · drag to move · double-click to zoom in" : "Drag to move · Ctrl + scroll to zoom");
+    }
+
+    nudge() {
+      this.hint.classList.add("nudge");
+      clearTimeout(this.nudgeTimer);
+      this.nudgeTimer = setTimeout(() => this.hint.classList.remove("nudge"), 1400);
+    }
+
+    /* Dots are small targets for a finger, so a tap takes the nearest one in reach. */
+    pickAt(px, py) {
+      const v = this.v, reach = this.touch ? 30 : 16;
+      let best = null, bestD = reach;
+      for (const mk of this.marks) {
+        if (!mk.pick) continue;
+        const d = Math.hypot(mk.x * v.k + v.tx - px, mk.y * v.k + v.ty - py);
+        if (d < bestD) { bestD = d; best = mk; }
+      }
+      return best && best.g;
+    }
+
+    showInfo(g) {
+      if (!g) { this.info.hidden = true; return; }
+      this.info.innerHTML = "<b>" + esc(g.dataset.title) + "</b>" +
+        (g.dataset.detail ? "<span>" + esc(g.dataset.detail) + "</span>" : "");
+      this.info.hidden = false;
+    }
+
+    bind() {
+      const el = this.el;
+      el.addEventListener("pointerdown", e => {
+        if (e.target.closest(".rm-tools")) return;
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        this.touch = e.pointerType !== "mouse";
+        this.setHint();
+        // A mouse press is a deliberate grab; a finger might only be scrolling
+        // past, so touch takes the map over on a tap or a pinch.
+        if (!this.touch) this.engage();
+        const p = this.local(e);
+        this.pointers.set(e.pointerId, { x: p.x, y: p.y, x0: p.x, y0: p.y, t0: performance.now(), type: e.pointerType });
+        if (this.pointers.size > 1) { this.multi = true; this.engage(); }
+        try { el.setPointerCapture(e.pointerId); } catch (_) { /* already gone */ }
+        cancelAnimationFrame(this.anim);
+      });
+      el.addEventListener("pointermove", e => {
+        const p = this.pointers.get(e.pointerId);
+        if (!p) return;
+        const q = this.local(e);
+        if (this.pointers.size === 1) {
+          if (Math.hypot(q.x - p.x0, q.y - p.y0) > 4) el.classList.add("rm-dragging");
+          this.panBy(q.x - p.x, q.y - p.y);
+        } else if (this.pointers.size === 2) {
+          const other = [...this.pointers.entries()].find(([id]) => id !== e.pointerId)[1];
+          const d0 = Math.hypot(p.x - other.x, p.y - other.y), d1 = Math.hypot(q.x - other.x, q.y - other.y);
+          const m0 = { x: (p.x + other.x) / 2, y: (p.y + other.y) / 2 }, m1 = { x: (q.x + other.x) / 2, y: (q.y + other.y) / 2 };
+          if (d0 > 2) this.zoomAt(m0.x, m0.y, d1 / d0);
+          this.panBy(m1.x - m0.x, m1.y - m0.y);
+        }
+        p.x = q.x; p.y = q.y;
+      });
+      const end = e => {
+        const p = this.pointers.get(e.pointerId);
+        if (!p) return;
+        this.pointers.delete(e.pointerId);
+        const wasMulti = this.multi;
+        if (!this.pointers.size) { el.classList.remove("rm-dragging"); this.multi = false; }
+        if (e.type !== "pointerup" || wasMulti || this.pointers.size) return;
+        const q = this.local(e);
+        if (Math.hypot(q.x - p.x0, q.y - p.y0) >= 8 || performance.now() - p.t0 >= 450) return;
+        if (p.type !== "mouse") this.engage();
+        const now = performance.now();
+        if (this.lastTap && now - this.lastTap.t < 330 && Math.hypot(q.x - this.lastTap.x, q.y - this.lastTap.y) < 32) {
+          this.lastTap = null;
+          this.zoomSmooth(q.x, q.y, 2);
+          return;
+        }
+        this.lastTap = { t: now, x: q.x, y: q.y };
+        this.showInfo(this.pickAt(q.x, q.y));
+      };
+      el.addEventListener("pointerup", end);
+      el.addEventListener("pointercancel", end);
+      el.addEventListener("pointerleave", e => {
+        if (e.pointerType === "mouse" && !this.pointers.size) this.disengage();
+      });
+      el.addEventListener("wheel", e => {
+        // Plain scrolling keeps scrolling the page until the map is taken
+        // over; a trackpad pinch arrives as Ctrl + wheel and always zooms.
+        if (!(e.ctrlKey || e.metaKey || this.engaged)) { this.nudge(); return; }
+        e.preventDefault();
+        const q = this.local(e);
+        const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+        if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) { this.panBy(-e.deltaX * unit, 0); return; }
+        // A mouse notch reports ~100 and a trackpad pinch a few, so the rate
+        // suits the pinch and the cap stops a notch leaping 3x.
+        const step = -e.deltaY * unit * (e.ctrlKey ? 0.012 : 0.0022);
+        this.zoomAt(q.x, q.y, Math.exp(Math.max(-0.47, Math.min(0.47, step))));
+      }, { passive: false });
+      el.addEventListener("focus", () => this.engage());
+      el.addEventListener("keydown", e => {
+        if (e.target.closest(".rm-tools")) return;
+        const { w, h } = this.box(), step = 80;
+        const move = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+        if (move) { e.preventDefault(); this.panBy(move[0], move[1]); }
+        else if (e.key === "+" || e.key === "=") { e.preventDefault(); this.zoomSmooth(w / 2, h / 2, 1.5); }
+        else if (e.key === "-" || e.key === "_") { e.preventDefault(); this.zoomSmooth(w / 2, h / 2, 1 / 1.5); }
+        else if (e.key === "0") { e.preventDefault(); this.fit(); }
+        else if (e.key === "Escape") { this.showInfo(null); this.disengage(); el.blur(); }
+      });
+      el.querySelector(".rm-tools").addEventListener("click", e => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        const { w, h } = this.box();
+        if (b.dataset.act === "in") this.zoomSmooth(w / 2, h / 2, 1.6);
+        else if (b.dataset.act === "out") this.zoomSmooth(w / 2, h / 2, 1 / 1.6);
+        else if (b.dataset.act === "fit") this.fit();
+        else if (b.dataset.act === "done") { this.showInfo(null); this.disengage(); }
+      });
+    }
+  }
+
+  /* Touching anywhere else hands scrolling back to the page. */
+  document.addEventListener("pointerdown", e => {
+    for (const c of controllers) if (!c.el.contains(e.target)) c.disengage();
+  }, true);
+
+  /* -------------------------------------------------------------- render */
+  const TOOLS = '<div class="rm-tools"><span class="rm-zoom">100%</span>' +
+    '<button type="button" data-act="out" aria-label="Zoom out">−</button>' +
+    '<button type="button" data-act="in" aria-label="Zoom in">+</button>' +
+    '<button type="button" data-act="fit">Fit</button>' +
+    '<button type="button" data-act="done" hidden>Done</button></div>';
+
+  function mapHtml(out, mount, label, extra) {
+    return '<div class="rm-map" data-mount="' + mount + '" tabindex="0" role="region" aria-roledescription="map" aria-label="' +
+      esc(label) + '. Arrow keys move, plus and minus zoom, 0 fits the whole race.">' + (extra || "") +
+      '<svg aria-hidden="true"><g class="rm-world">' + out.world + '</g><g>' + out.marks + "</g></svg>" +
+      TOOLS + '<div class="rm-info" hidden></div><div class="rm-hint"></div></div>';
+  }
+
+  const seg = (id, items, current) => '<div class="seg" id="' + id + '" role="group">' + items.map(([v, label, title]) =>
+    '<button type="button" data-v="' + v + '" aria-pressed="' + (v === current) + '"' + (v === current ? ' class="on"' : "") +
+    (title ? ' title="' + esc(title) + '"' : "") + ">" + esc(label) + "</button>").join("") + "</div>";
+
+  function remember() {
+    try { localStorage.setItem("wr_routes", JSON.stringify({ type: replay.mapType, mode: replay.mapMode })); }
+    catch (e) { /* storage blocked - it just won't be remembered */ }
+  }
+
+  function render(host, race) {
+    controllers.forEach(c => c.destroy());
+    controllers = [];
+    const m = model(race);
+    if (!m.runs.length) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
+    if (viewsRace !== race.race_id) { views.clear(); viewsRace = race.race_id; }
+
+    const type = ROUTE_TYPES[replay.mapType] ? replay.mapType : "aligned";
+    const separate = replay.mapMode === "separate";
+    const L = BUILD[type](m);
+    const kind = type === "metro" ? "metro" : null;
+    const focus = separate ? -1 : m.runs.findIndex(r => r.name === replay.focus);
+
+    const mounts = [];
+    let maps;
+    if (separate) {
+      maps = '<div class="rm-multi">' + m.runs.map((run, ri) => {
+        mounts.push({ key: type + ":separate", grouped: true });
+        return mapHtml(draw(m, L, kind, ri), mounts.length - 1, ROUTE_TYPES[type].name + ", " + run.name,
+          '<div class="rm-pname"><span class="sw" style="width:14px;height:3px;border-radius:2px;background:' + run.color + '"></span>' +
+          esc(run.name) + '<span class="c">' + (run.clicks != null ? run.clicks : run.path.length - 1) + "c</span></div>");
+      }).join("") + "</div>";
+    } else {
+      mounts.push({ key: type + ":combined", grouped: false });
+      maps = mapHtml(draw(m, L, kind, focus), 0, ROUTE_TYPES[type].name);
+    }
+
+    const legend = m.runs.map((r, i) =>
+      '<span class="leg ' + (separate ? "still" : "pick") + (focus >= 0 && focus !== i ? " faded" : "") +
+      '" data-name="' + esc(r.name) + '"' + (separate ? "" : ' role="button" tabindex="0" aria-pressed="' + (focus === i) + '"') + ">" +
+      '<span class="sw" style="background:' + r.color + '"></span>' + esc(r.name) +
+      '<span class="sub">' + (r.clicks != null ? r.clicks : r.path.length - 1) + "c</span></span>").join("");
+
+    host.innerHTML =
+      '<div class="rm-bar">' +
+      seg("rm-type", Object.entries(ROUTE_TYPES).map(([v, t]) => [v, t.label, t.name]), type) +
+      seg("rm-mode", [["combined", "Combined", "Everyone on one map"], ["separate", "Separate", "A panel per player, moving together"]],
+          separate ? "separate" : "combined") +
+      "</div>" +
+      '<div class="rp-legend">' + legend + (separate ? "" : '<span class="leg muted tiny">tap a name to pick out one route</span>') + "</div>" +
+      '<div class="rm-screen">' + maps + "</div>" +
+      '<p class="tiny muted rm-caption">' + esc(ROUTE_TYPES[type].caption) + " Page names appear as you zoom in; tap a dot to see what it is.</p>";
+
+    host.querySelectorAll("#rm-type button").forEach(b => {
+      b.onclick = () => { replay.mapType = b.dataset.v; remember(); render(host, race); };
+    });
+    host.querySelectorAll("#rm-mode button").forEach(b => {
+      b.onclick = () => { replay.mapMode = b.dataset.v; remember(); render(host, race); };
+    });
+    if (!separate) {
+      host.querySelectorAll(".leg.pick").forEach(chip => {
+        const toggle = () => { replay.focus = replay.focus === chip.dataset.name ? null : chip.dataset.name; render(host, race); };
+        chip.onclick = toggle;
+        chip.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+      });
+    }
+    for (const el of host.querySelectorAll(".rm-map[data-mount]")) {
+      const mt = mounts[+el.dataset.mount];
+      controllers.push(new MapView(el, mt.key, L, mt.grouped));
+    }
+  }
+
+  return { render };
+})();
 
 function drawRoutes() {
   const host = $("rp-routes");
   if (!host) return;
-  const priorScroll = host.querySelector(".rp-scroll");
-  const keepLeft = priorScroll ? priorScroll.scrollLeft : 0;
   const race = S.snap && S.snap.race;
-  const g = race && routeGraph(race);
-  if (!g) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
-
-  const COL = replay.colWidth;
-  // Zoomed right out you want the shape of the race, not the reading matter,
-  // so labels drop away and the whole thing tightens up in both directions.
-  const labels = COL >= 56;
-  const tight = COL < 96;
-  const ROW = labels ? 74 : 44;
-  const PAD = labels ? 62 : 34;
-  const shrink = Math.max(0.5, Math.min(1, COL / 110));
-  const maxChars = COL < 90 ? 10 : COL < 130 ? 14 : 20;
-  const w = PAD * 2 + (g.cols - 1) * COL;
-  const h = PAD * 2 + Math.max(1, g.rows - 1) * ROW;
-  const xy = (k, dy) => {
-    const p = g.pos.get(k);
-    return { x: PAD + p.c * COL, y: h / 2 + p.r * ROW + (dy || 0) };
-  };
-
-  let svg = '<svg viewBox="0 0 ' + w + " " + h + '" width="' + w + '" height="' + h + '">';
-
-  // Lines first, so the dots sit on top of them.
-  g.runs.forEach((run, ri) => {
-    const spread = (ri - (g.runs.length - 1) / 2) * 5 * shrink;
-    for (let i = 1; i < run.path.length; i++) {
-      const a = xy(norm(run.path[i - 1]), spread);
-      const b = xy(norm(run.path[i]), spread);
-      // Two different things can point leftward. Landing on a page you have
-      // already been to is a real loop and gets dashed; merely rejoining the
-      // pack at an earlier column is still forward progress for that player,
-      // so it stays solid - it just needs the same clearance to be readable.
-      const revisit = run.path.slice(0, i).some(t => norm(t) === norm(run.path[i]));
-      const leftward = g.pos.get(norm(run.path[i])).c <= g.pos.get(norm(run.path[i - 1])).c;
-      const bow = ((leftward ? 44 : 12) + Math.abs(spread)) * shrink;
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const side = leftward ? 1 : -1;
-      const cx = mx + (-dy / len) * bow * side;
-      const cy = my + (dx / len) * bow * side;
-
-      svg += '<path data-run="' + ri + '" d="M' + a.x + ' ' + a.y + ' Q' + cx + ' ' + cy +
-             " " + b.x + " " + b.y +
-             '" fill="none" stroke="' + run.color + '" stroke-width="2.2" opacity="0.85"' +
-             (revisit ? ' stroke-dasharray="6 4"' : "") + "/>";
-
-      // Arrowhead at the curve's midpoint, pointing the way they went.
-      const t = 0.5;
-      const px = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cx + t * t * b.x;
-      const py = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cy + t * t * b.y;
-      const tx = 2 * (1 - t) * (cx - a.x) + 2 * t * (b.x - cx);
-      const ty = 2 * (1 - t) * (cy - a.y) + 2 * t * (b.y - cy);
-      const ang = Math.atan2(ty, tx) * 180 / Math.PI;
-      const ah = 4.5 * shrink, aw = 9 * shrink;
-      svg += '<polygon data-run="' + ri + '" points="0,' + (-ah) + " " + aw + ",0 0," + ah +
-             '" fill="' + run.color +
-             '" transform="translate(' + px + ',' + py + ') rotate(' + ang + ')"/>';
-    }
-  });
-
-  // Dots and labels.
-  for (const [k, p] of g.pos) {
-    const c = xy(k, 0);
-    const shared = g.visitors.get(k).size > 1;
-    const isStart = k === g.startKey, isTarget = k === g.targetKey;
-    const isCheck = g.checkKeys.has(k);
-    const fill = isTarget ? "var(--good-bg)" : isStart ? "var(--raised)" : "var(--bg-2)";
-    const stroke = isTarget ? "var(--good)" : isCheck ? "var(--warn)" : shared ? "#8b98a8" : "var(--line-strong)";
-    const rad = Math.round((isStart || isTarget ? 11 : shared ? 9 : 7) * shrink);
-
-    const seenBy = [...g.visitors.get(k)].map(n => g.runs.findIndex(r => r.name === n))
-      .filter(i => i >= 0).join(",");
-    svg += '<circle data-seen="' + seenBy + '" cx="' + c.x + '" cy="' + c.y +
-           '" r="' + rad + '" fill="' + fill +
-           '" stroke="' + stroke + '" stroke-width="' + (isCheck ? 3 : 2) + '"' +
-           (isCheck ? ' stroke-dasharray="4 3"' : "") + ">" +
-           "<title>" + esc(g.label.get(k)) + " — " +
-           [...g.visitors.get(k)].map(esc).join(", ") + "</title></circle>";
-
-    const text = g.label.get(k);
-    if (labels) {
-      const short = text.length > maxChars ? text.slice(0, maxChars - 1) + "…" : text;
-      // Staggered when close together, so neighbouring names miss each other.
-      const drop = tight && (g.pos.get(k).c % 2) ? 13 : 0;
-      svg += '<text x="' + c.x + '" y="' + (c.y + rad + 15 + drop) + '" text-anchor="middle" ' +
-             'font-size="' + (tight ? 10 : 11.5) + '" fill="' +
-             (isTarget ? "var(--good-fg)" : "var(--fg-dim)") + '">' + esc(short) + "</text>";
-    }
-    if (isStart || isTarget) {
-      svg += '<text x="' + c.x + '" y="' + (c.y - rad - 7) + '" text-anchor="middle" ' +
-             'font-size="9.5" letter-spacing="1" fill="var(--fg-faint)">' +
-             (isStart ? "START" : "TARGET") + "</text>";
-    }
-  }
-
-  svg += "</svg>";
-
-  const legend = g.runs.map((r, i) =>
-    '<span class="leg pick" data-run="' + i + '">' +
-    '<span class="sw" style="background:' + r.color + '"></span>' +
-    esc(r.name) + '<span class="sub">' + r.clicks + "c</span></span>").join("");
-
-  host.innerHTML =
-    '<div class="rp-tools">' +
-    '<label class="tiny muted" for="rp-space">Spacing</label>' +
-    '<input type="range" id="rp-space" min="26" max="380" step="2" value="' +
-    replay.colWidth + '">' +
-    '<button id="rp-fit" class="tiny-btn">Fit to screen</button>' +
-    "</div>" +
-    '<div class="rp-legend">' + legend +
-    '<span class="leg muted"><span class="sw dash"></span>revisited a page</span></div>' +
-    '<div class="rp-scroll">' + svg + "</div>" +
-    '<p class="tiny muted" style="margin-top:12px">Each dot is one article, shared by ' +
-    "everyone who saw it. Lines running together mean the same route; a line that " +
-    "leaves and rejoins is a detour. A dashed loop is someone returning to a page " +
-    "they had already been to. Hover a line or a name to follow one player.</p>";
-
-  const scroller = host.querySelector(".rp-scroll");
-  if (scroller && keepLeft) scroller.scrollLeft = keepLeft;
-  wireRouteHover(host);
-
-  const space = host.querySelector("#rp-space");
-  if (space) {
-    space.oninput = (e) => { replay.colWidth = +e.target.value; drawRoutes(); };
-  }
-  const fit = host.querySelector("#rp-fit");
-  if (fit) {
-    fit.onclick = () => {
-      // Work back from the room available to the gap that just fills it. The
-      // margin isn't fixed - dropping the labels frees some up - so try it
-      // both ways and keep whichever is self-consistent.
-      const box = host.querySelector(".rp-scroll");
-      const room = box ? box.clientWidth : host.clientWidth;
-      const gaps = Math.max(1, g.cols - 1);
-      const withLabels = Math.floor((room - 62 * 2) / gaps);
-      const without = Math.floor((room - 34 * 2) / gaps);
-      let want;
-      if (withLabels >= 56) want = withLabels;        // roomy enough to name them
-      else if (without < 56) want = without;          // too tight either way
-      else want = 55;                                 // just under, so labels stay off
-      replay.colWidth = Math.max(26, Math.min(380, want));
-      drawRoutes();
-    };
-  }
+  if (!race) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
+  RouteMap.render(host, race);
 }
 
 /* Hovering a dot names the page it is; hovering one of the dotted links
@@ -3073,60 +4080,6 @@ function wireTimelineHover(chart) {
     });
     hit.addEventListener("mouseleave", () => { tip.hidden = true; focusArticle(null); });
   }
-}
-
-/* Following one line through a tangle is hard, so hovering any part of a run -
-   or its name in the legend - fades everybody else out of the way. Clicking
-   latches it, so you can let go of the mouse and study the route. */
-function wireRouteHover(host) {
-  const svg = host.querySelector("svg");
-  if (!svg) return;
-  const strokes = [...svg.querySelectorAll("[data-run]")];
-  const nodes = [...svg.querySelectorAll("[data-seen]")];
-  const legends = [...host.querySelectorAll(".leg.pick")];
-
-  const focus = (idx) => {
-    strokes.forEach(el => {
-      const mine = el.dataset.run === String(idx);
-      el.style.opacity = idx == null ? "" : (mine ? "1" : "0.07");
-    });
-    nodes.forEach(el => {
-      const seen = (el.dataset.seen || "").split(",");
-      const mine = seen.includes(String(idx));
-      el.style.opacity = idx == null ? "" : (mine ? "1" : "0.18");
-    });
-    legends.forEach(el => {
-      el.classList.toggle("faded", idx != null && el.dataset.run !== String(idx));
-      el.classList.toggle("latched", replay.locked != null &&
-                                     el.dataset.run === String(replay.locked));
-    });
-  };
-
-  // A latched run stays picked out after the pointer leaves.
-  const apply = () => focus(replay.locked);
-  const enter = (i) => { if (replay.locked == null) focus(i); };
-  const leave = () => { if (replay.locked == null) focus(null); };
-  const toggle = (i) => {
-    replay.locked = replay.locked === i ? null : i;
-    apply();
-  };
-
-  strokes.forEach(el => {
-    const i = +el.dataset.run;
-    el.style.cursor = "pointer";
-    el.addEventListener("mouseenter", () => enter(i));
-    el.addEventListener("mouseleave", leave);
-    el.addEventListener("click", (e) => { e.stopPropagation(); toggle(i); });
-  });
-  legends.forEach(el => {
-    const i = +el.dataset.run;
-    el.addEventListener("mouseenter", () => enter(i));
-    el.addEventListener("mouseleave", leave);
-    el.addEventListener("click", (e) => { e.stopPropagation(); toggle(i); });
-  });
-  svg.addEventListener("click", () => { replay.locked = null; apply(); });
-
-  apply();
 }
 
 /* ------------------------------------------------------------------ *
