@@ -308,19 +308,16 @@ you're in the race results, but not in the standings, and the game asks again
 on your next visit (a refresh keeps the name). A guest can keep their name later
 from the sidebar, where there's also a 🎲 for renaming.
 
-**You're a player, not a name.** Each browser has its own player key — a one-way
-hash of an id the browser keeps, so nobody has to log in and nobody can take
-over someone else's seat. Results and standings follow the key, which means you
-can rename yourself and keep your points, and two players can never overwrite
-each other's results.
+**Your name is you.** Kody on the laptop and Kody on the phone are the same
+player, with one score — no login, just the name, in any mix of capitals and
+spacing. It follows that renaming is becoming somebody else: the old name keeps
+its points, and the new one starts fresh. Two different people choosing the
+same name would become one player, which is why the name picker says so if you
+type a name that's already on the scoreboard or in the game right now, and why
+the names it suggests are ones nobody has used.
 
-**A name belongs to one player.** Once you've saved a name on a server, nobody
-else there can take it, in any mix of capitals and spaces. Races from before
-player keys were recorded under names, so whoever saves a name also inherits
-that name's old results — the people who were already racing keep their points.
-
-Your name is saved in your own browser as well as on the host, so restarting
-the game doesn't cost anyone their name.
+Your name is saved in your own browser, not on the host, so restarting the game
+doesn't cost anyone their name — each browser simply reclaims it on reconnect.
 
 One wrinkle worth knowing: browsers file that memory under the address you
 visit. As long as the game keeps the same address — which it does on a server

@@ -905,6 +905,11 @@
     border-radius: 8px; padding: 8px 11px; font-size: 13.5px;
   }
   .np-error[hidden] { display: none; }
+  .np-note {
+    color: var(--fg); background: var(--info-bg); border: 1px solid var(--info-line);
+    border-radius: 8px; padding: 8px 11px; font-size: 13.5px; line-height: 1.45;
+  }
+  .np-note[hidden] { display: none; }
   .np-row { display: flex; gap: 8px; }
   .np-row input { flex: 1; min-width: 0; font-size: 17px; padding: 11px 13px; }
   .np-roll {
@@ -1178,6 +1183,7 @@
         <button type="button" class="np-roll" id="np-roll" title="Suggest another name"
                 aria-label="Suggest another name"><span>🎲</span></button>
       </div>
+      <p class="np-note" id="np-note" role="status" hidden></p>
       <p class="np-hint">A first name and a random Czech Wikipedia article — or type your own.</p>
       <div class="np-actions">
         <button type="button" id="np-play" class="primary big">Play</button>
@@ -1447,12 +1453,10 @@ function rememberGuest(name) {
   } catch (e) { /* private mode */ }
 }
 
-/* Whether a result is this browser's. Results carry a player key; races from
-   before player keys only have the name to go on. */
+/* Whether a result is ours. The name is the player, on any device. */
 function isMine(r, snap) {
   snap = snap || S.snap;
-  if (!r || !snap || !snap.me) return false;
-  return r.pkey ? r.pkey === snap.me.pkey : norm(r.name) === norm(snap.me.name);
+  return !!(r && snap && snap.me) && norm(r.name) === norm(snap.me.name);
 }
 
 /* Tell this game who we are, once per connection - or ask, if nobody's said. */
@@ -1460,18 +1464,9 @@ function claimName(snap) {
   if (conn.named || !snap || !snap.me) return;
   conn.named = true;
   const me = snap.me;
-  // The game already knows this player (it keeps saved names), so take its word.
-  if (me.named && !me.guest && (!conn.name || norm(conn.name) === norm(me.name))) {
-    if (!conn.name) rememberName(me.name);
-    return;
-  }
   const want = conn.name || conn.guestName;
   if (!want) { openNamePicker({ prefill: /^Player \d+$/.test(me.name) ? "" : me.name }); return; }
-  post("/name", { name: want, guest: !conn.name }).then(res => {
-    if (res && res.ok) return;
-    // Somebody else on this server got to the name first.
-    openNamePicker({ taken: want });
-  });
+  if (norm(me.name) !== norm(want) || me.guest !== !conn.name) post("/name", { name: want, guest: !conn.name });
 }
 
 function rememberConn() {
@@ -2073,8 +2068,7 @@ async function enterRace(race, myRun) {
 
   // Leaders start late. The clock is already running, so the wait is the
   // penalty - it isn't excluded the way loading time is.
-  const hc = race.handicaps || {}, me = S.snap ? S.snap.me : null;
-  const penalty = (me && (hc[me.pkey] || hc["name:" + norm(me.name)] || hc[norm(me.name)])) || 0;
+  const penalty = (race.handicaps || {})[norm(S.snap ? S.snap.me.name : "")] || 0;
   if (penalty > 0) await servePenalty(penalty);
 
   await navigate(race.start, false);
@@ -2266,10 +2260,34 @@ function npError(html) {
   el.hidden = !html;
 }
 
+/* Somebody who's raced here, or is here now, under this name. */
+function existingPlayer(name) {
+  const key = norm(name), snap = S.snap;
+  if (!key || !snap) return null;
+  const here = (snap.peers || []).find(p => norm(p.name) === key);
+  const row = (snap.leaderboard || []).find(e => norm(e.name) === key);
+  return here || row ? { here: !!here, row } : null;
+}
+
 function npReady() {
-  const has = !!$("np-name").value.trim();
-  $("np-play").disabled = !has || picker.busy;
-  $("np-guest").disabled = !has || picker.busy;
+  const name = $("np-name").value.trim();
+  $("np-play").disabled = !name || picker.busy;
+  $("np-guest").disabled = !name || picker.busy;
+  // Same name, same player - on any device. Say so before somebody
+  // accidentally becomes somebody else, but don't stand in the way.
+  const known = existingPlayer(name), note = $("np-note");
+  if (!known) {
+    note.hidden = true;
+    $("np-play").textContent = "Play";
+    return;
+  }
+  const who = "<b>" + esc(name) + "</b>";
+  note.innerHTML = known.here
+    ? who + " is in the game right now. The same name is the same player, so if that isn't you, pick another."
+    : who + " is already on the scoreboard" + (known.row && known.row.points ? " with " + known.row.points +
+      (known.row.points === 1 ? " point" : " points") : "") + ". Play as them to carry on where they left off.";
+  note.hidden = false;
+  $("np-play").textContent = "Play as " + name;
 }
 
 async function rollName(input, button) {
@@ -2277,7 +2295,9 @@ async function rollName(input, button) {
   button.classList.add("rolling");
   if (!input.value) input.placeholder = "Rolling a name…";
   try {
-    const name = await NameGen.next();
+    let name = await NameGen.next();
+    // A suggestion should be a fresh name, not somebody who already exists.
+    for (let i = 0; i < 4 && existingPlayer(name); i++) name = await NameGen.next();
     if (mine === picker.rolls) input.value = name;   // a faster second click wins
   } finally {
     if (mine === picker.rolls) { button.classList.remove("rolling"); input.placeholder = "Your name"; }
@@ -2290,8 +2310,7 @@ function openNamePicker(opts) {
   const el = $("namepick"), input = $("np-name");
   picker.open = true;
   el.hidden = false;
-  npError(opts.taken ? "<b>" + esc(opts.taken) + "</b> is already somebody else's name here. " +
-                       "Pick another to carry on." : "");
+  npError("");
   input.value = opts.prefill || "";
   if (input.value) npReady(); else rollName(input, $("np-roll"));
   setTimeout(() => input.focus(), 30);
@@ -2306,9 +2325,7 @@ async function submitName(guest) {
   picker.busy = false;
   npReady();
   if (!res || res.ok === false) {
-    npError(res && res.error === "taken"
-      ? "<b>" + esc(name) + "</b> is already somebody else's name here. Roll again, or change it."
-      : "Couldn't reach the game. Check your connection and try again.");
+    npError("Couldn't reach the game. Check your connection and try again.");
     $("np-name").focus();
     return;
   }
@@ -2331,10 +2348,7 @@ $("guest-keep").onclick = async e => {
   const name = S.snap && S.snap.me ? S.snap.me.name : "";
   if (!name) return;
   const res = await post("/name", { name });
-  if (!res || res.ok === false) {
-    toast(res && res.error === "taken" ? name + " was taken in the meantime — pick another" : "Couldn't save that name");
-    return;
-  }
+  if (!res || res.ok === false) { toast("Couldn't save that name"); return; }
   rememberName(res.name);
   toast("Name saved on this device");
 };
@@ -5461,10 +5475,7 @@ $("btn-savename").onclick = async () => {
   const v = $("myname").value.trim();
   if (!v) return;
   const res = await post("/name", { name: v });
-  if (!res || res.ok === false) {
-    toast(res && res.error === "taken" ? v + " is already somebody else's name here" : "Couldn't save that name");
-    return;
-  }
+  if (!res || res.ok === false) { toast("Couldn't save that name"); return; }
   setDrawer(false);
   rememberName(res.name || v);
   conn.named = true;          // this is now the name to reclaim on reconnect
