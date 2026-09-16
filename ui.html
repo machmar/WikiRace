@@ -663,19 +663,6 @@
   .step.checkpoint:hover { border-color: var(--warn-fg); }
   .step.target:hover     { border-color: var(--good-hover); }
 
-  /* replay */
-  .replay-ctl { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-  .replay-ctl input[type=range] { flex: 1; accent-color: var(--accent); }
-  .replay-clock { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 62px; }
-  .lane-now { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
-  .lane-now .row2 {
-    display: flex; align-items: center; gap: 9px; font-size: 13.5px;
-    padding: 7px 11px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px;
-  }
-  .lane-now .row2 .who { font-weight: 600; min-width: 92px; }
-  .lane-now .row2 .art { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lane-now .row2 .cl { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
-  .lane-now .row2.done { border-color: var(--good-line); }
 
   /* ---------- spectator view ---------- */
 
@@ -1073,7 +1060,71 @@
     background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px;
   }
   .rm-pname .c { font: 11.5px var(--mono); color: var(--dg-faint); font-weight: 400; }
-  .rm-caption { margin-top: 12px; }
+  .rm-caption { margin-top: 6px; }
+
+  /* ---- replay: one clock for the timeline and every map ---- */
+  .rp-frame { position: relative; }
+  .rp-ctl {
+    position: absolute; left: 10px; top: 10px; z-index: 4;
+    display: flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px;
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 999px;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .rp-ctl .rp-pp {
+    width: 38px; height: 38px; border-radius: 50%; padding: 0; flex: none;
+    display: grid; place-items: center; border: 0;
+    background: var(--accent-solid); color: var(--on-accent);
+  }
+  .rp-ctl .rp-pp:hover:not(:disabled) { background: var(--accent-hover); }
+  .rp-ctl .rp-pp.stop, .rp-ctl .rp-pp.stop:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
+  .rp-ctl .rp-pp svg { width: 15px; height: 15px; display: block; fill: currentColor; }
+  .rp-clock { font: 600 16px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--dg-text); min-width: 3.4em; }
+  .rp-clock.still { color: var(--dg-faint); font-weight: 500; }
+  .rp-tl { padding: 62px 14px 8px; }
+  .rp-frame .rm-map .rm-info { top: 60px; }
+  .rp-frame .rm-multi .rm-map .rm-info { top: 48px; }
+  .rp-frame .rm-multi .rm-map:first-child .rm-info { top: 60px; }
+  /* The first panel shares its corner with the play button. */
+  .rp-frame .rm-multi .rm-map:first-child .rm-pname { left: 148px; top: 15px; }
+  .rp-frame .rm-multi .rm-zoom { display: none; }
+
+  /* The drawing steps back while the race replays over it. */
+  .rm-map .rm-world > path, .rm-map .rm-world > rect, .rm-map .rm-marks { transition: opacity .6s ease; }
+  .rm-map.rm-animating .rm-world > path { opacity: .13; }
+  .rm-map.rm-animating .rm-world > rect { opacity: .3; }
+  .rm-map.rm-animating .rm-marks { opacity: .45; }
+  .rm-map.rm-quiet .rm-pname { opacity: .55; }
+  .rm-trails path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .rm-ping circle { transform-box: fill-box; transform-origin: center; animation: rm-ping .75s ease-out forwards; }
+  @keyframes rm-ping { from { transform: scale(.5); opacity: .95; } to { transform: scale(2.8); opacity: 0; } }
+
+  /* Where everyone is at this moment of the replay. */
+  .rp-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-top: 12px; }
+  .rp-place {
+    position: relative; text-align: left; min-width: 0;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 8px 11px 9px 15px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg-2); color: var(--fg);
+    font-size: 13px; line-height: 1.3; transition: opacity .2s, border-color .2s, background .12s;
+  }
+  .rp-place::before {
+    content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c);
+  }
+  .rp-place:hover:not(:disabled) { background: var(--hover-soft); }
+  .rp-place .top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .rp-place .nm { font-weight: 600; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .rp-place .cl { font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-faint); flex: none; }
+  .rp-place .at { color: var(--fg-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rp-place.done { border-color: var(--good-line); }
+  .rp-place.done .at { color: var(--good-fg); }
+  .rp-place[aria-pressed="true"], .rp-place[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+  .rp-places.focused .rp-place[aria-pressed="false"] { opacity: .5; }
+  .rp-places.focused .rp-place[aria-pressed="false"]:hover { opacity: .8; }
+  .rp-note { margin-top: 10px; }
+  @media (prefers-reduced-motion: reduce) {
+    .rm-ping { display: none; }
+    .rm-map .rm-world > path, .rm-map .rm-world > rect, .rm-map .rm-marks, .rp-place { transition: none; }
+  }
   @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: 17px; } }
   @media (prefers-reduced-motion: reduce) { .rm-hint { transition: none; } }
   /* After the rules above, or they would win: one panel per row on a phone. */
@@ -1084,6 +1135,13 @@
     .rm-multi { grid-template-columns: 1fr; }
     .rm-multi .rm-map { height: 340px; }
     .rm-multi .rm-map:first-child .rm-info { top: 62px; }
+    .rp-frame .rm-multi .rm-map:first-child .rm-pname { left: 10px; top: 62px; }
+    .rp-frame .rm-multi .rm-map:first-child .rm-info { top: 100px; }
+    .rp-tl { padding: 60px 6px 6px; }
+    #rp-type { width: 100%; }
+    #rp-type button { flex: 1; padding: 6px 4px; font-size: 12.5px; }
+    .rp-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .rp-place { padding: 7px 9px 8px 14px; }
   }
 
   /* compact per-player pill for the mobile strip */
@@ -2719,13 +2777,20 @@ function renderMyRun() {
  * Replay: how the race actually unfolded, and where people crossed
  * ------------------------------------------------------------------ */
 
-const replay = { lanes: [], maxT: 0, t: 0, playing: false, timer: null,
-                 raceId: null, view: "timeline", sig: null, ghost: null,
-                 // Which map the Routes view draws, and how - remembered per browser.
+/* One replay drives every view. Its clock is race time in seconds: the
+   timeline, the lights on the maps and the player boxes all draw that moment.
+   Stopped, every view shows the whole race. */
+const replay = { lanes: [], maxT: 1, end: 1, t: 0, playing: false, linger: 0, played: null,
+                 raceId: null, race: null, sig: null, ghost: null, stage: null, io: null, visible: false,
+                 // Who's highlighted, and which view draws the race, and how -
+                 // the view is remembered per browser.
                  focus: null, mapType: "aligned", mapMode: "combined" };
+const REPLAY_SECONDS = 18;   // the whole race, start to finish
+const REPLAY_LINGER = 1.6;   // how long a finished replay holds before settling
+const REPLAY_REDUCED = matchMedia("(prefers-reduced-motion: reduce)");
 try {
   const saved = JSON.parse(localStorage.getItem("wr_routes") || "{}");
-  if (["aligned", "metro", "spring", "collapsed"].includes(saved.type)) replay.mapType = saved.type;
+  if (["timeline", "aligned", "metro", "spring", "collapsed"].includes(saved.type)) replay.mapType = saved.type;
   if (saved.mode === "separate") replay.mapMode = "separate";
 } catch (e) { /* first visit, or storage blocked */ }
 
@@ -2740,11 +2805,26 @@ function resultsSignature(race) {
   }).join(",");
 }
 
+/* When each step of a run happened. Older races carry no per-step timing;
+   space them evenly so they can still be drawn, just without the real rhythm. */
+function stepTimes(r) {
+  const path = r.path || [];
+  if (r.times && r.times.length === path.length) return r.times.map(Number);
+  return path.map((_, i) => (r.elapsed || 0) * (path.length > 1 ? i / (path.length - 1) : 0));
+}
+
+/* Everyone's colour for this race, the same in the timeline, the maps and the
+   player boxes. Clashes go to whoever finished first. */
+function raceColors(race) {
+  const runs = Object.values(race.results || {})
+    .sort((a, b) => (!!b.finished - !!a.finished) || ((a.elapsed || 0) - (b.elapsed || 0)));
+  return distinctColors(runs.map(r => r.name));
+}
+
 function laneData(race, ghost) {
-  const laneColors = distinctColors(Object.values(race.results || {}).map(r => r.name));
+  const laneColors = raceColors(race);
   const lanes = Object.values(race.results || {}).map(r => {
-    const path = r.path || [];
-    const times = (r.times && r.times.length === path.length) ? r.times : null;
+    const times = stepTimes(r);
     return {
       name: r.name,
       color: laneColors.get(r.name),
@@ -2752,17 +2832,12 @@ function laneData(race, ghost) {
       clicks: r.clicks,
       elapsed: r.elapsed || 0,
       ghost: false,
-      // Older races carry no per-step timing; space them evenly so they can
-      // still be drawn, just without the real rhythm.
-      steps: path.map((title, i) => ({
-        title,
-        t: times ? times[i]
-                 : (r.elapsed || 0) * (path.length > 1 ? i / (path.length - 1) : 0),
-      })),
+      steps: (r.path || []).map((title, i) => ({ title, t: times[i] })),
     };
   });
   if (ghost) lanes.push(ghost);
-  lanes.sort((a, b) => (a.ghost - b.ghost) || (a.elapsed - b.elapsed));
+  // Finishers fastest first, then whoever gave up; your old attempt last.
+  lanes.sort((a, b) => (a.ghost - b.ghost) || (b.finished - a.finished) || (a.elapsed - b.elapsed));
   return lanes;
 }
 
@@ -2780,15 +2855,11 @@ async function findGhost(snap) {
       const full = await (await fetch(apiUrlFor("/race", { id: row.race_id }))).json();
       const mine = Object.values(full.results || {}).find(r => isMine(r, snap) && r.finished);
       if (mine) {
-        const path = mine.path || [];
-        const times = (mine.times && mine.times.length === path.length) ? mine.times : null;
+        const times = stepTimes(mine);
         return {
           name: mine.name + " (previous)", color: "var(--fg-faint)", ghost: true,
           finished: true, clicks: mine.clicks, elapsed: mine.elapsed || 0,
-          steps: path.map((title, i) => ({
-            title,
-            t: times ? times[i] : (mine.elapsed || 0) * (path.length > 1 ? i / (path.length - 1) : 0),
-          })),
+          steps: (mine.path || []).map((title, i) => ({ title, t: times[i] })),
         };
       }
     } catch (e) { /* skip this one */ }
@@ -2800,129 +2871,278 @@ async function renderReplay(snap) {
   const host = $("replay-pane");
   const race = snap && snap.race;
   if (!race || !Object.keys(race.results || {}).length) {
+    dropReplayStage();
+    replay.raceId = null; replay.race = null;
+    host.classList.remove("wide");
     host.innerHTML = '<div class="empty">Nothing to replay yet — it appears once people finish.</div>';
     return;
   }
 
   const fresh = replay.raceId !== race.race_id;
+  replay.race = race;
   if (fresh) {
+    dropReplayStage();
     replay.raceId = race.race_id;
     replay.sig = null;
     replay.ghost = null;
-    replay.lanes = laneData(race, null);
-    replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
-    replay.t = replay.maxT;
-    replay.playing = false;
+    replay.focus = null;
+    // Four linked maps need more room than a column of text does.
+    host.classList.add("wide");
     host.innerHTML =
       '<h2 class="hub-h2">Replay</h2>' +
       '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) + "</p>" +
-      '<div class="seg" id="rp-view" style="margin-bottom:16px">' +
-      '<button data-rv="timeline">Timeline</button>' +
-      '<button data-rv="routes">Routes</button>' +
+      '<div class="rm-bar">' +
+      '<div class="seg" id="rp-type" role="group" aria-label="View"></div>' +
+      '<div class="seg" id="rp-mode" role="group" aria-label="Combined or separate"></div>' +
+      '<span class="tiny muted" id="rp-mode-note" hidden>The timeline already gives everyone a lane</span>' +
       "</div>" +
-      '<div id="rp-timeline">' +
-      '<div class="replay-ctl">' +
-      '<button id="rp-play">▶ Play</button>' +
-      '<input type="range" id="rp-scrub" min="0" max="1000" value="1000">' +
-      '<span class="replay-clock" id="rp-clock">0:00.0</span>' +
-      "</div>" +
-      '<div id="rp-chart"></div>' +
-      '<div class="lane-now" id="rp-now"></div>' +
-      '<p class="tiny muted" style="margin-top:14px">Dotted links mark pages more than one ' +
-      "player visited. Hover a dot to see the page.</p></div>" +
-      '<div id="rp-routes" hidden></div>';
+      '<div class="rm-screen rp-frame" id="rp-frame">' +
+      '<div class="rp-ctl"><button type="button" class="rp-pp" id="rp-pp"></button>' +
+      '<span class="rp-clock still" id="rp-clock" role="timer">0:00</span></div>' +
+      '<div id="rp-stage"></div></div>' +
+      '<div class="rp-places" id="rp-places" role="group" aria-label="Players"></div>' +
+      '<p class="tiny muted rp-note">Tap a player to follow just them; tap again for everyone.</p>' +
+      '<p class="tiny muted rm-caption" id="rp-caption"></p>';
 
-    ov_wireReplayView();
-    $("rp-play").onclick = toggleReplay;
-    $("rp-scrub").oninput = (e) => {
-      stopReplay();
-      replay.t = (+e.target.value / 1000) * replay.maxT;
-      drawReplay();
+    $("rp-pp").onclick = () => (replayActive() ? stopReplay() : playReplay());
+    $("rp-type").onclick = (e) => {
+      const b = e.target.closest("button[data-v]");
+      if (!b || b.dataset.v === replay.mapType) return;
+      replay.mapType = b.dataset.v;
+      rememberReplayView();
+      drawReplayView();
     };
+    $("rp-mode").onclick = (e) => {
+      const b = e.target.closest("button[data-v]");
+      if (!b || b.disabled || b.dataset.v === replay.mapMode) return;
+      replay.mapMode = b.dataset.v;
+      rememberReplayView();
+      drawReplayView();
+    };
+    $("rp-places").onclick = (e) => {
+      const b = e.target.closest("button[data-name]");
+      if (!b) return;
+      replay.focus = replay.focus === b.dataset.name ? null : b.dataset.name;
+      drawReplayView();
+    };
+
+    // The race plays by itself once, the first time the replay is on screen.
+    replay.visible = false;
+    replay.io = new IntersectionObserver(entries => {
+      replay.visible = entries.some(en => en.isIntersecting && en.intersectionRatio >= 0.4);
+      if (replay.visible && replay.played !== replay.raceId && !REPLAY_REDUCED.matches) playReplay();
+    }, { threshold: [0, 0.4, 0.8] });
+    replay.io.observe($("rp-frame"));
 
     // The ghost arrives late; fold it in without disturbing playback.
     findGhost(snap).then(g => {
       if (g && replay.raceId === race.race_id) {
         replay.ghost = g;
-        rebuildLanes(race);
-        drawCurrentReplayView();
+        rebuildLanes(replay.race);
+        drawReplayView();
       }
     });
   }
   // Somebody finishing after you did changes the picture; nothing else does.
   const sig = resultsSignature(race);
   if (fresh || replay.sig !== sig) {
-    const wasAtEnd = replay.t >= replay.maxT - 0.05;
     replay.sig = sig;
     rebuildLanes(race);
-    // Sitting at the end means "show me everything", so follow the new end.
-    if (wasAtEnd) replay.t = replay.maxT;
-    drawCurrentReplayView();
+    drawReplayView();
   }
 }
 
+const laneEnd = l => Math.max(l.elapsed || 0, l.steps.length ? l.steps[l.steps.length - 1].t : 0);
+const focusLane = () => replay.focus == null ? null : replay.lanes.find(l => !l.ghost && l.name === replay.focus) || null;
+const replayActive = () => replay.playing || replay.linger > 0;
+/* Following one player, the replay ends when they do. */
+const replayEnd = () => { const f = focusLane(); return f ? Math.max(1, laneEnd(f)) : replay.end; };
+/* Race seconds per second on screen, set by the whole race so following one
+   player runs at the same pace as watching everyone. */
+const replayRate = () => replay.end / REPLAY_SECONDS;
+const clockText = sec => Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
+
 function rebuildLanes(race) {
   replay.lanes = laneData(race, replay.ghost);
-  replay.maxT = Math.max(1, ...replay.lanes.map(l => l.elapsed || 0));
+  replay.maxT = Math.max(1, ...replay.lanes.map(laneEnd));
+  replay.end = Math.max(1, ...replay.lanes.filter(l => !l.ghost).map(laneEnd));
+  if (replay.focus != null && !focusLane()) replay.focus = null;
 }
 
-/* Two ways of looking at the same race: when it happened, and where it went. */
-function ov_wireReplayView() {
-  document.querySelectorAll("#rp-view button").forEach(b => {
-    b.classList.toggle("on", b.dataset.rv === replay.view);
-    b.onclick = () => {
-      replay.view = b.dataset.rv;
-      stopReplay();
-      document.querySelectorAll("#rp-view button")
-        .forEach(x => x.classList.toggle("on", x.dataset.rv === replay.view));
-      drawCurrentReplayView();
-    };
-  });
+function rememberReplayView() {
+  try { localStorage.setItem("wr_routes", JSON.stringify({ type: replay.mapType, mode: replay.mapMode })); }
+  catch (e) { /* storage blocked - it just won't be remembered */ }
 }
 
-function drawCurrentReplayView() {
-  const timeline = $("rp-timeline"), routes = $("rp-routes");
-  if (!timeline || !routes) return;
-  const showRoutes = replay.view === "routes";
-  timeline.hidden = showRoutes;
-  routes.hidden = !showRoutes;
-  // Four linked maps need more room than a column of text does.
-  $("replay-pane").classList.toggle("wide", showRoutes);
-  if (showRoutes) drawRoutes(); else drawReplay();
+function replayTypes() {
+  return {
+    timeline: { label: "Timeline", name: "Timeline",
+      caption: "Each player gets a lane, left to right in race time. Dotted links join the pages more than one " +
+        "player visited; hover a dot to see the page." },
+    ...ROUTE_TYPES,
+  };
 }
 
-function toggleReplay() {
-  if (replay.playing) { stopReplay(); return; }
-  if (replay.t >= replay.maxT) replay.t = 0;
-  replay.playing = true;
-  $("rp-play").textContent = "⏸ Pause";
-  const step = 0.05;
-  replay.timer = setInterval(() => {
-    replay.t += step * 2;                     // roughly double real time
-    if (replay.t >= replay.maxT) { replay.t = replay.maxT; stopReplay(); }
-    drawReplay();
-  }, step * 1000);
+function segButtons(items, current, disabled) {
+  return items.map(([v, label, title]) =>
+    '<button type="button" data-v="' + v + '" aria-pressed="' + (v === current) + '"' +
+    (v === current && !disabled ? ' class="on"' : "") + (title ? ' title="' + esc(title) + '"' : "") +
+    (disabled ? " disabled" : "") + ">" + esc(label) + "</button>").join("");
 }
 
+function dropReplayStage() {
+  replay.playing = false; replay.linger = 0;
+  if (replay.stage) { replay.stage.destroy(); replay.stage = null; }
+  if (replay.io) { replay.io.disconnect(); replay.io = null; }
+}
+
+/* Draw the chosen view of the race, carrying on from the same moment if the
+   replay is running. */
+function drawReplayView() {
+  const host = $("rp-stage"), race = replay.race;
+  if (!host || !race) return;
+  const types = replayTypes();
+  if (!types[replay.mapType]) replay.mapType = "aligned";
+  const timeline = replay.mapType === "timeline";
+  $("rp-type").innerHTML = segButtons(Object.entries(types).map(([v, t]) => [v, t.label, t.name]), replay.mapType);
+  $("rp-mode").innerHTML = segButtons([["combined", "Combined", "Everyone on one map"],
+                                       ["separate", "Separate", "A panel per player, moving together"]],
+                                      replay.mapMode, timeline);
+  $("rp-mode-note").hidden = !timeline;
+
+  if (replay.stage) replay.stage.destroy();
+  replay.stage = (timeline ? timelineStage(host) : RouteMap.render(host, race)) ||
+                 { draw() {}, destroy() {} };
+  $("rp-caption").textContent = types[replay.mapType].caption +
+    (timeline ? "" : " Page names appear as you zoom in; tap a dot to see what it is.");
+  buildPlaces();
+  paintReplay(false);
+}
+
+function paintReplay(pings) {
+  const active = replayActive();
+  if (replay.stage) replay.stage.draw(replay.t, active, pings);
+  drawPlaces(replay.t, active);
+  drawReplayControl(active);
+}
+
+function playReplay() {
+  replay.t = 0; replay.playing = true; replay.linger = 0; replay.played = replay.raceId;
+  paintReplay(false);
+  wakeReplay();
+}
+
+/* Stopping shows the whole race. */
 function stopReplay() {
-  replay.playing = false;
-  clearInterval(replay.timer);
-  const b = $("rp-play");
-  if (b) b.textContent = "▶ Play";
+  const was = replayActive();
+  replay.playing = false; replay.linger = 0;
+  if (was) paintReplay(false);
 }
 
-function drawReplay() {
+let replayTicking = false, replayLast = 0;
+function wakeReplay() {
+  if (replayTicking) return;
+  replayTicking = true; replayLast = 0;
+  requestAnimationFrame(replayTick);
+}
+function replayTick(now) {
+  const dt = replayLast ? Math.min(0.1, (now - replayLast) / 1000) : 0;
+  replayLast = now;
+  if (stepReplay(dt)) requestAnimationFrame(replayTick);
+  else replayTicking = false;
+}
+function stepReplay(dt) {
+  if (replay.linger > 0) {
+    replay.linger -= dt;
+    if (replay.linger > 0) return true;
+    replay.linger = 0;
+    paintReplay(false);
+    return false;
+  }
+  if (!replay.playing) return false;
+  replay.t += dt * replayRate();
+  const end = replayEnd();
+  if (replay.t >= end) { replay.t = end; replay.playing = false; replay.linger = REPLAY_LINGER; }
+  paintReplay(true);
+  return true;
+}
+
+const RP_ICON_PLAY = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.2v11.6L13.6 8z"/></svg>';
+const RP_ICON_STOP = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>';
+
+function drawReplayControl(active) {
+  const pp = $("rp-pp"), clock = $("rp-clock");
+  if (!pp || !clock) return;
+  if (pp.dataset.state !== String(active)) {
+    pp.dataset.state = String(active);
+    pp.innerHTML = active ? RP_ICON_STOP : RP_ICON_PLAY;
+    pp.classList.toggle("stop", active);
+    pp.setAttribute("aria-label", active ? "Stop and show the whole race" : "Play the race");
+    clock.classList.toggle("still", !active);
+  }
+  clock.textContent = clockText(active ? replay.t : replayEnd());
+}
+
+/* Where everyone stood: a box per player, which also picks who to follow. */
+function buildPlaces() {
+  const host = $("rp-places");
+  if (!host) return;
+  host.classList.toggle("focused", replay.focus != null);
+  host.innerHTML = replay.lanes.filter(l => !l.ghost).map(l =>
+    '<button type="button" class="rp-place" data-name="' + esc(l.name) + '" style="--c:' + l.color + '" aria-pressed="' +
+    (l.name === replay.focus) + '"><span class="top"><span class="nm">' + esc(l.name) + '</span><span class="cl"></span></span>' +
+    '<span class="at"></span></button>').join("");
+}
+
+function drawPlaces(t, active) {
+  const host = $("rp-places");
+  if (!host) return;
+  const finishers = replay.lanes.filter(l => !l.ghost && l.finished).sort((a, b) => a.elapsed - b.elapsed);
+  for (const b of host.children) {
+    const l = replay.lanes.find(x => !x.ghost && x.name === b.dataset.name);
+    if (!l) continue;
+    const now = active ? t : Infinity;
+    let k = 0;
+    while (k + 1 < l.steps.length && l.steps[k + 1].t <= now) k++;
+    const over = now >= laneEnd(l);
+    const page = l.steps.length ? l.steps[k].title : "—";
+    const text = over && l.finished ? "🏁 " + ordinal(finishers.indexOf(l) + 1) + " · " + fmtTime(l.elapsed)
+               : over ? "gave up on " + page : page;
+    const at = b.querySelector(".at"), cl = b.querySelector(".cl");
+    if (at.textContent !== text) { at.textContent = text; at.title = text; }
+    cl.textContent = (over && l.clicks != null ? l.clicks : k) + "c";
+    b.classList.toggle("done", over && l.finished);
+  }
+}
+
+/* The timeline as a view of the replay. */
+function timelineStage(host) {
+  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"></div></div>';
   const chart = $("rp-chart");
-  if (!chart) return;
+  let last = { t: 0, active: false }, width = 0;
+  const ro = new ResizeObserver(() => {
+    if (chart.clientWidth && chart.clientWidth !== width) { width = chart.clientWidth; drawTimeline(chart, last.t, last.active); }
+  });
+  ro.observe(chart);
+  return {
+    draw(t, active) { last = { t, active }; width = chart.clientWidth; drawTimeline(chart, t, active); },
+    destroy() { ro.disconnect(); },
+  };
+}
+
+function drawTimeline(chart, t, active) {
   const lanes = replay.lanes;
-  const w = Math.max(420, chart.clientWidth || 700);
-  const padL = 108, padR = 18, rowH = 34, top = 14;
-  const h = top + lanes.length * rowH + 10;
-  const x = (t) => padL + (t / replay.maxT) * (w - padL - padR);
+  const w = Math.max(280, chart.clientWidth || 700);
+  const narrow = w < 520;
+  const padL = narrow ? 80 : 108, padR = narrow ? 16 : 22, rowH = narrow ? 36 : 38, top = 14;
+  const h = top + lanes.length * rowH + 28;
+  const x = (s) => padL + (Math.min(s, replay.maxT) / replay.maxT) * (w - padL - padR);
+  const focus = focusLane();
+  const faded = (l) => focus && l !== focus;
 
   // The pages that carry meaning, marked the same way as in My run:
   // amber for a required stop, green for the target.
-  const race = S.snap && S.snap.race;
+  const race = replay.race;
   const checkKeys = new Set(raceCheckpoints(race).map(norm));
   const targetKey = norm((race && race.target) || "");
 
@@ -2935,38 +3155,57 @@ function drawReplay() {
 
   let svg = '<svg viewBox="0 0 ' + w + " " + h + '" width="100%" height="' + h + '" style="overflow:visible">';
 
+  // Time marks along the bottom, sparse enough to read.
+  const every = [15, 30, 60, 120, 300, 600, 900, 1800, 3600].find(s => replay.maxT / s <= (narrow ? 4 : 7)) || 7200;
+  for (let s = 0; s <= replay.maxT + 0.001; s += every) {
+    svg += '<line x1="' + x(s).toFixed(1) + '" y1="' + (top - 6) + '" x2="' + x(s).toFixed(1) + '" y2="' + (h - 24) +
+           '" stroke="var(--line-soft)" stroke-width="1"/>' +
+           '<text x="' + x(s).toFixed(1) + '" y="' + (h - 7) + '" text-anchor="middle" fill="var(--fg-faint)" font-size="11" ' +
+           'font-family="var(--mono)">' + clockText(s) + "</text>";
+  }
+
   for (const [title, n] of counts) {
     if (n < 2) continue;
     const pts = [];
     lanes.forEach((l, i) => {
       const s = l.steps.find(s => s.title === title);
-      if (s && !l.ghost) pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2 });
+      if (s && !l.ghost) pts.push({ x: x(s.t), y: top + i * rowH + rowH / 2, l });
     });
     const key = norm(title);
     for (let i = 1; i < pts.length; i++) {
       // A wide transparent line underneath gives the thin dotted one a
       // hit area you can actually land on.
-      const geom = 'x1="' + pts[i - 1].x + '" y1="' + pts[i - 1].y +
-                   '" x2="' + pts[i].x + '" y2="' + pts[i].y + '"';
+      const geom = 'x1="' + pts[i - 1].x.toFixed(1) + '" y1="' + pts[i - 1].y +
+                   '" x2="' + pts[i].x.toFixed(1) + '" y2="' + pts[i].y + '"';
+      const dim = focus && pts[i - 1].l !== focus && pts[i].l !== focus;
       svg += "<line " + geom + ' stroke="transparent" stroke-width="12" ' +
              'data-art="' + esc(key) + '" class="tl-hit"/>';
       svg += "<line " + geom + ' stroke="var(--line-strong)" stroke-width="1" ' +
-             'stroke-dasharray="2 3" data-art="' + esc(key) + '" class="tl-link"/>';
+             'stroke-dasharray="2 3" data-art="' + esc(key) + '" class="tl-link"' + (dim ? ' opacity=".2"' : "") + "/>";
     }
   }
 
   lanes.forEach((l, i) => {
-    const y = top + i * rowH + rowH / 2;
+    const y = top + i * rowH + rowH / 2, end = laneEnd(l);
+    const live = active && !faded(l) && l.steps.length;
+    svg += '<g opacity="' + (faded(l) ? .3 : 1) + '">';
     svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y +
            '" stroke="' + (l.ghost ? "var(--line-soft)" : "var(--line-strong)") + '" stroke-width="2" ' +
            (l.ghost ? 'stroke-dasharray="4 4"' : "") + "/>";
+    // The stretch of the race this player has already run, lit up.
+    if (live && t > 0) {
+      svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + x(Math.min(t, end)).toFixed(1) + '" y2="' + y +
+             '" stroke="' + l.color + '" stroke-width="3" stroke-linecap="round" opacity=".9"' +
+             (l.ghost ? ' stroke-dasharray="4 4"' : "") + "/>";
+    }
+    const max = narrow ? 10 : 15;
     svg += '<text x="0" y="' + (y + 4) + '" fill="' + l.color +
            '" font-size="12" font-weight="600">' +
-           esc(l.name.length > 15 ? l.name.slice(0, 14) + "…" : l.name) + "</text>";
+           esc(l.name.length > max ? l.name.slice(0, max - 1) + "…" : l.name) + "</text>";
 
     for (const s of l.steps) {
       const shared = !l.ghost && (counts.get(s.title) || 0) > 1;
-      const dim = s.t > replay.t;
+      const dim = active && s.t > t;
       const key = norm(s.title);
       const isCheck = checkKeys.has(key);
       const isGoal = key === targetKey;
@@ -2977,41 +3216,32 @@ function drawReplay() {
                     (isGoal ? " · target" : isCheck ? " · checkpoint" : "");
       svg += '<circle class="tl-dot" data-art="' + esc(key) +
              '" data-label="' + esc(label) +
-             '" cx="' + x(s.t) + '" cy="' + y + '" r="' + rad +
+             '" cx="' + x(s.t).toFixed(1) + '" cy="' + y + '" r="' + rad +
              '" fill="' + (dim ? "var(--sunken)" : l.color) + '" stroke="' + ring +
              '" stroke-width="' + (isGoal || isCheck ? 2.5 : 1.5) + '"' +
              (isCheck ? ' stroke-dasharray="4 3"' : "") +
              ' opacity="' + (l.ghost ? .55 : 1) + '"/>';
     }
-    if (l.finished && l.elapsed <= replay.t) {
-      svg += '<text x="' + (x(l.elapsed) + 9) + '" y="' + (y + 4) +
+    if (l.finished && (!active || l.elapsed <= t)) {
+      svg += '<text x="' + (x(l.elapsed) + 9).toFixed(1) + '" y="' + (y + 4) +
              '" fill="var(--good)" font-size="12">&#127937;</text>';
     }
+    if (live) {
+      svg += '<g transform="translate(' + x(Math.min(t, end)).toFixed(1) + " " + y + ')" pointer-events="none">' +
+             '<circle r="11" fill="' + l.color + '" opacity=".2"/><circle r="6" fill="' + l.color + '" opacity=".6"/>' +
+             '<circle r="3" fill="#fff"/></g>';
+    }
+    svg += "</g>";
   });
 
-  const px = x(replay.t);
-  svg += '<line x1="' + px + '" y1="' + (top - 6) + '" x2="' + px + '" y2="' + (h - 6) +
-         '" stroke="var(--accent)" stroke-width="1.5"/>';
+  if (active) {
+    const px = x(t).toFixed(1);
+    svg += '<line x1="' + px + '" y1="' + (top - 6) + '" x2="' + px + '" y2="' + (h - 24) +
+           '" stroke="var(--accent)" stroke-width="1.5" pointer-events="none"/>';
+  }
   svg += "</svg>";
   chart.innerHTML = svg;
   wireTimelineHover(chart);
-
-  const scrub = $("rp-scrub");
-  if (scrub) scrub.value = String(Math.round((replay.t / replay.maxT) * 1000));
-  const clock = $("rp-clock");
-  if (clock) clock.textContent = fmtTime(replay.t);
-
-  // Where everyone stood at this instant.
-  $("rp-now").innerHTML = lanes.map(l => {
-    const passed = l.steps.filter(s => s.t <= replay.t);
-    const at = passed.length ? passed[passed.length - 1].title : "—";
-    const done = l.finished && l.elapsed <= replay.t;
-    return '<div class="row2' + (done ? " done" : "") + '">' +
-      '<span class="swatch" style="height:14px;width:5px;background:' + l.color + '"></span>' +
-      '<span class="who" style="color:' + l.color + '">' + esc(l.name) + "</span>" +
-      '<span class="art">' + (done ? "finished" : esc(at)) + "</span>" +
-      '<span class="cl">' + Math.max(0, passed.length - 1) + "c</span></div>";
-  }).join("");
 }
 
 /* ------------------------------------------------------------------ *
@@ -3382,9 +3612,9 @@ const RouteMap = (() => {
   function model(race) {
     const all = Object.values(race.results || {}).filter(r => (r.path || []).length)
       .sort((a, b) => (b.finished - a.finished) || ((a.elapsed || 0) - (b.elapsed || 0)));
-    const colors = distinctColors(all.map(r => r.name));
+    const colors = raceColors(race);
     const runs = all.map(r => ({ name: r.name, color: colors.get(r.name), path: r.path.slice(),
-                                 clicks: r.clicks, finished: !!r.finished }));
+                                 clicks: r.clicks, finished: !!r.finished, times: stepTimes(r) }));
     const label = new Map(), visitors = new Map();
     runs.forEach(r => r.path.forEach(t => {
       const k = norm(t);
@@ -3440,6 +3670,12 @@ const RouteMap = (() => {
     y: (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * c.y + t * t * b.y,
   });
   const polyLen = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - pts[i].x, p.y - pts[i].y), 0);
+  const cubicAt = (a, c1, c2, b, t) => {
+    const u = 1 - t;
+    return { x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+             y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y };
+  };
+  const cubicPoints = (a, c1, c2, b, n = 8) => Array.from({ length: n + 1 }, (_, i) => cubicAt(a, c1, c2, b, i / n));
   /* A horizontal S-bend from a to b - how storyline charts join points. */
   function sBend(a, b) {
     const h = Math.max(6, (b.x - a.x) / 2);
@@ -3939,6 +4175,10 @@ const RouteMap = (() => {
     const faded = ri => focus >= 0 && ri !== focus;
     const NS = ' vector-effect="non-scaling-stroke"';
     let under = "", lines = "", stations = "", arrows = "", dots = "", labels = "", lanes = "";
+    // Each route in order, as the drawn geometry of every click, for the replay
+    // to run a light along.
+    const routes = m.runs.map(() => []);
+    const route = (ri, pts, clicks) => routes[ri].push({ pts, clicks: clicks || 1 });
 
     // Page names only show once zoomed in; neighbouring columns alternate
     // heights so their names miss each other.
@@ -3960,7 +4200,7 @@ const RouteMap = (() => {
       const c = bowControl(A, B, (back ? 46 : 12) + Math.abs(s), back ? 1 : -1);
       return { d: "M" + A.x.toFixed(1) + " " + A.y.toFixed(1) + " Q" + c.x.toFixed(1) + " " + c.y.toFixed(1) + " " +
                   B.x.toFixed(1) + " " + B.y.toFixed(1),
-               pts: [A, quadAt(A, c, B, .25), quadAt(A, c, B, .5), quadAt(A, c, B, .75), B],
+               pts: Array.from({ length: 9 }, (_, i) => quadAt(A, c, B, i / 8)),
                mid: [quadAt(A, c, B, .47), quadAt(A, c, B, .53)] };
     };
     const whoSaw = key => [...(m.visitors.get(key) || [])].map(nm => m.runs.findIndex(r => r.name === nm)).filter(i => i >= 0);
@@ -3980,6 +4220,7 @@ const RouteMap = (() => {
         const s = (L.laneOf[e.ri] - mid) * 3.2;
         const A = { x: na.x, y: na.y + s }, B = { x: nb.x, y: nb.y + s };
         const { c1, c2 } = sBend(A, B);
+        route(e.ri, cubicPoints(A, c1, c2, B));
         lines += '<path d="M' + A.x.toFixed(1) + " " + A.y.toFixed(1) + " C" + c1.x.toFixed(1) + " " + c1.y.toFixed(1) + " " +
           c2.x.toFixed(1) + " " + c2.y.toFixed(1) + " " + B.x.toFixed(1) + " " + B.y.toFixed(1) +
           '" fill="none" stroke="' + e.color + '" stroke-width="2.3" stroke-linecap="round"' + NS +
@@ -4009,9 +4250,9 @@ const RouteMap = (() => {
       const mid = (m.runs.length - 1) / 2;
       const offset = ri => (ri - mid) * 5;
       for (const e of edgeList(m)) {
-        if (e.a === e.b) continue;
+        if (e.a === e.b) { const p = L.pos.get(e.a); route(e.ri, p ? [p, p] : []); continue; }
         const pa = L.pos.get(e.a), pb = L.pos.get(e.b), s = offset(e.ri), o = faded(e.ri) ? .1 : .9;
-        if (!pa || !pb) continue;
+        if (!pa || !pb) { route(e.ri, []); continue; }
         const chain = L.chains.get(e.a + ">" + e.b);
         let d, pts, midp;
         if (chain) {
@@ -4024,6 +4265,7 @@ const RouteMap = (() => {
           const arc = bowed({ x: pa.x, y: pa.y + s }, { x: pb.x, y: pb.y + s }, s, true);
           d = arc.d; pts = arc.pts; midp = arc.mid;
         }
+        route(e.ri, pts);
         lines += '<path d="' + d + '" fill="none" stroke="' + e.color + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"' +
           NS + ' opacity="' + o + '"' + (e.revisit || !chain ? ' stroke-dasharray="6 4"' : "") + "/>";
         if (!chain && polyLen(pts) > 30) arrows += arrowMark(midp, e.color, o);
@@ -4057,11 +4299,13 @@ const RouteMap = (() => {
       const spreadOf = ri => (ri - (m.runs.length - 1) / 2) * L.spread;
       edges.forEach(e => {
         const na = L.nodes.get(e.a), nb = L.nodes.get(e.b);
-        if (!na || !nb) return;
+        if (!na || !nb) { route(e.ri, [], (e.skipped || 0) + 1); return; }
         const s = spreadOf(e.ri);
         const A = { x: na.x, y: na.y + s }, B = { x: nb.x, y: nb.y + s };
         const o = faded(e.ri) ? .1 : .88;
         const arc = bowed(A, B, s, B.x <= A.x + 0.5);
+        // A collapsed stretch still takes one hop per page it hides.
+        route(e.ri, arc.pts, (e.skipped || 0) + 1);
         lines += '<path d="' + arc.d + '" fill="none" stroke="' + e.color + '" stroke-width="' + (e.skipped ? 3.4 : 2.2) +
           '" stroke-linecap="round"' + NS + ' opacity="' + o + '"' + (e.revisit ? ' stroke-dasharray="6 4"' : "") + "/>";
         if (e.skipped) {
@@ -4086,7 +4330,7 @@ const RouteMap = (() => {
         labels += nameMark(n.x, n.y, m.label.get(n.key), look.rad, off);
       }
     }
-    return { world: under + lines + stations, marks: arrows + dots + labels + lanes };
+    return { world: under + lines + stations, marks: arrows + dots + labels + lanes, routes };
   }
 
   /* ----------------------------------------------------------------- map */
@@ -4226,6 +4470,7 @@ const RouteMap = (() => {
       const on = this.L.col * v.k >= 64;
       if (on !== this.labels) { this.labels = on; this.el.classList.toggle("rm-labels", on); }
       this.zoomEl.textContent = Math.round(v.k / v.fitK * 100) + "%";
+      if (this.onPaint) this.onPaint();
     }
 
     engage() {
@@ -4382,91 +4627,209 @@ const RouteMap = (() => {
   function mapHtml(out, mount, label, extra) {
     return '<div class="rm-map" data-mount="' + mount + '" tabindex="0" role="region" aria-roledescription="map" aria-label="' +
       esc(label) + '. Arrow keys move, plus and minus zoom, 0 fits the whole race.">' + (extra || "") +
-      '<svg aria-hidden="true"><g class="rm-world">' + out.world + '</g><g>' + out.marks + "</g></svg>" +
+      '<svg aria-hidden="true"><g class="rm-world">' + out.world + '<g class="rm-trails"></g></g><g class="rm-marks">' +
+      out.marks + '</g><g class="rm-lights"></g></svg>' +
       TOOLS + '<div class="rm-info" hidden></div><div class="rm-hint"></div></div>';
-  }
-
-  const seg = (id, items, current) => '<div class="seg" id="' + id + '" role="group">' + items.map(([v, label, title]) =>
-    '<button type="button" data-v="' + v + '" aria-pressed="' + (v === current) + '"' + (v === current ? ' class="on"' : "") +
-    (title ? ' title="' + esc(title) + '"' : "") + ">" + esc(label) + "</button>").join("") + "</div>";
-
-  function remember() {
-    try { localStorage.setItem("wr_routes", JSON.stringify({ type: replay.mapType, mode: replay.mapMode })); }
-    catch (e) { /* storage blocked - it just won't be remembered */ }
   }
 
   function render(host, race) {
     controllers.forEach(c => c.destroy());
     controllers = [];
     const m = model(race);
-    if (!m.runs.length) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
+    if (!m.runs.length) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return null; }
     if (viewsRace !== race.race_id) { views.clear(); viewsRace = race.race_id; }
 
     const type = ROUTE_TYPES[replay.mapType] ? replay.mapType : "aligned";
-    const separate = replay.mapMode === "separate";
     const L = BUILD[type](m);
     const kind = type === "metro" ? "metro" : null;
-    const focus = separate ? -1 : m.runs.findIndex(r => r.name === replay.focus);
-
-    const mounts = [];
-    let maps;
-    if (separate) {
-      maps = '<div class="rm-multi">' + m.runs.map((run, ri) => {
-        mounts.push({ key: type + ":separate", grouped: true });
-        return mapHtml(draw(m, L, kind, ri), mounts.length - 1, ROUTE_TYPES[type].name + ", " + run.name,
+    const members = [];
+    if (replay.mapMode === "separate") {
+      const outs = m.runs.map((_, ri) => draw(m, L, kind, ri));
+      host.innerHTML = '<div class="rm-multi">' + outs.map((out, ri) => {
+        const run = m.runs[ri];
+        return mapHtml(out, ri, ROUTE_TYPES[type].name + ", " + run.name,
           '<div class="rm-pname"><span class="sw" style="width:14px;height:3px;border-radius:2px;background:' + run.color + '"></span>' +
           esc(run.name) + '<span class="c">' + (run.clicks != null ? run.clicks : run.path.length - 1) + "c</span></div>");
       }).join("") + "</div>";
+      host.querySelectorAll(".rm-map").forEach((el, ri) => {
+        const view = new MapView(el, type + ":separate", L, true);
+        controllers.push(view);
+        members.push({ view, routes: outs[ri].routes, only: ri });
+      });
     } else {
-      mounts.push({ key: type + ":combined", grouped: false });
-      maps = mapHtml(draw(m, L, kind, focus), 0, ROUTE_TYPES[type].name);
+      const out = draw(m, L, kind, m.runs.findIndex(r => r.name === replay.focus));
+      host.innerHTML = mapHtml(out, 0, ROUTE_TYPES[type].name);
+      const view = new MapView(host.querySelector(".rm-map"), type + ":combined", L, false);
+      controllers.push(view);
+      members.push({ view, routes: out.routes, only: null });
+    }
+    return new Lights(m, members);
+  }
+
+  /* ------------------------------------------------------------ replay
+     The race replayed over the map: the drawing dims, a light per player runs
+     their route leaving its trail lit, and a flash marks every page it lands on. */
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const smooth = x => x * x * (3 - 2 * x);
+
+  /* A route as distances along its drawn geometry, click by click. */
+  function routeTrack(segs) {
+    let start = 0;
+    const out = segs.map(sg => {
+      const cum = [0];
+      for (let i = 1; i < sg.pts.length; i++) {
+        cum.push(cum[i - 1] + Math.hypot(sg.pts[i].x - sg.pts[i - 1].x, sg.pts[i].y - sg.pts[i - 1].y));
+      }
+      const seg = { pts: sg.pts, cum, len: cum[cum.length - 1] || 0, clicks: sg.clicks, start };
+      start += sg.clicks;
+      return seg;
+    });
+    return { segs: out, clicks: start };
+  }
+
+  function pointOnSeg(seg, d) {
+    const p = seg.pts;
+    if (!p.length) return null;
+    if (d <= 0 || seg.len === 0) return p[0];
+    if (d >= seg.len) return p[p.length - 1];
+    let i = 1;
+    while (i < seg.cum.length - 1 && seg.cum[i] < d) i++;
+    const a = p[i - 1], b = p[i], span = (seg.cum[i] - seg.cum[i - 1]) || 1, f = (d - seg.cum[i - 1]) / span;
+    return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+  }
+
+  /* Everything drawn between two positions on a route, measured in clicks. */
+  function trackPoints(track, x0, x1) {
+    const pts = [];
+    for (const seg of track.segs) {
+      if (seg.start >= x1 || seg.start + seg.clicks <= x0 || !seg.pts.length) continue;
+      const d0 = Math.max(0, (x0 - seg.start) / seg.clicks) * seg.len;
+      const d1 = Math.min(1, (x1 - seg.start) / seg.clicks) * seg.len;
+      pts.push(pointOnSeg(seg, d0));
+      for (let i = 1; i < seg.pts.length - 1; i++) if (seg.cum[i] > d0 && seg.cum[i] < d1) pts.push(seg.pts[i]);
+      pts.push(pointOnSeg(seg, d1));
+    }
+    return pts;
+  }
+
+  function lightAt(track, x) {
+    const n = track.segs.length;
+    if (!n) return { p: null, seg: 0 };
+    let i = 0;
+    while (i < n - 1 && x >= track.segs[i].start + track.segs[i].clicks) i++;
+    const seg = track.segs[i];
+    let p = pointOnSeg(seg, Math.max(0, Math.min(1, (x - seg.start) / seg.clicks)) * seg.len);
+    // A step with nothing drawn: stay where the last drawn step ended.
+    for (let j = i - 1; !p && j >= 0; j--) if (track.segs[j].pts.length) p = track.segs[j].pts[track.segs[j].pts.length - 1];
+    return { p, seg: i };
+  }
+
+  /* How many clicks into their route a player is at race time t: they wait on
+     each page for as long as they read it, then hop. */
+  function clicksAt(run, n, t) {
+    const times = run.times;
+    if (!times.length || t >= times[times.length - 1]) return n;
+    let k = 0;
+    while (k + 1 < times.length && times[k + 1] <= t) k++;
+    const gap = times[k + 1] - times[k], hop = Math.min(gap * 0.8, replayRate() * 0.45);
+    const f = hop > 0 ? Math.max(0, Math.min(1, (t - (times[k + 1] - hop)) / hop)) : 1;
+    return Math.min(n, k + smooth(f));
+  }
+
+  class Lights {
+    constructor(m, members) {
+      this.m = m; this.members = members;
+      this.tracks = members.map(mb => mb.routes.map(routeTrack));
+      this.layers = members.map(mb => ({
+        trails: mb.view.el.querySelector(".rm-trails"), lights: mb.view.el.querySelector(".rm-lights"),
+        paths: new Map(), heads: new Map(),
+      }));
+      members.forEach((mb, i) => { mb.view.onPaint = () => this.place(i); });
     }
 
-    const legend = m.runs.map((r, i) =>
-      '<span class="leg ' + (separate ? "still" : "pick") + (focus >= 0 && focus !== i ? " faded" : "") +
-      '" data-name="' + esc(r.name) + '"' + (separate ? "" : ' role="button" tabindex="0" aria-pressed="' + (focus === i) + '"') + ">" +
-      '<span class="sw" style="background:' + r.color + '"></span>' + esc(r.name) +
-      '<span class="sub">' + (r.clicks != null ? r.clicks : r.path.length - 1) + "c</span></span>").join("");
+    destroy() {
+      this.members.forEach(mb => { mb.view.onPaint = null; });
+      controllers.forEach(c => c.destroy());
+      controllers = [];
+    }
 
-    host.innerHTML =
-      '<div class="rm-bar">' +
-      seg("rm-type", Object.entries(ROUTE_TYPES).map(([v, t]) => [v, t.label, t.name]), type) +
-      seg("rm-mode", [["combined", "Combined", "Everyone on one map"], ["separate", "Separate", "A panel per player, moving together"]],
-          separate ? "separate" : "combined") +
-      "</div>" +
-      '<div class="rp-legend">' + legend + (separate ? "" : '<span class="leg muted tiny">tap a name to pick out one route</span>') + "</div>" +
-      '<div class="rm-screen">' + maps + "</div>" +
-      '<p class="tiny muted rm-caption">' + esc(ROUTE_TYPES[type].caption) + " Page names appear as you zoom in; tap a dot to see what it is.</p>";
+    runsShown(mb) {
+      const focus = this.m.runs.findIndex(r => r.name === replay.focus);
+      const who = focus >= 0 ? [focus] : this.m.runs.map((_, i) => i);
+      return mb.only != null ? who.filter(i => i === mb.only) : who;
+    }
 
-    host.querySelectorAll("#rm-type button").forEach(b => {
-      b.onclick = () => { replay.mapType = b.dataset.v; remember(); render(host, race); };
-    });
-    host.querySelectorAll("#rm-mode button").forEach(b => {
-      b.onclick = () => { replay.mapMode = b.dataset.v; remember(); render(host, race); };
-    });
-    if (!separate) {
-      host.querySelectorAll(".leg.pick").forEach(chip => {
-        const toggle = () => { replay.focus = replay.focus === chip.dataset.name ? null : chip.dataset.name; render(host, race); };
-        chip.onclick = toggle;
-        chip.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+    draw(t, active, pings) {
+      this.members.forEach((mb, i) => {
+        const layer = this.layers[i];
+        const shown = new Set(active ? this.runsShown(mb) : []);
+        mb.view.el.classList.toggle("rm-animating", shown.size > 0);
+        // A separate panel whose player isn't the one being followed sits it out.
+        mb.view.el.classList.toggle("rm-quiet", active && mb.only != null && !shown.size);
+        this.m.runs.forEach((run, ri) => {
+          let path = layer.paths.get(ri), head = layer.heads.get(ri);
+          if (!shown.has(ri)) {
+            if (path) { path.remove(); layer.paths.delete(ri); }
+            if (head) { head.g.remove(); layer.heads.delete(ri); }
+            return;
+          }
+          const track = this.tracks[i][ri], x = clicksAt(run, track.clicks, t);
+          if (!path) {
+            path = document.createElementNS(SVGNS, "path");
+            path.setAttribute("stroke", run.color);
+            path.setAttribute("stroke-width", "3");
+            path.setAttribute("opacity", ".95");
+            path.setAttribute("vector-effect", "non-scaling-stroke");
+            layer.trails.appendChild(path);
+            layer.paths.set(ri, path);
+          }
+          const trail = trackPoints(track, 0, x);
+          path.setAttribute("d", trail.length > 1 ? "M" + trail.map(p => p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" L") : "");
+
+          const at = lightAt(track, x);
+          if (!head) {
+            const g = document.createElementNS(SVGNS, "g");
+            g.innerHTML = '<circle r="12" fill="' + run.color + '" opacity=".2"/><circle r="6.5" fill="' + run.color +
+                          '" opacity=".6"/><circle r="3.2" fill="#fff"/>';
+            layer.lights.appendChild(g);
+            head = { g, x: 0, y: 0, seg: at.seg };
+            layer.heads.set(ri, head);
+          }
+          if (pings && at.seg > head.seg) {
+            const done = track.segs[at.seg - 1];
+            if (done.pts.length) this.ping(i, done.pts[done.pts.length - 1], run.color);
+          }
+          head.seg = at.seg;
+          if (at.p) { head.x = at.p.x; head.y = at.p.y; }
+          head.g.style.display = at.p ? "" : "none";
+        });
+        this.place(i);
       });
     }
-    for (const el of host.querySelectorAll(".rm-map[data-mount]")) {
-      const mt = mounts[+el.dataset.mount];
-      controllers.push(new MapView(el, mt.key, L, mt.grouped));
+
+    place(i) {
+      const v = this.members[i].view.v;
+      if (!v) return;
+      for (const head of this.layers[i].heads.values()) {
+        head.g.setAttribute("transform", "translate(" + (head.x * v.k + v.tx).toFixed(1) + " " + (head.y * v.k + v.ty).toFixed(1) + ")");
+      }
+    }
+
+    /* A brief flash where a light lands on a page. */
+    ping(i, p, color) {
+      const v = this.members[i].view.v;
+      if (!v || REDUCED.matches) return;
+      const g = document.createElementNS(SVGNS, "g");
+      g.setAttribute("class", "rm-ping");
+      g.setAttribute("transform", "translate(" + (p.x * v.k + v.tx).toFixed(1) + " " + (p.y * v.k + v.ty).toFixed(1) + ")");
+      g.innerHTML = '<circle r="7" fill="none" stroke="' + color + '" stroke-width="2"/>';
+      this.layers[i].lights.appendChild(g);
+      setTimeout(() => g.remove(), 800);
     }
   }
 
   return { render };
 })();
-
-function drawRoutes() {
-  const host = $("rp-routes");
-  if (!host) return;
-  const race = S.snap && S.snap.race;
-  if (!race) { host.innerHTML = '<div class="empty">No routes to draw yet.</div>'; return; }
-  RouteMap.render(host, race);
-}
 
 /* Hovering a dot names the page it is; hovering one of the dotted links
    between lanes picks out everywhere that page was reached and fades the rest

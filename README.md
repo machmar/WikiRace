@@ -383,29 +383,33 @@ window. Panels follow live as people click through and scroll. Links are dead so
 you can't wander off. Article text never crosses the network — peers broadcast
 only *which* page and *how far down*, and your copy fetches it from Wikipedia.
 
-**Replay** — two ways to look at the same race, switchable at the top.
+**Replay** — the race played back, on whichever view you pick. The first time
+the Replay tab is on screen it plays by itself: the drawing dims and a light runs
+each player's route, leaving a lit trail, on the race clock — a light waits on a
+page for as long as that player read it, then hops, so everyone finishes in the
+order they really did. The whole race takes 18 seconds. The button in the corner
+plays it again or stops it, and the game time counts up beside it; stopped, every
+view shows the whole race.
 
-*Timeline* is the race as it happened: one swimlane per player on a scrubber.
-Press play and watch it unfold, or scrub to the moment two people were on the
-same page at the same time without knowing it. Race the same pair twice and your
-previous run appears as a dashed ghost lane.
+Under every view is a box per player: the page they're on at that moment, their
+clicks so far, and their place once they finish. Tap a box to follow just that
+player — the others fade, and play runs only their route. Tap it again for
+everyone. Switching views mid-replay carries on from the same moment.
 
-*Routes* is the shape of the race instead, drawn as a map: drag to move, pinch or
-Ctrl + scroll to zoom (click the map first and the plain wheel zooms too), and
-page names appear once you're close enough to read them. Tap a dot to see which
-page it is and who was there. There's no one right way to draw four tangled
-routes, so you pick:
-
-| Map | What it's good at |
+| View | What it's good at |
 |---|---|
+| **Timeline** | The race as it happened: one lane per player in race time. Dotted links join pages more than one player visited — spot two people on the same page at the same time without knowing it. Race the same pair twice and your previous run appears as a dashed ghost lane. |
 | **Aligned** | Routes lined up like a diff. Everyone keeps a lane and moves left to right; where lines merge into one dot, those players were on that page at the same point in their race. A page reached in a different order gets a faint arc between its two dots. |
 | **Metro** | A transit map. Players who clicked the same link run side by side, and a page more than one player visited is an interchange. |
 | **Spring** | Pages float to wherever their links pull them, so shared pages draw routes together. No axis; arrows show direction. |
 | **Collapsed** | Stretches only one player saw shrink to a single `+N` line — tap it for the pages. What's left is where routes met and split. |
 
-**Combined** puts everyone on one map (tap a name to pick out one route);
-**Separate** gives each player a panel, and the panels move together, so the same
-page is always in the same spot. The choice is remembered on your device.
+The four maps are maps: drag to move, pinch or Ctrl + scroll to zoom (click the
+map first and the plain wheel zooms too), and page names appear once you're
+close enough to read them. Tap a dot to see which page it is and who was there.
+**Combined** puts everyone on one map; **Separate** gives each player a panel,
+and the panels move together, so the same page is always in the same spot. The
+view is remembered on your device.
 
 If the race hid opponent positions, watching stays shut until everyone has
 finished — otherwise finishing early would be a way to scout for whoever's still
