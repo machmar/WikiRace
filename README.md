@@ -299,6 +299,15 @@ history, so every player's scoreboard agrees without anyone owning it. Older
 races aren't lost: every race ever played stays in `wikirace.db`, and its replay
 still opens.
 
+**Picking a name.** The first time a browser opens the game, it asks what to
+call you — with a name already filled in, so one tap on **Play** is enough. The
+suggestion is a first name from Czech Wikipedia's lists of given names plus a
+random Czech Wikipedia article: *Robin Boson*, *Miloslav Nemes*, *Kody Skleník*.
+🎲 rolls another, or type your own. **Play without saving** races as a guest:
+you're in the race results, but not in the standings, and the game asks again
+on your next visit (a refresh keeps the name). A guest can keep their name later
+from the sidebar, where there's also a 🎲 for renaming.
+
 **You're a player, not a name.** Each browser has its own player key — a one-way
 hash of an id the browser keeps, so nobody has to log in and nobody can take
 over someone else's seat. Results and standings follow the key, which means you

@@ -885,6 +885,47 @@
   .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
   .leg.pick { cursor: pointer; transition: opacity .12s; }
   .leg.pick.faded { opacity: .3; }
+  /* ---- picking a name: asked once, answered in one tap ---- */
+  #namepick {
+    position: fixed; inset: 0; z-index: 150; background: var(--scrim);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  #namepick[hidden] { display: none; }
+  .np-card {
+    width: min(420px, 100%); background: var(--raised); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px; box-shadow: 0 24px 60px var(--shadow);
+    display: flex; flex-direction: column; gap: 12px;
+    animation: np-in .22s cubic-bezier(.2, 1.2, .4, 1) both;
+  }
+  .np-card h2 { margin: 0; font-size: 21px; letter-spacing: -.3px; }
+  .np-card p { margin: 0; }
+  .np-sub { color: var(--fg-dim); font-size: 14px; line-height: 1.45; }
+  .np-error {
+    color: var(--bad-fg); background: var(--bad-bg); border: 1px solid var(--bad-line);
+    border-radius: 8px; padding: 8px 11px; font-size: 13.5px;
+  }
+  .np-error[hidden] { display: none; }
+  .np-row { display: flex; gap: 8px; }
+  .np-row input { flex: 1; min-width: 0; font-size: 17px; padding: 11px 13px; }
+  .np-roll {
+    flex: none; width: 50px; font-size: 22px; line-height: 1; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .np-roll.rolling span { display: inline-block; animation: np-spin .6s linear infinite; }
+  .np-hint { color: var(--fg-faint); font-size: 12.5px; }
+  .np-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .np-actions button { width: 100%; }
+  .np-guest-note { color: var(--fg-faint); font-size: 12px; text-align: center; line-height: 1.4; }
+  @keyframes np-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+  @keyframes np-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .np-card, .np-roll.rolling span { animation: none; }
+  }
+  #guest-note { margin-top: 8px; font-size: 12px; color: var(--fg-dim); line-height: 1.4; }
+  #guest-note[hidden] { display: none; }
+  #guest-note a { color: var(--accent); }
+  #btn-rollname { flex: none; padding: 6px 9px; font-size: 15px; line-height: 1; }
+
   /* ---- the big moments: a checkpoint, the finish ----
      Deliberately loud and arcade-like - it's a celebration, not a notice. A
      checkpoint lets clicks straight through so the race doesn't stall; the
@@ -1125,6 +1166,28 @@
     </div>
   </div>
 
+  <div id="namepick" role="dialog" aria-modal="true" aria-labelledby="np-title" hidden>
+    <div class="np-card">
+      <h2 id="np-title">What should we call you?</h2>
+      <p class="np-sub">It's how you show up in races and on the scoreboard. Saved in this browser —
+        no account, nothing to remember.</p>
+      <p class="np-error" id="np-error" role="alert" hidden></p>
+      <div class="np-row">
+        <input type="text" id="np-name" maxlength="24" autocomplete="nickname" spellcheck="false"
+               placeholder="Your name" aria-label="Your name">
+        <button type="button" class="np-roll" id="np-roll" title="Suggest another name"
+                aria-label="Suggest another name"><span>🎲</span></button>
+      </div>
+      <p class="np-hint">A first name and a random Czech Wikipedia article — or type your own.</p>
+      <div class="np-actions">
+        <button type="button" id="np-play" class="primary big">Play</button>
+        <button type="button" id="np-guest" class="ghost">Play without saving</button>
+      </div>
+      <p class="np-guest-note">Guests race as normal but don't appear in the standings, and get asked
+        again next visit.</p>
+    </div>
+  </div>
+
   <div id="fanfare" role="status" aria-live="assertive" hidden></div>
 
   <div id="miniplayers"></div>
@@ -1224,8 +1287,11 @@
       <h3>You</h3>
       <div class="row">
         <input type="text" id="myname" maxlength="24" placeholder="your name">
+        <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
       </div>
+      <div id="guest-note" hidden>Playing as a guest — this name isn't saved and won't count in the
+        standings. <a href="#" id="guest-keep">Keep this name</a></div>
     </div>
 
     <div class="panel">
@@ -1339,6 +1405,7 @@ const conn = {
   code: "",          // join code, when the game asks for one
   sid: "",           // this browser's seat
   name: "",          // what you call yourself, kept on this machine
+  guestName: "",     // a name for this visit only - playing without saving
   named: false,      // whether we've told the current game about it
 };
 
@@ -1350,6 +1417,8 @@ function loadConn() {
       localStorage.setItem("wr_sid", conn.sid);
     }
     conn.name = localStorage.getItem("wr_name") || "";
+    // A guest keeps their name through a refresh, but not into the next visit.
+    conn.guestName = sessionStorage.getItem("wr_guest") || "";
     const q = new URLSearchParams(location.search);
     // A code in the link wins; otherwise reuse the one that worked last time.
     conn.code = q.get("code") || localStorage.getItem("wr_code") || "";
@@ -1361,10 +1430,21 @@ function loadConn() {
    game shouldn't cost anybody their name. */
 function rememberName(name) {
   conn.name = name;
+  conn.guestName = "";
   try {
     if (name) localStorage.setItem("wr_name", name);
     else localStorage.removeItem("wr_name");
+    sessionStorage.removeItem("wr_guest");
   } catch (e) { /* private mode: it just won't persist */ }
+}
+
+function rememberGuest(name) {
+  conn.name = "";
+  conn.guestName = name;
+  try {
+    localStorage.removeItem("wr_name");
+    sessionStorage.setItem("wr_guest", name);
+  } catch (e) { /* private mode */ }
 }
 
 /* Whether a result is this browser's. Results carry a player key; races from
@@ -1375,11 +1455,23 @@ function isMine(r, snap) {
   return r.pkey ? r.pkey === snap.me.pkey : norm(r.name) === norm(snap.me.name);
 }
 
-/* Tell this game who we are, once per connection. */
+/* Tell this game who we are, once per connection - or ask, if nobody's said. */
 function claimName(snap) {
-  if (conn.named || !conn.name || !snap || !snap.me) return;
+  if (conn.named || !snap || !snap.me) return;
   conn.named = true;
-  if (norm(snap.me.name) !== norm(conn.name)) post("/name", { name: conn.name });
+  const me = snap.me;
+  // The game already knows this player (it keeps saved names), so take its word.
+  if (me.named && !me.guest && (!conn.name || norm(conn.name) === norm(me.name))) {
+    if (!conn.name) rememberName(me.name);
+    return;
+  }
+  const want = conn.name || conn.guestName;
+  if (!want) { openNamePicker({ prefill: /^Player \d+$/.test(me.name) ? "" : me.name }); return; }
+  post("/name", { name: want, guest: !conn.name }).then(res => {
+    if (res && res.ok) return;
+    // Somebody else on this server got to the name first.
+    openNamePicker({ taken: want });
+  });
 }
 
 function rememberConn() {
@@ -2112,6 +2204,143 @@ async function giveUp() {
   $("btn-giveup").hidden = true;
   openHub("watch");
 }
+
+/* ------------------------------------------------------------------ *
+ * Names: a first name and a random Czech Wikipedia article
+ * ------------------------------------------------------------------ */
+const NameGen = (() => {
+  // Wikipedia's own lists of given names, sampled a slice at a time.
+  const CATEGORIES = ["Kategorie:Mužská jména", "Kategorie:Ženská jména"];
+  const LETTERS = "ABBCDDEFGHIJJKKLLMMNOPPRRSSTTUVVZ";
+  // If Wikipedia doesn't answer, a name still has to come from somewhere.
+  const SPARE_FIRST = ["Adam", "Adéla", "Bohdan", "Běla", "David", "Eliška", "Filip", "Hana", "Jakub", "Jana",
+                       "Karel", "Klára", "Lukáš", "Marie", "Ondřej", "Petra", "Radek", "Soňa", "Tomáš", "Věra"];
+  const SPARE_LAST = ["Skleník", "Kompost", "Kyčelnice", "Sémiotika", "Fototyristor", "Nálesí", "Pivovar", "Kormorán",
+                      "Hvězdárna", "Vodojem", "Brambora", "Mlýnek", "Kaleidoskop", "Rašelina", "Sušenka", "Tramvaj"];
+  const firsts = [], lasts = [];
+  const take = arr => arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
+  const shuffle = arr => arr.slice().sort(() => Math.random() - 0.5);
+  const one = t => /^\p{Lu}\p{Ll}{1,11}$/u.test(t);
+
+  async function moreFirsts() {
+    const d = await wiki({
+      action: "query", list: "categorymembers", cmnamespace: "0", cmlimit: "60",
+      cmtitle: CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)],
+      cmstartsortkeyprefix: LETTERS[Math.floor(Math.random() * LETTERS.length)],
+    }, "cs", 6000);
+    const names = (d.query ? d.query.categorymembers : []).map(m => m.title.replace(/\s*\([^)]*\)$/, "")).filter(one);
+    firsts.push(...shuffle([...new Set(names)]).filter(n => !firsts.includes(n)));
+  }
+
+  async function moreLasts() {
+    const d = await wiki({ action: "query", list: "random", rnnamespace: "0", rnfilterredir: "nonredirects", rnlimit: "50" },
+                         "cs", 6000);
+    const words = (d.query ? d.query.random : []).map(p => p.title).filter(t => one(t) && t.length >= 3);
+    lasts.push(...words.filter(w => !lasts.includes(w)));
+  }
+
+  async function ensure(pool, fill, spare) {
+    if (pool.length) return;
+    try { await fill(); } catch (e) { /* offline, or Wikipedia's slow - use the spares */ }
+    if (!pool.length) pool.push(...shuffle(spare));
+  }
+
+  async function next() {
+    await Promise.all([ensure(firsts, moreFirsts, SPARE_FIRST), ensure(lasts, moreLasts, SPARE_LAST)]);
+    let first = take(firsts), last = take(lasts);
+    while ((first + " " + last).length > 24 && lasts.length) last = take(lasts);
+    // Top up quietly, so the next roll is instant.
+    if (firsts.length < 5) moreFirsts().catch(() => {});
+    if (lasts.length < 5) moreLasts().catch(() => {});
+    return (first + " " + last).slice(0, 24);
+  }
+
+  return { next, warm: () => { ensure(firsts, moreFirsts, SPARE_FIRST); ensure(lasts, moreLasts, SPARE_LAST); } };
+})();
+
+const picker = { open: false, busy: false, rolls: 0 };
+
+function npError(html) {
+  const el = $("np-error");
+  el.innerHTML = html || "";
+  el.hidden = !html;
+}
+
+function npReady() {
+  const has = !!$("np-name").value.trim();
+  $("np-play").disabled = !has || picker.busy;
+  $("np-guest").disabled = !has || picker.busy;
+}
+
+async function rollName(input, button) {
+  const mine = ++picker.rolls;
+  button.classList.add("rolling");
+  if (!input.value) input.placeholder = "Rolling a name…";
+  try {
+    const name = await NameGen.next();
+    if (mine === picker.rolls) input.value = name;   // a faster second click wins
+  } finally {
+    if (mine === picker.rolls) { button.classList.remove("rolling"); input.placeholder = "Your name"; }
+    npReady();
+  }
+}
+
+function openNamePicker(opts) {
+  opts = opts || {};
+  const el = $("namepick"), input = $("np-name");
+  picker.open = true;
+  el.hidden = false;
+  npError(opts.taken ? "<b>" + esc(opts.taken) + "</b> is already somebody else's name here. " +
+                       "Pick another to carry on." : "");
+  input.value = opts.prefill || "";
+  if (input.value) npReady(); else rollName(input, $("np-roll"));
+  setTimeout(() => input.focus(), 30);
+}
+
+async function submitName(guest) {
+  const name = $("np-name").value.trim();
+  if (!name || picker.busy) return;
+  picker.busy = true;
+  npReady();
+  const res = await post("/name", { name, guest });
+  picker.busy = false;
+  npReady();
+  if (!res || res.ok === false) {
+    npError(res && res.error === "taken"
+      ? "<b>" + esc(name) + "</b> is already somebody else's name here. Roll again, or change it."
+      : "Couldn't reach the game. Check your connection and try again.");
+    $("np-name").focus();
+    return;
+  }
+  if (guest) rememberGuest(res.name); else rememberName(res.name);
+  conn.named = true;
+  picker.open = false;
+  $("namepick").hidden = true;
+  toast(guest ? "Playing as " + res.name + " — not saved" : "You're " + res.name, 2400);
+}
+
+$("np-roll").onclick = () => rollName($("np-name"), $("np-roll"));
+$("np-play").onclick = () => submitName(false);
+$("np-guest").onclick = () => submitName(true);
+$("np-name").addEventListener("input", () => { npError(""); npReady(); });
+$("np-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(false); } });
+
+$("btn-rollname").onclick = () => rollName($("myname"), $("btn-rollname"));
+$("guest-keep").onclick = async e => {
+  e.preventDefault();
+  const name = S.snap && S.snap.me ? S.snap.me.name : "";
+  if (!name) return;
+  const res = await post("/name", { name });
+  if (!res || res.ok === false) {
+    toast(res && res.error === "taken" ? name + " was taken in the meantime — pick another" : "Couldn't save that name");
+    return;
+  }
+  rememberName(res.name);
+  toast("Name saved on this device");
+};
+
+// Fetch a few names early, so the first roll doesn't wait on Wikipedia.
+try { if (!localStorage.getItem("wr_name")) NameGen.warm(); } catch (e) { NameGen.warm(); }
 
 /* ------------------------------------------------------------------ *
  * The big moments
@@ -4692,6 +4921,7 @@ function renderSnapshot(snap) {
   S.showOpponents = snap.show_opponents;
 
   claimName(snap);
+  setFlag($("guest-note"), "hidden", !snap.me.guest);
   if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
 
   const ready = $("btn-ready");
