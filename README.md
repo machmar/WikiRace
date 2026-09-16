@@ -289,6 +289,11 @@ treat it as a different site and you'll be asked again.
 While a race runs, the sidebar shows everyone's current article and click count,
 updating a few times a second.
 
+Land on a page someone else is reading right now and a pill drops in over the
+top of the article — **Kody is on this page too** — and stays while you're both
+there. It doesn't push the text you're reading, stays quiet on the start page
+(where everyone begins together), and follows the same secrecy rule as below.
+
 **Show where opponents are** is set for the whole race in the setup screen, so
 it's the same for everyone. With it off you still see click counts — you know
 whether you're winning, just not where anyone is. There's also a personal

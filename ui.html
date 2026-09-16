@@ -335,6 +335,36 @@
   #readrow { flex: 1; display: flex; min-height: 0; min-width: 0; }
   #article-wrap { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
 
+  /* "Someone's here too." A zero-height sticky strip, so the pill floats over
+     the top of the article without ever pushing the text you're reading. */
+  #company {
+    position: sticky; top: 0; z-index: 6; height: 0;
+    display: flex; justify-content: center; align-items: flex-start; pointer-events: none;
+  }
+  #company[hidden] { display: none; }
+  #company .pill {
+    display: inline-flex; align-items: center; gap: 9px; max-width: calc(100% - 24px);
+    margin-top: 10px; padding: 7px 15px 7px 10px; border-radius: 999px;
+    background: var(--raised); border: 1px solid var(--accent-line); color: var(--fg);
+    box-shadow: 0 8px 26px var(--shadow); font-size: 13.5px; line-height: 1.3;
+    animation: company-in .32s cubic-bezier(.2, 1.3, .4, 1) both;
+  }
+  #company .pill.bump { animation: company-bump .42s ease-out; }
+  #company .who { display: inline-flex; flex: none; }
+  #company .who i {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--raised);
+    display: inline-flex; align-items: center; justify-content: center;
+    font: 700 10px/1 var(--mono); font-style: normal; color: #0d1117;
+  }
+  #company .who i + i { margin-left: -6px; }
+  #company .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #company b { font-weight: 650; }
+  @keyframes company-in { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
+  @keyframes company-bump { 40% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) {
+    #company .pill, #company .pill.bump { animation: none; }
+  }
+
   /* Contents list, when the race allows one. */
   #toc-panel {
     width: 236px; flex: none; overflow-y: auto; background: var(--bg-2);
@@ -1070,7 +1100,7 @@
     <div id="crumbs" hidden><span class="muted tiny">Your trail will appear here</span></div>
     <div id="readrow" hidden>
       <aside id="toc-panel" hidden></aside>
-      <div id="article-wrap"><div id="article"></div></div>
+      <div id="article-wrap"><div id="company" role="status" aria-live="polite" hidden></div><div id="article"></div></div>
     </div>
 
     <!-- ---------- post-race hub ---------- -->
@@ -1529,6 +1559,7 @@ async function navigate(title, countsAsClick) {
     renderCrumbs();
     renderGoalBar(S.race);
     renderToc();
+    renderCompany(S.snap);
     reportProgress();
     if (norm(canon) === S.targetCanon) win();
   } catch (e) {
@@ -4528,6 +4559,7 @@ function renderSnapshot(snap) {
   renderPeek(snap);
   renderRules(snap.race);
   renderRacers(snap);
+  renderCompany(snap);
   updateTicker(snap);
   renderTicker();
   if (stageMode === "lobby") renderLobby(snap);
@@ -4729,6 +4761,43 @@ function updateTicker(snap) {
     }
     ticker.seen.set(p.id, trail.length);
   }
+}
+
+/* Landing on a page someone else is reading right now is a moment worth
+   knowing about - you're neck and neck, or one of you is about to copy the
+   other. It follows the race's secrecy rule, and it stays quiet on the start
+   page, where everyone begins together. */
+const company = { key: "", ids: [] };
+
+function renderCompany(snap) {
+  const host = $("company");
+  if (!host) return;
+  const race = snap && snap.race;
+  const here = S.current ? norm(S.current) : "";
+  const others = !race || race.show_positions === false || stageMode !== "race" || !S.running || S.done ||
+                 !here || here === norm(race.start) || (S.path.length && here === norm(S.path[0]))
+    ? []
+    : (snap.peers || []).filter(p => p.in_this_race && !p.finished && !p.gave_up &&
+                                     p.article && norm(p.article) === here);
+  if (!others.length) {
+    host.hidden = true;
+    company.key = ""; company.ids = [];
+    return;
+  }
+  const names = others.map(p => "<b>" + esc(p.name) + "</b>");
+  const who = names.length === 1 ? names[0]
+            : names.length === 2 ? names[0] + " and " + names[1]
+            : names.slice(0, 2).join(", ") + " and " + (names.length - 2) + (names.length === 3 ? " other" : " others");
+  const dots = others.slice(0, 3).map(p =>
+    '<i style="background:' + p.color + '">' + esc((p.name || "?").trim().charAt(0).toUpperCase()) + "</i>").join("");
+  const key = here + "|" + others.map(p => p.id).sort().join(",");
+  if (key === company.key) return;                       // nothing changed; don't replay the animation
+  const arrived = others.some(p => !company.ids.includes(p.id)) && company.ids.length && company.key.split("|")[0] === here;
+  host.innerHTML = '<span class="pill' + (arrived ? " bump" : "") + '"><span class="who">' + dots + "</span>" +
+    '<span class="txt">' + who + (others.length === 1 ? " is" : " are") + " on this page too</span></span>";
+  host.hidden = false;
+  company.key = key;
+  company.ids = others.map(p => p.id);
 }
 
 function renderTicker() {
