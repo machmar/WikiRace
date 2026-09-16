@@ -122,6 +122,22 @@ configured — no command line needed:
 counts — that's what the container's health check asks, and it's the right
 thing to point a monitor at.
 
+#### Where the history lives
+
+Every race ever played is kept in `wikirace.db`, a SQLite database in the data
+folder. There's nothing extra to install — SQLite is part of Python. Upgrading
+from a version that used `wikirace_history.json` is automatic: on first start
+the old file is imported and left beside the database as
+`wikirace_history.json.imported`, so nothing is ever thrown away.
+
+- **Backups.** `GET /api/history` (behind the join code) returns every race as
+  JSON — the easiest thing to save somewhere else, and what the route layout
+  preview page accepts. Copying the database file works too, but copy
+  `wikirace.db-wal` alongside it, or stop the app first.
+- **Keep the data folder on local storage** — a dataset on the NAS itself, as
+  above. SQLite relies on file locking that network shares (SMB, NFS) don't do
+  reliably.
+
 ### Before you put it on the open internet
 
 - **Set a code, unless something else is asking.** Without one, whoever
@@ -278,8 +294,10 @@ anything with `sudo`. Pass `-y` to skip the prompt for unattended installs.
 | Fewest clicks in the race | +3 bonus (shared on ties) |
 | Gave up | 0 |
 
-Standings persist in `wikirace_history.json` and are rebuilt from the shared
-race history, so every player's scoreboard agrees without anyone owning it.
+Standings count the most recent 60 races and are rebuilt from the shared race
+history, so every player's scoreboard agrees without anyone owning it. Older
+races aren't lost: every race ever played stays in `wikirace.db`, and its replay
+still opens.
 
 **Your name is your scoreboard identity.** Two players using the same name pool
 their points — the sidebar warns you if that happens.
@@ -460,4 +478,4 @@ On Windows pass these after the .bat, e.g. `"Play WikiRace.bat" --name Marek`.
 | `.github/workflows/image.yml` | builds and publishes the image on every push |
 | `Play WikiRace.bat` / `play.sh` | launchers (install Python if needed) |
 | `Setup.bat` / `setup.sh` | explicit Python setup |
-| `wikirace_history.json` | your local copy of past races (created on first finish) |
+| `wikirace.db` | every race you've played, in SQLite (created on first start) |

@@ -23,6 +23,7 @@ import os
 import random
 import signal
 import socket
+import sqlite3
 import struct
 import sys
 import threading
@@ -56,6 +57,8 @@ HEARTBEAT_INTERVAL = 1.0      # seconds between idle presence broadcasts
 RACE_TICK_INTERVAL = 0.35     # seconds between position broadcasts while racing
 PEER_TIMEOUT = 12.0           # drop peers unheard from this long
 DIGEST_INTERVAL = 5.0         # seconds between history digest broadcasts
+# Races the game keeps in hand for standings, replays and syncing with peers.
+# Every race ever played stays in the database; this is only the working set.
 MAX_RACES_KEPT = 60
 
 POINTS_BY_RANK = [10, 7, 5, 3]
@@ -714,6 +717,10 @@ class PeerNet:
             elif kind == "sync_res":
                 for race in msg.get("races", []):
                     changed |= self._merge_race(race)
+            # Anything that changed a race record is worth keeping at once,
+            # rather than only when somebody here next finishes.
+            if changed and kind in ("race_start", "result", "sync_res"):
+                threading.Thread(target=save_history, args=(st,), daemon=True).start()
 
             if changed:
                 st.bump()
@@ -916,34 +923,165 @@ class PeerNet:
 DATA_DIR = HERE          # replaced at startup by --data-dir
 
 
-def save_path():
+def legacy_json_path():
     return os.path.join(DATA_DIR, "wikirace_history.json")
 
 
+def db_path():
+    return os.path.join(DATA_DIR, "wikirace.db")
+
+
+class Store:
+    """Every race ever played, in SQLite.
+
+    A single JSON file was fine for a handful of races but did two things badly
+    as history grew: it rewrote the whole file each time anyone finished, and it
+    kept only the newest MAX_RACES_KEPT races, silently dropping the rest.
+    SQLite ships with Python, writes one row per changed race inside a proper
+    transaction, and keeps everything.
+
+    A race is stored as the same JSON document the game passes around, keyed by
+    its id. Race rules gain fields often, and a document column means a new rule
+    needs no migration - only the id and creation time are real columns, because
+    those are what gets looked up and sorted by.
+
+    One connection is shared by every thread behind its own lock. WAL mode lets
+    a reader through while a write is in progress.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        self.lock = threading.Lock()
+        self.written = {}          # race_id -> the document last written, to skip no-op writes
+        self.db = sqlite3.connect(path, check_same_thread=False, timeout=15)
+        with self.lock:
+            self.db.execute("PRAGMA journal_mode=WAL")
+            self.db.execute("PRAGMA synchronous=NORMAL")
+            self.db.execute("""CREATE TABLE IF NOT EXISTS races (
+                                   race_id TEXT PRIMARY KEY,
+                                   created REAL NOT NULL DEFAULT 0,
+                                   data    TEXT NOT NULL)""")
+            self.db.execute("CREATE INDEX IF NOT EXISTS races_by_created ON races(created)")
+            self.db.execute("PRAGMA user_version = 1")
+            self.db.commit()
+
+    @staticmethod
+    def row(race):
+        return (race["race_id"], float(race.get("created") or 0), json.dumps(race, sort_keys=True, ensure_ascii=False))
+
+    def save(self, rows):
+        """Write the (race_id, created, document) rows that changed since they were last written."""
+        rows = [r for r in rows if self.written.get(r[0]) != r[2]]
+        if not rows:
+            return 0
+        with self.lock:
+            with self.db:
+                self.db.executemany(
+                    """INSERT INTO races (race_id, created, data) VALUES (?, ?, ?)
+                       ON CONFLICT(race_id) DO UPDATE SET created = excluded.created, data = excluded.data""",
+                    rows)
+            for rid, _, doc in rows:
+                self.written[rid] = doc
+        return len(rows)
+
+    def add_if_missing(self, races):
+        """Bring in races from elsewhere without overwriting anything we hold."""
+        rows = [Store.row(r) for r in races if isinstance(r, dict) and r.get("race_id")]
+        with self.lock:
+            with self.db:
+                before = self.db.total_changes
+                self.db.executemany(
+                    "INSERT INTO races (race_id, created, data) VALUES (?, ?, ?) ON CONFLICT(race_id) DO NOTHING", rows)
+                return self.db.total_changes - before
+
+    def recent(self, limit):
+        with self.lock:
+            rows = self.db.execute("SELECT data FROM races ORDER BY created DESC LIMIT ?", (limit,)).fetchall()
+        races = []
+        for (doc,) in rows:
+            try:
+                race = json.loads(doc)
+            except ValueError:
+                continue
+            self.written[race.get("race_id")] = doc
+            races.append(race)
+        return races
+
+    def get(self, race_id):
+        with self.lock:
+            row = self.db.execute("SELECT data FROM races WHERE race_id = ?", (race_id,)).fetchone()
+        try:
+            return json.loads(row[0]) if row else None
+        except ValueError:
+            return None
+
+    def everything(self):
+        with self.lock:
+            rows = self.db.execute("SELECT data FROM races ORDER BY created").fetchall()
+        out = []
+        for (doc,) in rows:
+            try:
+                out.append(json.loads(doc))
+            except ValueError:
+                pass
+        return out
+
+    def count(self):
+        with self.lock:
+            return self.db.execute("SELECT COUNT(*) FROM races").fetchone()[0]
+
+    def forget_all_but(self, keep_id):
+        with self.lock:
+            with self.db:
+                self.db.execute("DELETE FROM races WHERE race_id IS NOT ?", (keep_id,))
+            self.written = {k: v for k, v in self.written.items() if k == keep_id}
+
+    def close(self):
+        with self.lock:
+            try:
+                self.db.close()
+            except sqlite3.Error:
+                pass
+
+
+STORE = None             # opened at startup, once DATA_DIR is known
+
+
 def load_history(state):
-    try:
-        with open(save_path(), "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, ValueError):
-        return
+    """Open the database, bring in an old JSON history once, and load the
+    newest races into the game."""
+    global STORE
+    STORE = Store(db_path())
+    legacy = legacy_json_path()
+    if os.path.exists(legacy):
+        try:
+            with open(legacy, "r", encoding="utf-8") as f:
+                old = json.load(f).get("races", [])
+            added = STORE.add_if_missing(old)
+            # Keep the old file as a backup rather than deleting anybody's history.
+            os.replace(legacy, legacy + ".imported")
+            log(f"imported {added} races from {os.path.basename(legacy)} (kept as .imported)")
+        except (OSError, ValueError, AttributeError) as e:
+            log(f"could not import {legacy}: {e}")
+    races = STORE.recent(MAX_RACES_KEPT)
     with state.lock:
-        for race in data.get("races", []):
-            if race.get("race_id"):
-                state.races[race["race_id"]] = race
+        for race in races:
+            state.races[race["race_id"]] = race
         state.trim_races()
         state.bump()
-    log(f"loaded {len(state.races)} past races")
+    log(f"loaded {len(state.races)} recent races ({STORE.count()} in the archive)")
 
 
 def save_history(state):
+    if STORE is None:
+        return
+    # Serialised under the lock, so a result landing mid-save can't change a
+    # race while it's being written out.
     with state.lock:
-        data = {"races": list(state.races.values())}
-    tmp = save_path() + ".tmp"
+        rows = [Store.row(r) for r in state.races.values() if r.get("race_id")]
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-        os.replace(tmp, save_path())
-    except OSError as e:
+        STORE.save(rows)
+    except sqlite3.Error as e:
         log("could not save history:", e)
 
 
@@ -1186,7 +1324,14 @@ def make_handler(state, net, hub):
                 rid = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]
                 with state.lock:
                     race = state.races.get(rid)
-                    self._json(dict(race) if race else {"error": "no such race"})
+                    race = dict(race) if race else None
+                # Older than the working set: it's still in the archive.
+                if race is None and STORE is not None and rid:
+                    race = STORE.get(rid)
+                self._json(race if race else {"error": "no such race"})
+            elif path == "/api/history":
+                # Every race ever played, for backups and for drawing old races elsewhere.
+                self._json({"races": STORE.everything() if STORE is not None else []})
             elif path == "/api/stream":
                 self.stream()
             else:
@@ -1498,8 +1643,12 @@ def make_handler(state, net, hub):
             with state.lock:
                 state.races = {rid: r for rid, r in state.races.items()
                                if rid == state.active_race_id}
+                keep = state.active_race_id
                 state.add_event("Local scoreboard cleared", "info")
                 state.bump()
+            # A wipe has to reach the archive too, or it all comes back on restart.
+            if STORE is not None:
+                STORE.forget_all_but(keep)
             save_history(state)
 
     return Handler
@@ -1674,7 +1823,9 @@ def main():
     finally:
         net.stop()
         save_history(state)
-        log("standings saved to", save_path())
+        if STORE is not None:
+            STORE.close()
+        log("history saved to", db_path())
 
 
 if __name__ == "__main__":

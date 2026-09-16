@@ -1,5 +1,9 @@
 # Local game history — each machine keeps its own
+wikirace.db
+wikirace.db-wal
+wikirace.db-shm
 wikirace_history.json
+wikirace_history.json.imported
 
 # Python
 __pycache__/
