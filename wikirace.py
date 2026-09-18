@@ -554,7 +554,7 @@ class GameState:
                 # Deliberately compact - this rides every snapshot, so full
                 # paths are fetched on demand from /api/race instead.
                 "races_list": [
-                    {"race_id": r["race_id"], "start": r.get("start"), "lost": bool(r.get("lost")),
+                    {"race_id": r["race_id"], "start": r.get("start"), "lost": bool(r.get("lost")), "kind": r.get("kind"),
                      "target": r.get("target"), "created": r.get("created", 0),
                      "lang": r.get("lang", "en"),
                      "finishers": sum(1 for x in r.get("results", {}).values()
@@ -854,6 +854,7 @@ class PeerNet:
                 "start": incoming.get("start"),
                 "target": incoming.get("target"),
                 "lost": bool(incoming.get("lost", False)),
+                "kind": incoming.get("kind"),
                 "starts": list(incoming.get("starts") or []),
                 "initiator": incoming.get("initiator"),
                 "created": incoming.get("created", now()),
@@ -1581,6 +1582,10 @@ def make_handler(state, net, hub):
                 "target": target,
                 "lost": lost,
                 "starts": starts if lost else [],
+                # Which of the three games this is, so results and history can
+                # say so without re-deriving it from the rules.
+                "kind": (body.get("kind") if body.get("kind") in ("classic", "advanced", "lost")
+                         else ("lost" if lost else "advanced")),
                 "initiator": me.name,
                 "created": now(),
                 "results": {},

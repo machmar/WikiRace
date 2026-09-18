@@ -487,6 +487,50 @@
     box-shadow: 0 22px 60px rgba(0,0,0,.55);
   }
   .card h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
+
+  /* ---- game mode chooser ---- */
+  .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .mode {
+    position: relative; overflow: hidden; text-align: left; padding: 0;
+    min-height: 196px; display: flex; flex-direction: column; justify-content: flex-end;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-3);
+  }
+  .mode:hover:not(:disabled) { background: var(--bg-3); border-color: var(--accent); }
+  /* The words sit on a fade, so the preview behind them never muddles them. */
+  .mode .mtx {
+    position: relative; padding: 26px 13px 13px;
+    background: linear-gradient(to top, var(--bg-3) 62%, color-mix(in srgb, var(--bg-3) 70%, transparent) 82%, transparent);
+  }
+  .mode .mt { display: block; font-size: 16px; font-weight: 650; }
+  .mode .md { font-size: 12.5px; line-height: 1.45; color: var(--fg-dim); margin: 5px 0 0; }
+  /* A glimpse of the mode behind the words, brighter as you consider it. */
+  .mode .mv { position: absolute; inset: 0; opacity: .18; transition: opacity .18s; pointer-events: none; }
+  .mode:hover .mv, .mode:focus-visible .mv { opacity: .6; }
+  @media (hover: hover) {
+    .mode .md { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .18s, opacity .18s, margin .18s; margin-top: 0; }
+    .mode:hover .md, .mode:focus-visible .md { max-height: 130px; opacity: 1; margin-top: 5px; }
+  }
+  /* The previews: an article, an article with a checkpoint landing on it, and
+     four different articles at once. */
+  .pv { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 5px; padding: 11px 12px; }
+  .pv-h { height: 7px; width: 58%; border-radius: 2px; background: var(--fg); flex: none; }
+  .pv-l { height: 4px; border-radius: 2px; background: var(--fg-dim); flex: none; }
+  .pv-l:nth-of-type(3n) { width: 78%; }
+  .pv-l:nth-of-type(4n) { width: 88%; }
+  .pv-box { height: 26px; width: 42%; align-self: flex-end; border: 1px solid var(--fg-faint); border-radius: 2px; flex: none; }
+  .pv-cp {
+    position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) skewX(-8deg);
+    font: 700 10px/1 system-ui, sans-serif; letter-spacing: .06em; white-space: nowrap;
+    color: var(--warn-fg); background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 6px; padding: 5px 9px;
+  }
+  .pv-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; background: var(--line); }
+  .pv-cell { background: var(--bg-2); padding: 7px 8px; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+  .pv-t { font: 700 9.5px/1.1 system-ui, sans-serif; color: var(--fg); white-space: nowrap; }
+  @media (max-width: 760px) {
+    .modes { grid-template-columns: 1fr; }
+    .mode { min-height: 120px; }
+  }
   .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
   .field { margin-bottom: 13px; }
   .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); margin-bottom: 5px; font-weight: 600; }
@@ -2102,6 +2146,20 @@ function renderCheckpointWarning(race, stops, visited) {
     '<span class="sub">Still to visit: ' + owed.map(esc).join(", ") + ".</span>";
 }
 
+/* What to call this race. Races from before the modes work it out from their
+   rules: anything beyond the plain game was set up by hand. */
+function raceKind(race) {
+  const known = MODES.find(m => m.id === (race || {}).kind);
+  if (known) return known.name;
+  if (!race) return "Classic";
+  if (race.lost) return "Lost";
+  const plain = race.show_positions !== false && race.allow_back !== false && race.allow_find !== false &&
+                race.allow_peek !== false && !race.ban_hubs && !race.time_limit && !(race.toc || 0) &&
+                raceMode(race) !== "clicks" && !raceCheckpoints(race).length &&
+                !Object.keys(race.handicaps || {}).length;
+  return plain ? "Classic" : "Advanced";
+}
+
 function raceCheckpoints(race) {
   if (!race) return [];
   if (Array.isArray(race.checkpoints)) return race.checkpoints.filter(Boolean);
@@ -2116,6 +2174,7 @@ function renderRules(race) {
   const host = $("rules");
   if (!race) { setHTML(host, ""); return; }
   const bits = [];
+  bits.push(raceKind(race));
   bits.push((LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1]);
   bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
   bits.push(race.allow_back === false ? "no going back" : "back allowed");
@@ -5118,20 +5177,77 @@ function renderCheckpointChips(ov) {
   });
 }
 
-function openConfigurator() {
+const MODES = [
+  { id: "classic", name: "Classic",
+    blurb: "One start, one target, fastest time. Pick two articles and go." },
+  { id: "advanced", name: "Advanced",
+    blurb: "Checkpoints, banned hubs, no back button, fewest clicks — every rule the game has." },
+  { id: "lost", name: "Lost",
+    blurb: "No start to pick — everyone wakes up somewhere different and races to the same target." },
+];
+
+/* A glimpse of each mode, drawn rather than described: the article you race
+   through, a checkpoint landing on it, and four people waking up apart. */
+function modePreview(id) {
+  const lines = (n) => '<span class="pv-l"></span>'.repeat(n);
+  const article = '<div class="pv"><span class="pv-h"></span>' + lines(2) +
+    '<span class="pv-box"></span>' + lines(5) + "</div>";
+  if (id === "classic") return '<div class="mv">' + article + "</div>";
+  if (id === "advanced") return '<div class="mv">' + article + '<span class="pv-cp">CHECKPOINT 2 OF 3</span></div>';
+  return '<div class="mv"><div class="pv-grid">' +
+    ["Coffee", "Vikings", "Physics", "Dolphin"].map(t =>
+      '<div class="pv-cell"><span class="pv-t">' + t + "</span>" + lines(3) + "</div>").join("") +
+    "</div></div>";
+}
+
+/* Which game, before any of its settings. */
+function openModePicker() {
+  const ov = document.createElement("div");
+  ov.className = "overlay";
+  ov.id = "mode-overlay";
+  ov.innerHTML =
+    '<div class="card wide"><h2>New race</h2>' +
+    '<p class="lede">Three games, and the setup that goes with each.</p>' +
+    '<div class="modes">' + MODES.map(m =>
+      '<button class="mode" data-mode="' + m.id + '">' + modePreview(m.id) +
+      '<span class="mtx"><span class="mt">' + esc(m.name) + '</span><p class="md">' + esc(m.blurb) +
+      "</p></span></button>").join("") +
+    "</div>" +
+    '<div class="actions" style="margin-top:18px"><button class="ghost" id="m-cancel">Cancel</button></div></div>';
+  $("stage").appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector("#m-cancel").onclick = close;
+  ov.addEventListener("click", e => { if (e.target === ov) close(); });
+  ov.querySelectorAll(".mode").forEach(b => {
+    b.onclick = () => { close(); openConfigurator(b.dataset.mode); };
+  });
+  setTimeout(() => ov.querySelector(".mode").focus(), 40);
+}
+
+function openConfigurator(kind) {
+  const mode = MODES.some(m => m.id === kind) ? kind : "advanced";
+  const advanced = mode === "advanced";
+  // Classic and Lost are the plain games: their rules are the defaults, not
+  // whatever was left behind by the last race anybody set up.
+  if (!advanced) {
+    Object.assign(cfg, { show_positions: true, allow_back: true, allow_find: true, allow_peek: true,
+                         time_limit: 0, ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0 });
+  }
+  cfg.lost = mode === "lost" ? true : advanced ? cfg.lost : false;
   const ov = document.createElement("div");
   ov.className = "overlay";
   ov.id = "config-overlay";
   ov.innerHTML =
     '<div class="card wide">' +
-    "<h2>Race setup</h2>" +
-    '<p class="lede">These rules apply to everyone — they travel with the race.</p>' +
+    "<h2>" + esc(MODES.find(m => m.id === mode).name) + " race</h2>" +
+    '<p class="lede">' + (advanced ? "These rules apply to everyone — they travel with the race."
+                                   : esc(MODES.find(m => m.id === mode).blurb)) + "</p>" +
 
     '<div class="field"><label>Wikipedia edition</label>' +
     '<div id="c-lang"></div></div>' +
 
     '<div class="two">' +
-      '<div class="field"><label>Start article</label>' +
+      '<div class="field" id="c-start-field"><label>Start article</label>' +
       '<div class="ta"><input type="text" id="c-start" autocomplete="off" placeholder="type to search…">' +
       '<div class="ta-list" id="c-start-list" hidden></div></div></div>' +
 
@@ -5141,15 +5257,15 @@ function openConfigurator() {
     "</div>" +
 
     '<div class="row" style="margin-bottom:16px">' +
-      '<button id="c-easy" style="flex:2">🎲 Random pair</button>' +
+      '<button id="c-easy" style="flex:2">🎲 ' + (mode === "lost" ? "Random target" : "Random pair") + "</button>" +
       '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
       '<button id="c-swap" title="Swap start and target">⇄</button>' +
     "</div>" +
-    '<div class="toggle" id="c-lost" style="margin:-4px 0 18px"><div class="track"></div>' +
+    '<div class="toggle adv" id="c-lost" style="margin:-4px 0 18px"><div class="track"></div>' +
     '<span>Lost <span class="muted tiny">(everyone starts on a different random page — ' +
     "first to the target wins)</span></span></div>" +
 
-    '<div class="field"><label>Rules</label>' +
+    '<div class="field adv"><label>Rules</label>' +
       '<div class="toggle" id="c-positions"><div class="track"></div>' +
       "<span>Show where opponents are</span></div>" +
       '<div class="toggle" id="c-back" style="margin-top:8px"><div class="track"></div>' +
@@ -5166,24 +5282,24 @@ function openConfigurator() {
       '<span>Handicap the session leaders</span></div>' +
     "</div>" +
 
-    '<div class="field"><label>Who wins</label>' +
+    '<div class="field adv"><label>Who wins</label>' +
     '<div class="seg wide" id="c-mode">' +
     '<button data-mode="time">Fastest time</button>' +
     '<button data-mode="clicks">Fewest clicks</button>' +
     "</div></div>" +
 
-    '<div class="field"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
+    '<div class="field adv"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
     '<div id="c-chips" class="chips"></div>' +
     '<div class="row">' +
     '<div class="ta" style="flex:1"><input type="text" id="c-check" autocomplete="off" ' +
     'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
     '<button id="c-check-add">Add</button></div></div>' +
 
-    '<div class="field"><label>Table of contents ' +
+    '<div class="field adv"><label>Table of contents ' +
     '<span class="muted tiny">(a real help — and arguably a cheat)</span></label>' +
     '<div id="c-toc"></div></div>' +
 
-    '<div class="field"><label>Time limit</label>' +
+    '<div class="field adv"><label>Time limit</label>' +
     '<div id="c-limit"></div></div>' +
 
     '<div class="field"><label>Players</label><div id="c-ready"></div></div>' +
@@ -5197,6 +5313,10 @@ function openConfigurator() {
   $("stage").appendChild(ov);
 
   const q = (id) => ov.querySelector(id);
+  // Everything the plain games don't ask about stays in the markup - the
+  // bindings below all still find it - but nobody has to read past it.
+  if (!advanced) ov.querySelectorAll(".adv").forEach(el => { el.style.display = "none"; });
+  if (mode === "lost") q("#c-start-field").style.display = "none";
   const close = () => ov.remove();
   q("#c-cancel").onclick = close;
   ov.addEventListener("click", e => { if (e.target === ov) close(); });
@@ -5262,6 +5382,7 @@ function openConfigurator() {
     startIn.placeholder = cfg.lost ? "a random page for each player" : "type to search…";
   };
   q("#c-lost").onclick = () => { cfg.lost = !cfg.lost; syncLost(); };
+  q("#c-swap").style.display = mode === "lost" ? "none" : "";
   syncLost();
 
 
@@ -5310,7 +5431,9 @@ function openConfigurator() {
     try {
       const [a, b] = await randomPair(getLang(), hard);
       if (!a || !b) toast("Couldn't find a pair in that language — try again");
-      startIn.value = a || ""; targetIn.value = b || "";
+      // Lost has no start to roll, so the roll is for the target alone.
+      if (cfg.lost) targetIn.value = a || "";
+      else { startIn.value = a || ""; targetIn.value = b || ""; }
     } catch (e) { toast("Couldn't reach Wikipedia"); }
     btn.disabled = false; btn.textContent = old || label;
   };
@@ -5360,7 +5483,7 @@ function openConfigurator() {
       }
       close();
       await post("/start_race", {
-        start: cs, target: ct, lang: lang, lost, starts,
+        start: cs, target: ct, lang: lang, lost, starts, kind: mode,
         show_positions: cfg.show_positions,
         allow_back: cfg.allow_back,
         allow_find: cfg.allow_find,
@@ -5695,7 +5818,7 @@ function renderFeed(events) {
  * Wiring
  * ------------------------------------------------------------------ */
 
-$("btn-new").onclick = openConfigurator;
+$("btn-new").onclick = openModePicker;
 $("btn-giveup").onclick = giveUp;
 
 $("btn-ready").onclick = () => {
@@ -5891,7 +6014,7 @@ window.addEventListener("resize", () => {
   if (window.innerWidth > 760) setDrawer(false);
 });
 
-$("lobby-start").onclick = openConfigurator;
+$("lobby-start").onclick = openModePicker;
 $("lobby-ready").onclick = () => post("/ready", { value: !(S.snap && S.snap.ready) });
 $("lobby-rematch").onclick = async () => {
   const last = lastFinishedRace(S.snap);
@@ -5902,6 +6025,7 @@ $("lobby-rematch").onclick = async () => {
   if (last.lost && starts.length < 2) { toast("Couldn't reach Wikipedia"); return; }
   await post("/start_race", {
     start: last.start, target: last.target, lang: cfg.lang, lost: !!last.lost, starts,
+    kind: last.kind || (last.lost ? "lost" : undefined),
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     allow_find: cfg.allow_find, allow_peek: cfg.allow_peek,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
