@@ -1015,6 +1015,11 @@
     --dg-station: var(--bg); --dg-station-line: var(--fg);
     border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--dg-bg);
   }
+  /* A pale page washes the diagram's greys out: on the light themes its lines,
+     unvisited dots and shared-page ties all take a darker set. */
+  body[data-theme="light"] .rm-screen, body[data-theme="wiki"] .rm-screen {
+    --dg-node: #e9edf2; --dg-node-line: #78828f; --dg-line: #a3adba; --dg-shared: #59626d;
+  }
   .rm-map {
     position: relative; overflow: hidden; height: clamp(380px, 64vh, 680px);
     cursor: grab; outline: none; background: var(--dg-bg);
@@ -1094,6 +1099,11 @@
   .rm-map.rm-animating .rm-world > path { opacity: .13; }
   .rm-map.rm-animating .rm-world > rect { opacity: .3; }
   .rm-map.rm-animating .rm-marks { opacity: .45; }
+  /* Dimming has further to fall on a white background before a line vanishes. */
+  body[data-theme="light"] .rm-map.rm-animating .rm-world > path,
+  body[data-theme="wiki"] .rm-map.rm-animating .rm-world > path { opacity: .22; }
+  body[data-theme="light"] .rm-map.rm-animating .rm-marks,
+  body[data-theme="wiki"] .rm-map.rm-animating .rm-marks { opacity: .55; }
   .rm-map.rm-quiet .rm-pname { opacity: .55; }
   .rm-trails path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
   .rm-ping circle { transform-box: fill-box; transform-origin: center; animation: rm-ping .75s ease-out forwards; }
@@ -2549,13 +2559,26 @@ function celebrateFinish(secs) {
 const PALETTE = ["#f97583", "#79c0ff", "#7ee787", "#ffa657", "#d2a8ff",
                  "#56d4dd", "#f2cc60", "#ff9bce", "#a5d6ff", "#b4f1b4"];
 
+/* The palette is pitched for a dark screen: on a white one the same colours
+   are pale washes, and a route drawn in them all but disappears. Each one has
+   a darker twin of the same hue for the light themes, so who's who doesn't
+   change - only how hard it is to see. */
+const LIGHT_INK = {
+  "#f97583": "#c9184a", "#79c0ff": "#1657c9", "#7ee787": "#1a7f37",
+  "#ffa657": "#a85908", "#d2a8ff": "#7c3aed", "#56d4dd": "#0e7490",
+  "#f2cc60": "#8a6100", "#ff9bce": "#be185d", "#a5d6ff": "#2563eb",
+  "#b4f1b4": "#4d7c0f",
+};
+const onLight = () => document.body.dataset.theme === "light" || document.body.dataset.theme === "wiki";
+const ink = (c) => (onLight() && LIGHT_INK[String(c).toLowerCase()]) || c;
+
 function colorFor(name) {
   const live = (S.snap?.peers || []).find(p => norm(p.name) === norm(name));
-  if (live) return live.color;
-  if (S.snap && norm(S.snap.me.name) === norm(name)) return S.snap.me.color;
+  if (live) return ink(live.color);
+  if (S.snap && norm(S.snap.me.name) === norm(name)) return ink(S.snap.me.color);
   let h = 0;
   for (const ch of norm(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+  return ink(PALETTE[h % PALETTE.length]);
 }
 
 /* Superlatives computed from the finished results - cheap, and they give the
@@ -3654,7 +3677,9 @@ function distinctColors(names) {
   const out = new Map(), taken = new Set();
   for (const n of names) {
     let c = colorFor(n);
-    if (taken.has(c)) c = PALETTE.find(x => !taken.has(x)) || c;
+    // The spare has to come from the same set the theme is using, or a clash
+    // hands somebody the pale version of a colour nobody else has.
+    if (taken.has(c)) c = PALETTE.map(ink).find(x => !taken.has(x)) || c;
     taken.add(c);
     out.set(n, c);
   }
@@ -5840,6 +5865,8 @@ function applyTheme(name) {
   box.querySelectorAll("button").forEach(b =>
     b.setAttribute("aria-checked", String(b.dataset.theme === theme)));
   try { localStorage.setItem("wr_theme", theme); } catch (e) { /* ignore */ }
+  // Player colours are baked into the drawing, so it has to be drawn again.
+  if (stageMode === "hub" && hubTab === "replay" && $("rp-stage")) drawReplayView();
 }
 
 $("theme").querySelectorAll("button").forEach(b => {
