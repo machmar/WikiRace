@@ -123,11 +123,15 @@
   button.danger:hover:not(:disabled) { background: var(--bad-bg); border-color: var(--bad); color: var(--bad-fg); }
   button.ghost { background: transparent; }
 
-  input[type=text] {
+  input[type=text], input[type=number] {
     font: inherit; color: var(--fg); background: var(--bg);
     border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
   }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+  /* The browser's own spinner is tiny, ugly and in the way; the box is typed in. */
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
   select {
     font: inherit; color: var(--fg); background: var(--bg);
@@ -532,6 +536,29 @@
     .mode { min-height: 120px; }
   }
   .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
+  .sub-label { display: block; color: var(--fg-dim); }
+  /* Two dropdowns side by side line up on the control, not the label. */
+  .fold-body .two { align-items: end; }
+  .num { display: flex; align-items: center; gap: 9px; }
+  .num input { flex: 1; min-width: 0; }
+  .num .unit { flex: none; color: var(--fg-dim); font-size: 13px; }
+  /* The browser's own spinner is tiny and only appears on hover, so here's one
+     that's always there and matches everything else. */
+  .num .spin { flex: none; display: flex; flex-direction: column; margin-left: -5px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .num .spin button { width: 24px; height: 18px; padding: 0; border: 0; border-radius: 0; background: var(--bg-3); color: var(--fg-dim); font-size: 8px; line-height: 1; }
+  .num .spin button + button { border-top: 1px solid var(--line); }
+  .num .spin button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .card-head h2 { margin: 0; }
+  .back-btn { flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
+  .back-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* A fold-away section: the button says what's inside so you needn't open it. */
+  .fold-btn { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; }
+  .fold-btn .fold-sum { flex: 1; color: var(--fg-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fold-btn .caret { color: var(--fg-faint); font-size: 10px; transition: transform .15s; }
+  .fold-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  .fold-body { margin-top: 12px; }
+  .fold-body[hidden] { display: none; }
   .field { margin-bottom: 13px; }
   .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); margin-bottom: 5px; font-weight: 600; }
   .actions { display: flex; gap: 9px; margin-top: 20px; }
@@ -5177,6 +5204,18 @@ function renderCheckpointChips(ov) {
   });
 }
 
+/* Three ways to have the same argument about rules, so nobody has to have it.
+   Every mode shows these settings; the presets are just a quick way in. */
+const PRESETS = [
+  ["easy", "Easy", { show_positions: true, allow_back: true, allow_find: true, allow_peek: true,
+                     ban_hubs: false, handicap: false, toc: 3, time_limit: 0 }],
+  ["normal", "Normal", { show_positions: true, allow_back: false, allow_find: false, allow_peek: true,
+                         ban_hubs: false, handicap: false, toc: 1, time_limit: 0 }],
+  ["hard", "Hard", { show_positions: false, allow_back: false, allow_find: false, allow_peek: false,
+                     ban_hubs: true, handicap: false, toc: 0, time_limit: 600 }],
+];
+const PRESET_KEYS = ["show_positions", "allow_back", "allow_find", "allow_peek", "ban_hubs", "handicap", "toc", "time_limit"];
+
 const MODES = [
   { id: "classic", name: "Classic",
     blurb: "One start, one target, fastest time. Pick two articles and go." },
@@ -5202,6 +5241,9 @@ function modePreview(id) {
 
 /* Which game, before any of its settings. */
 function openModePicker() {
+  // Pressing the button again while it's open would stack a second copy on
+  // top of the first, and closing one would leave the other behind.
+  if ($("mode-overlay") || $("config-overlay")) return;
   const ov = document.createElement("div");
   ov.className = "overlay";
   ov.id = "mode-overlay";
@@ -5225,21 +5267,21 @@ function openModePicker() {
 }
 
 function openConfigurator(kind) {
+  if ($("config-overlay")) return;
   const mode = MODES.some(m => m.id === kind) ? kind : "advanced";
   const advanced = mode === "advanced";
-  // Classic and Lost are the plain games: their rules are the defaults, not
-  // whatever was left behind by the last race anybody set up.
-  if (!advanced) {
-    Object.assign(cfg, { show_positions: true, allow_back: true, allow_find: true, allow_peek: true,
-                         time_limit: 0, ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0 });
-  }
-  cfg.lost = mode === "lost" ? true : advanced ? cfg.lost : false;
+  // Classic is the plain race: no stops on the way, and the clock decides.
+  if (mode === "classic") { cfg.checkpoints = []; cfg.mode = "time"; }
+  cfg.lost = mode === "lost";
   const ov = document.createElement("div");
   ov.className = "overlay";
   ov.id = "config-overlay";
   ov.innerHTML =
     '<div class="card wide">' +
-    "<h2>" + esc(MODES.find(m => m.id === mode).name) + " race</h2>" +
+    '<div class="card-head">' +
+    '<button class="back-btn" id="c-back-mode" aria-label="Back to the game modes" title="Back to the game modes">' +
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg></button>' +
+    "<h2>" + esc(MODES.find(m => m.id === mode).name) + " race</h2></div>" +
     '<p class="lede">' + (advanced ? "These rules apply to everyone — they travel with the race."
                                    : esc(MODES.find(m => m.id === mode).blurb)) + "</p>" +
 
@@ -5261,11 +5303,30 @@ function openConfigurator(kind) {
       '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
       '<button id="c-swap" title="Swap start and target">⇄</button>' +
     "</div>" +
-    '<div class="toggle adv" id="c-lost" style="margin:-4px 0 18px"><div class="track"></div>' +
-    '<span>Lost <span class="muted tiny">(everyone starts on a different random page — ' +
-    "first to the target wins)</span></span></div>" +
 
-    '<div class="field adv"><label>Rules</label>' +
+    '<div class="field race"><label>Who wins</label>' +
+    '<div class="seg wide" id="c-mode">' +
+    '<button data-mode="time">Fastest time</button>' +
+    '<button data-mode="clicks">Fewest clicks</button>' +
+    "</div></div>" +
+
+
+    '<div class="field race"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
+    '<div id="c-chips" class="chips"></div>' +
+    '<div class="row">' +
+    '<div class="ta" style="flex:1"><input type="text" id="c-check" autocomplete="off" ' +
+    'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
+    '<button id="c-check-add">Add</button></div></div>' +
+
+
+    '<div class="field">' +
+    '<button class="fold-btn" id="c-settings-btn" aria-expanded="false" aria-controls="c-settings">' +
+    "<span>⚙ Game settings</span>" +
+    '<span class="fold-sum" id="c-settings-sum"></span><span class="caret">▼</span></button>' +
+    '<div class="fold-body" id="c-settings" hidden>' +
+    '<div class="seg wide" id="c-preset" style="margin-bottom:10px">' +
+    PRESETS.map(([id, label]) => '<button data-preset="' + id + '">' + label + "</button>").join("") +
+    "</div>" +
       '<div class="toggle" id="c-positions"><div class="track"></div>' +
       "<span>Show where opponents are</span></div>" +
       '<div class="toggle" id="c-back" style="margin-top:8px"><div class="track"></div>' +
@@ -5280,28 +5341,17 @@ function openConfigurator(kind) {
       '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
       '<div class="toggle" id="c-handicap" style="margin-top:8px"><div class="track"></div>' +
       '<span>Handicap the session leaders</span></div>' +
-    "</div>" +
-
-    '<div class="field adv"><label>Who wins</label>' +
-    '<div class="seg wide" id="c-mode">' +
-    '<button data-mode="time">Fastest time</button>' +
-    '<button data-mode="clicks">Fewest clicks</button>' +
+      '<div class="two" style="margin-top:14px">' +
+        '<div><label class="sub-label" title="A real help — and arguably a cheat">Table of contents</label>' +
+        '<div id="c-toc"></div></div>' +
+        '<div><label class="sub-label" for="c-limit">Time limit</label>' +
+        '<div class="num"><input type="number" id="c-limit" min="0" max="180" step="1" ' +
+        'inputmode="numeric" placeholder="none">' +
+        '<span class="spin"><button type="button" data-step="1" aria-label="A minute more">▲</button>' +
+        '<button type="button" data-step="-1" aria-label="A minute less">▼</button></span>' +
+        '<span class="unit">minutes</span></div></div>' +
+      "</div>" +
     "</div></div>" +
-
-    '<div class="field adv"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
-    '<div id="c-chips" class="chips"></div>' +
-    '<div class="row">' +
-    '<div class="ta" style="flex:1"><input type="text" id="c-check" autocomplete="off" ' +
-    'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
-    '<button id="c-check-add">Add</button></div></div>' +
-
-    '<div class="field adv"><label>Table of contents ' +
-    '<span class="muted tiny">(a real help — and arguably a cheat)</span></label>' +
-    '<div id="c-toc"></div></div>' +
-
-    '<div class="field adv"><label>Time limit</label>' +
-    '<div id="c-limit"></div></div>' +
-
     '<div class="field"><label>Players</label><div id="c-ready"></div></div>' +
 
     '<div class="actions">' +
@@ -5313,12 +5363,13 @@ function openConfigurator(kind) {
   $("stage").appendChild(ov);
 
   const q = (id) => ov.querySelector(id);
-  // Everything the plain games don't ask about stays in the markup - the
-  // bindings below all still find it - but nobody has to read past it.
-  if (!advanced) ov.querySelectorAll(".adv").forEach(el => { el.style.display = "none"; });
+  // The settings are the same game-wide; what changes with the mode is what
+  // the race itself is. Classic has no stops and no argument about winning.
+  if (mode === "classic") ov.querySelectorAll(".race").forEach(el => { el.style.display = "none"; });
   if (mode === "lost") q("#c-start-field").style.display = "none";
   const close = () => ov.remove();
   q("#c-cancel").onclick = close;
+  q("#c-back-mode").onclick = () => { close(); openModePicker(); };
   ov.addEventListener("click", e => { if (e.target === ov) close(); });
 
   // -- restore last-used settings --------------------------------------
@@ -5337,20 +5388,22 @@ function openConfigurator(kind) {
       toast("Switched to " + (LANGS.find(l => l[0] === v) || [, v])[1]);
     });
 
-  makeDropdown(q("#c-toc"), TOC_LABELS.map((t, i) => [i, t]), cfg.toc || 0,
-               (v) => { cfg.toc = parseInt(v, 10) || 0; });
+  const tocDD = makeDropdown(q("#c-toc"), TOC_LABELS.map((t, i) => [i, t]), cfg.toc || 0,
+                             (v) => { cfg.toc = parseInt(v, 10) || 0; syncSettings(); });
 
-  makeDropdown(q("#c-limit"),
-               [[0, "No limit"], [120, "2 minutes"], [300, "5 minutes"], [600, "10 minutes"]],
-               cfg.time_limit,
-               (v) => { cfg.time_limit = parseInt(v, 10) || 0; });
-  q("#c-positions").classList.toggle("on", cfg.show_positions);
-  q("#c-back").classList.toggle("on", cfg.allow_back);
-  q("#c-find").classList.toggle("on", cfg.allow_find);
-  q("#c-peek").classList.toggle("on", cfg.allow_peek);
-
-  q("#c-hubs").classList.toggle("on", cfg.ban_hubs);
-  q("#c-handicap").classList.toggle("on", cfg.handicap);
+  // Minutes, and blank for no limit at all.
+  const limitIn = q("#c-limit");
+  const setLimit = (mins) => {
+    cfg.time_limit = Math.max(0, Math.min(180, mins)) * 60;
+    syncSettings();
+  };
+  limitIn.oninput = () => setLimit(parseInt(limitIn.value, 10) || 0);
+  ov.querySelectorAll(".num .spin button").forEach(b => {
+    b.onclick = () => {
+      setLimit((parseInt(limitIn.value, 10) || 0) + (+b.dataset.step));
+      limitIn.value = cfg.time_limit ? String(cfg.time_limit / 60) : "";
+    };
+  });
   renderCheckpointChips(ov);
   ov.querySelectorAll("#c-mode button").forEach(b => {
     b.classList.toggle("on", b.dataset.mode === cfg.mode);
@@ -5364,7 +5417,7 @@ function openConfigurator(kind) {
   const bindToggle = (id, key) => {
     q(id).onclick = () => {
       cfg[key] = !q(id).classList.contains("on");
-      q(id).classList.toggle("on", cfg[key]);
+      syncSettings();
     };
   };
   bindToggle("#c-positions", "show_positions");
@@ -5374,17 +5427,52 @@ function openConfigurator(kind) {
   bindToggle("#c-hubs", "ban_hubs");
   bindToggle("#c-handicap", "handicap");
 
-  // Lost: there's no start to choose, so the box steps aside.
-  const syncLost = () => {
-    q("#c-lost").classList.toggle("on", cfg.lost);
-    startIn.disabled = cfg.lost;
-    q("#c-swap").disabled = cfg.lost;
-    startIn.placeholder = cfg.lost ? "a random page for each player" : "type to search…";
-  };
-  q("#c-lost").onclick = () => { cfg.lost = !cfg.lost; syncLost(); };
   q("#c-swap").style.display = mode === "lost" ? "none" : "";
-  syncLost();
 
+
+  // The presets and the controls are two views of the same settings, so
+  // whichever you touch, the other follows.
+  const syncSettings = () => {
+    for (const [id, key] of [["#c-positions", "show_positions"], ["#c-back", "allow_back"], ["#c-find", "allow_find"],
+                             ["#c-peek", "allow_peek"], ["#c-hubs", "ban_hubs"], ["#c-handicap", "handicap"]]) {
+      q(id).classList.toggle("on", !!cfg[key]);
+    }
+    tocDD.value = cfg.toc || 0;
+    // Leave what's being typed alone; only correct it when it disagrees.
+    const mins = cfg.time_limit ? String(Math.round(cfg.time_limit / 60)) : "";
+    if (limitIn.value !== mins && String(parseInt(limitIn.value, 10) || 0) !== mins) limitIn.value = mins;
+    let named = null;
+    ov.querySelectorAll("#c-preset button").forEach(b => {
+      const [id, label, want] = PRESETS.find(p => p[0] === b.dataset.preset) || [, , {}];
+      const same = PRESET_KEYS.every(k => String(cfg[k] || (k === "toc" || k === "time_limit" ? 0 : false)) === String(want[k]));
+      b.classList.toggle("on", same);
+      if (same) named = label;
+    });
+    // Folded away, the button still has to say what everyone is in for.
+    const notes = [];
+    if (cfg.show_positions === false) notes.push("positions hidden");
+    if (cfg.allow_back === false) notes.push("no back");
+    if (cfg.allow_find === false) notes.push("no find");
+    if (cfg.allow_peek === false) notes.push("no reveal vote");
+    if (cfg.ban_hubs) notes.push("no hubs");
+    if (cfg.handicap) notes.push("handicaps");
+    if (cfg.toc) notes.push(TOC_LABELS[cfg.toc].toLowerCase());
+    if (cfg.time_limit) notes.push(Math.round(cfg.time_limit / 60) + " min");
+    q("#c-settings-sum").textContent = named ? named + (notes.length ? " · " + notes.join(", ") : "")
+                                             : notes.length ? notes.join(", ") : "everything allowed";
+  };
+  q("#c-settings-btn").onclick = () => {
+    const open = q("#c-settings").hidden;
+    q("#c-settings").hidden = !open;
+    q("#c-settings-btn").setAttribute("aria-expanded", String(open));
+  };
+  ov.querySelectorAll("#c-preset button").forEach(b => {
+    b.onclick = () => {
+      Object.assign(cfg, (PRESETS.find(p => p[0] === b.dataset.preset) || [, , {}])[2]);
+      syncSettings();
+    };
+  });
+  syncSettings();
 
   const getLang = () => langDD.value;
 
