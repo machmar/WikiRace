@@ -124,6 +124,45 @@ def missing_checkpoints(race, path):
     return [c for c in race_checkpoints(race) if norm_name(c) not in seen]
 
 
+def checkpoint_slots(race):
+    """Where each stop has to come in the order they're reached.
+
+    0 is anywhere; 1..N means it has to be the first, second, ... stop made.
+    A race can pin some and leave the rest free, so "3 must be last" and
+    "everything in order" are the same rule with different numbers.
+    """
+    stops = race_checkpoints(race)
+    raw = (race or {}).get("checkpoint_slots")
+    raw = raw if isinstance(raw, list) else []
+    out, taken = [], set()
+    for i in range(len(stops)):
+        try:
+            want = int(raw[i]) if i < len(raw) else 0
+        except (TypeError, ValueError):
+            want = 0
+        if not 1 <= want <= len(stops) or want in taken:
+            want = 0
+        else:
+            taken.add(want)
+        out.append(want)
+    return out
+
+
+def checkpoints_out_of_order(race, path):
+    """Stops that were made, but not where the race asked for them."""
+    stops, slots = race_checkpoints(race), checkpoint_slots(race)
+    if not any(slots):
+        return []
+    rank, made = {}, 0
+    for page in path or []:
+        key = norm_name(page)
+        for i, c in enumerate(stops):
+            if i not in rank and norm_name(c) == key:
+                made += 1
+                rank[i] = made
+    return [stops[i] for i, want in enumerate(slots) if want and rank.get(i) != want]
+
+
 # --------------------------------------------------------------------------
 # Shared game state.  Guarded by one lock; every mutation bumps `version` so
 # the HTTP layer can tell connected browsers that something changed.
@@ -868,6 +907,7 @@ class PeerNet:
                 "time_limit": incoming.get("time_limit", 0),
                 "ban_hubs": incoming.get("ban_hubs", False),
                 "checkpoints": list(race_checkpoints(incoming)),
+                "checkpoint_slots": list(checkpoint_slots(incoming)),
                 "mode": incoming.get("mode", "time"),
                 "toc": incoming.get("toc", 0),
                 "allow_peek": incoming.get("allow_peek", True),
@@ -1601,6 +1641,9 @@ def make_handler(state, net, hub):
                 "ban_hubs": bool(body.get("ban_hubs", False)),
                 "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])
                                 if isinstance(c, str) and c.strip()][:6],
+                # Which of those stops have to come at a particular point.
+                "checkpoint_slots": [x if isinstance(x, int) else 0
+                                     for x in (body.get("checkpoint_slots") or [])][:6],
                 # What decides the winner: the clock, or the number of links.
                 "mode": "clicks" if body.get("mode") == "clicks" else "time",
                 # How deep a contents list players may see: 0 none, 1 sections,
@@ -1708,6 +1751,10 @@ def make_handler(state, net, hub):
                     if skipped:
                         return {"ok": False, "error": "checkpoints missed",
                                 "missing": skipped}
+                    wrong = checkpoints_out_of_order(race, route)
+                    if wrong:
+                        return {"ok": False, "error": "checkpoints out of order",
+                                "wrong": wrong}
                     if norm_name(route[-1] if route else "") != norm_name(race.get("target")):
                         return {"ok": False, "error": "not at the target"}
 

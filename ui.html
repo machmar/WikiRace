@@ -169,6 +169,7 @@
     background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
     max-height: 230px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
   }
+  .ta-list.up { top: auto; bottom: calc(100% + 4px); }
   .ta-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
   .ta-item:hover, .ta-item.on { background: var(--hover-strong); color: var(--accent); }
 
@@ -537,6 +538,41 @@
   }
   .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
   .sub-label { display: block; color: var(--fg-dim); }
+  /* The stops, in the order they're meant to be made, with the box that adds
+     one more as the last row. */
+  /* Not overflow:hidden - the suggestions drop out of this box, and clipping
+     them leaves a sliver of a list nobody can read. The rows round their own
+     corners instead. */
+  .cp-box { border: 1px solid var(--line); border-radius: 9px; }
+  .cp-box > div:first-child > .cp-row:first-child { border-radius: 8px 8px 0 0; }
+  .cp-box > .cp-add:last-child { border-radius: 0 0 8px 8px; }
+  .cp-box > div:first-child:empty + .cp-add { border-top: 0; border-radius: 8px; }
+  .cp-row {
+    display: grid; grid-template-columns: 1fr 46px repeat(4, 28px); align-items: center; gap: 6px;
+    padding: 4px 8px 4px 12px; background: var(--bg-3);
+  }
+  .cp-row + .cp-row, .cp-add { border-top: 1px solid var(--line); }
+  .cp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+  .cp-row .slot {
+    padding: 1px 0; font-size: 11px; line-height: 1.6; text-align: center; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--fg-faint);
+  }
+  .cp-row .slot.on { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); font-weight: 600; }
+  .cp-btn {
+    padding: 0; height: 24px; font-size: 11px; line-height: 1;
+    background: transparent; border-color: transparent; color: var(--fg-faint);
+  }
+  .cp-btn:hover:not(:disabled) { background: var(--hover); border-color: var(--line); color: var(--fg); }
+  .cp-btn.on { color: var(--warn-fg); }
+  .cp-btn:disabled { opacity: .25; }
+  .cp-x:hover:not(:disabled) { color: var(--bad-fg); border-color: var(--bad-line); background: var(--bad-bg); }
+  .cp-add { grid-template-columns: 1fr auto auto; gap: 8px; padding: 6px 8px; background: var(--bg-2); }
+  .cp-add .ta { min-width: 0; }
+  .cp-add input[type=text] { border-color: transparent; background: transparent; padding-left: 4px; }
+  .cp-add button { padding: 5px 12px; font-size: 13px; }
+  .cp-add .icon { padding: 5px 9px; }
+  .cp-phrase { margin: 8px 0 0; }
+  .cpn { margin-left: 5px; font-size: 10px; letter-spacing: .04em; color: var(--warn-fg); }
   /* Two dropdowns side by side line up on the control, not the label. */
   .fold-body .two { align-items: end; }
   .num { display: flex; align-items: center; gap: 9px; }
@@ -2141,10 +2177,12 @@ function renderGoalBar(race) {
 
   if (stops.length) {
     html += '<span class="arrow">→</span>';
-    html += stops.map(c => {
+    const slots = raceSlots(race);
+    html += stops.map((c, i) => {
       const hit = visited.has(norm(c));
       return '<span class="cp' + (hit ? " hit" : "") + '" title="checkpoint">' +
-        '<span class="mark">' + (hit ? "✓" : "○") + "</span>" + esc(c) + "</span>";
+        '<span class="mark">' + (hit ? "✓" : "○") + "</span>" + esc(c) +
+        (slots[i] ? '<span class="cpn">' + slotName(slots[i], stops.length) + "</span>" : "") + "</span>";
     }).join("");
     html += '<span class="cpcount' + (done === stops.length ? " done" : "") + '">' +
       done + "/" + stops.length + "</span>";
@@ -2187,6 +2225,45 @@ function raceKind(race) {
   return plain ? "Classic" : "Advanced";
 }
 
+/* Where each stop has to come in the order they're reached: 0 anywhere, or
+   1..N for the first, second, ... stop made. Pin some and leave the rest free
+   and you get "3 must be last" and "all in order" from the same rule. */
+function raceSlots(race) {
+  const stops = raceCheckpoints(race);
+  const raw = Array.isArray((race || {}).checkpoint_slots) ? race.checkpoint_slots : [];
+  const taken = new Set();
+  return stops.map((_, i) => {
+    const want = parseInt(raw[i], 10) || 0;
+    if (want < 1 || want > stops.length || taken.has(want)) return 0;
+    taken.add(want);
+    return want;
+  });
+}
+
+const slotName = (want, n) => want === n ? "last" : ordinal(want);
+
+/* Stops that were made, but not where the race asked for them. */
+function checkpointsOutOfOrder(race, path) {
+  const stops = raceCheckpoints(race), slots = raceSlots(race);
+  if (!slots.some(Boolean)) return [];
+  const rank = new Map();
+  let made = 0;
+  for (const page of path || []) {
+    stops.forEach((c, i) => {
+      if (!rank.has(i) && norm(c) === norm(page)) rank.set(i, ++made);
+    });
+  }
+  return stops.filter((c, i) => slots[i] && rank.get(i) !== slots[i]);
+}
+
+/* "Energy 1st, Star last, the rest anywhere" - the route in a phrase. */
+function orderPhrase(stops, slots) {
+  const pinned = stops.map((c, i) => [c, slots[i]]).filter(([, w]) => w).sort((a, b) => a[1] - b[1]);
+  if (!pinned.length) return stops.length > 1 ? "any order" : "";
+  if (pinned.length === stops.length) return "in this order";
+  return pinned.map(([c, w]) => c + " " + slotName(w, stops.length)).join(", ") + ", the rest anywhere";
+}
+
 function raceCheckpoints(race) {
   if (!race) return [];
   if (Array.isArray(race.checkpoints)) return race.checkpoints.filter(Boolean);
@@ -2213,7 +2290,8 @@ function renderRules(race) {
   if (race.lost) bits.push("lost: everyone starts somewhere different");
   if (race.ban_hubs) bits.push("no hub pages");
   if (raceToc(race)) bits.push("contents: " + TOC_LABELS[raceToc(race)].toLowerCase());
-  for (const c of raceCheckpoints(race)) bits.push("via " + c);
+  const slots = raceSlots(race), stops = raceCheckpoints(race);
+  stops.forEach((c, i) => bits.push("via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
   setHTML(host, bits.map(b => '<span class="rule">' + esc(b) + "</span>").join(""));
 }
@@ -2357,6 +2435,12 @@ async function win() {
     toast("Still to visit: " + owed.join(", "));
     return;
   }
+  // Made every stop, but not in the order this race asked for.
+  const wrong = checkpointsOutOfOrder(S.race, S.path);
+  if (wrong.length) {
+    toast("Out of order: " + wrong.join(", ") + " — that run can't be finished");
+    return;
+  }
   S.done = true;
   S.running = false;
   const secs = elapsed();
@@ -2372,9 +2456,9 @@ async function win() {
     S.finalElapsed = null;
     updateHud();
     if (res.error === "name_in_race") { openNamePicker({ clash: res.name }); return; }
-    toast(res.missing && res.missing.length
-      ? "Still to visit: " + res.missing.join(", ")
-      : "That didn't count — " + (res.error || "try again"));
+    toast(res.missing && res.missing.length ? "Still to visit: " + res.missing.join(", ")
+        : res.wrong && res.wrong.length ? "Out of order: " + res.wrong.join(", ")
+        : "That didn't count — " + (res.error || "try again"));
     return;
   }
   openHub("results");
@@ -5052,7 +5136,7 @@ const RouteMap = (() => {
 /* Settings survive between races, so a rematch is one click. */
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
-  ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0, lost: false,
+  ban_hubs: false, handicap: false, checkpoints: [], checkpoint_slots: [], mode: "time", toc: 0, lost: false,
   allow_find: true,
   allow_peek: true,
 };
@@ -5143,6 +5227,11 @@ function attachTypeahead(input, list, getLang) {
       '<div class="ta-item' + (i === active ? " on" : "") + '" data-i="' + i + '">' +
       esc(t) + "</div>").join("");
     list.hidden = false;
+    // Inside a dialog that scrolls, a list hanging off the bottom is a list
+    // nobody can read, so drop it upwards when there's no room below.
+    const box = input.closest(".card") || document.documentElement;
+    const room = box.getBoundingClientRect().bottom - input.getBoundingClientRect().bottom;
+    list.classList.toggle("up", room < Math.min(list.scrollHeight + 12, 130));
   };
 
   list.onmousedown = (e) => {                 // mousedown: fires before blur
@@ -5189,18 +5278,111 @@ async function randomPair(lang, hard) {
   return out;
 }
 
+/* The list is the order. A pinned stop has to be made at its place in it;
+   the rest can be made whenever, so a race can be strict, loose or anything
+   between. Positions always follow the list, so moving a row is enough. */
+const cpPins = () => cfg.checkpoints.map((_, i) => !!(cfg.checkpoint_slots || [])[i]);
+
+function setCpPins(pins) {
+  cfg.checkpoint_slots = cfg.checkpoints.map((_, i) => pins[i] ? i + 1 : 0);
+}
+
+const tidySlots = () => setCpPins(cpPins());
+
+function togglePin(i) {
+  const pins = cpPins();
+  pins[i] = !pins[i];
+  setCpPins(pins);
+}
+
+function moveCheckpoint(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= cfg.checkpoints.length) return;
+  const pins = cpPins();
+  [cfg.checkpoints[i], cfg.checkpoints[j]] = [cfg.checkpoints[j], cfg.checkpoints[i]];
+  [pins[i], pins[j]] = [pins[j], pins[i]];
+  setCpPins(pins);
+}
+
+/* What this route actually demands, ignoring the order of the stops nobody
+   has to make at a particular point: shuffling those around changes the list
+   and nothing else. */
+function routeDemand() {
+  return cfg.checkpoints.map((c, i) => cfg.checkpoint_slots[i] ? norm(c) + "@" + cfg.checkpoint_slots[i] : "")
+    .filter(Boolean).sort().join("|");
+}
+
+const shuffled = (arr) => {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+
+/* A route nobody has to agree on: a new order, and a new amount of order.
+   Rerolled until the race it describes is actually a different one - with
+   nothing pinned, a new order is no change at all. */
+function shuffleCheckpoints() {
+  const n = cfg.checkpoints.length;
+  if (n < 2) return;
+  const before = routeDemand();
+  const roll = () => {
+    cfg.checkpoints = shuffled(cfg.checkpoints);
+    // Sometimes a fixed route, usually something in between, and a free-for-all
+    // only as a change from a route that asked for something.
+    const r = Math.random();
+    const pins = r < 0.35 ? n : 1 + Math.floor(Math.random() * Math.max(1, n - 1));
+    const chosen = new Set(shuffled(cfg.checkpoints.map((_, i) => i)).slice(0, pins));
+    setCpPins(cfg.checkpoints.map((_, i) => chosen.has(i)));
+  };
+  for (let tries = 0; tries < 20; tries++) {
+    roll();
+    if (routeDemand() !== before) return;
+  }
+  // Every roll landed on the same demands: pin the lot instead.
+  cfg.checkpoints = shuffled(cfg.checkpoints);
+  setCpPins(cfg.checkpoints.map(() => true));
+}
+
 function renderCheckpointChips(ov) {
   const host = ov.querySelector("#c-chips");
   if (!host) return;
-  if (!cfg.checkpoints.length) {
-    host.innerHTML = '<span class="muted tiny">None — the route is free.</span>';
-    return;
-  }
-  host.innerHTML = cfg.checkpoints.map((c, i) =>
-    '<span class="chip pick">' + esc(c) +
-    '<button data-i="' + i + '" title="remove">×</button></span>').join("");
-  host.querySelectorAll("button").forEach(b => {
-    b.onclick = () => { cfg.checkpoints.splice(+b.dataset.i, 1); renderCheckpointChips(ov); };
+  tidySlots();
+  const n = cfg.checkpoints.length;
+  setFlag(ov.querySelector("#c-shuffle"), "hidden", n < 2);
+  setText(ov.querySelector("#c-phrase"),
+          n > 1 ? orderPhrase(cfg.checkpoints, cfg.checkpoint_slots) : n ? "One stop, anywhere on the way." : "");
+  host.innerHTML = cfg.checkpoints.map((c, i) => {
+    const pinned = !!cfg.checkpoint_slots[i];
+    const tag = n > 1 && pinned ? slotName(i + 1, n) : "any";
+    return '<div class="cp-row"><span class="cp-name">' + esc(c) + "</span>" +
+      '<span class="slot' + (pinned && n > 1 ? " on" : "") + '">' + tag + "</span>" +
+      (n > 1
+        ? '<button class="cp-btn' + (pinned ? " on" : "") + '" data-pin="' + i + '" aria-pressed="' + pinned +
+          '" title="' + (pinned ? "Let this stop be made whenever" : "Make this stop the " + slotName(i + 1, n)) +
+          '">📌</button>' +
+          '<button class="cp-btn" data-move="' + i + '" data-dir="-1" title="Move up"' +
+          (i === 0 ? " disabled" : "") + ">▲</button>" +
+          '<button class="cp-btn" data-move="' + i + '" data-dir="1" title="Move down"' +
+          (i === n - 1 ? " disabled" : "") + ">▼</button>"
+        : "<span></span><span></span><span></span>") +
+      '<button class="cp-btn cp-x" data-i="' + i + '" title="Remove" aria-label="Remove ' + esc(c) + '">×</button></div>';
+  }).join("");
+  host.querySelectorAll("button[data-i]").forEach(b => {
+    b.onclick = () => {
+      cfg.checkpoints.splice(+b.dataset.i, 1);
+      cfg.checkpoint_slots.splice(+b.dataset.i, 1);
+      tidySlots();
+      renderCheckpointChips(ov);
+    };
+  });
+  host.querySelectorAll("button[data-pin]").forEach(b => {
+    b.onclick = () => { togglePin(+b.dataset.pin); renderCheckpointChips(ov); };
+  });
+  host.querySelectorAll("button[data-move]").forEach(b => {
+    b.onclick = () => { moveCheckpoint(+b.dataset.move, +b.dataset.dir); renderCheckpointChips(ov); };
   });
 }
 
@@ -5271,7 +5453,7 @@ function openConfigurator(kind) {
   const mode = MODES.some(m => m.id === kind) ? kind : "advanced";
   const advanced = mode === "advanced";
   // Classic is the plain race: no stops on the way, and the clock decides.
-  if (mode === "classic") { cfg.checkpoints = []; cfg.mode = "time"; }
+  if (mode === "classic") { cfg.checkpoints = []; cfg.checkpoint_slots = []; cfg.mode = "time"; }
   cfg.lost = mode === "lost";
   const ov = document.createElement("div");
   ov.className = "overlay";
@@ -5311,12 +5493,17 @@ function openConfigurator(kind) {
     "</div></div>" +
 
 
-    '<div class="field race"><label>Checkpoints <span class="muted tiny">(optional — must pass through, in any order)</span></label>' +
-    '<div id="c-chips" class="chips"></div>' +
-    '<div class="row">' +
-    '<div class="ta" style="flex:1"><input type="text" id="c-check" autocomplete="off" ' +
-    'placeholder="type to search, Enter to add"><div class="ta-list" id="c-check-list" hidden></div></div>' +
-    '<button id="c-check-add">Add</button></div></div>' +
+    '<div class="field race"><label>Checkpoints <span class="muted tiny">(optional — stops on the way; ' +
+    'pin the ones that have to be made in this order)</span></label>' +
+    '<div class="cp-box">' +
+    '<div id="c-chips"></div>' +
+    '<div class="cp-row cp-add">' +
+    '<div class="ta"><input type="text" id="c-check" autocomplete="off" ' +
+    'placeholder="add a stop — type to search"><div class="ta-list" id="c-check-list" hidden></div></div>' +
+    '<button id="c-check-add">Add</button>' +
+    '<button id="c-shuffle" class="icon" title="A new order, and a new amount of order" hidden>🎲</button>' +
+    "</div></div>" +
+    '<p class="cp-phrase muted tiny" id="c-phrase"></p></div>' +
 
 
     '<div class="field">' +
@@ -5494,6 +5681,7 @@ function openConfigurator(kind) {
         toast("Already on the list"); return;
       }
       cfg.checkpoints.push(canon);
+      cfg.checkpoint_slots.push(0);
       q("#c-check").value = "";
       renderCheckpointChips(ov);
     } catch (e) {
@@ -5503,6 +5691,7 @@ function openConfigurator(kind) {
     }
   };
   q("#c-check-add").onclick = addCheckpoint;
+  q("#c-shuffle").onclick = () => { shuffleCheckpoints(); renderCheckpointChips(ov); };
   q("#c-check").addEventListener("keydown", e => {
     // Enter picks a suggestion when the list is open; otherwise it adds.
     if (e.key === "Enter" && q("#c-check-list").hidden) { e.preventDefault(); addCheckpoint(); }
@@ -5558,7 +5747,7 @@ function openConfigurator(kind) {
           toast('No article called "' + pending + '"');
           go.disabled = false; go.textContent = "Start race"; return;
         }
-        if (!cfg.checkpoints.some(c => norm(c) === norm(canon))) cfg.checkpoints.push(canon);
+        if (!cfg.checkpoints.some(c => norm(c) === norm(canon))) { cfg.checkpoints.push(canon); cfg.checkpoint_slots.push(0); }
       }
       let starts = [];
       if (lost) {
@@ -5580,6 +5769,7 @@ function openConfigurator(kind) {
         ban_hubs: cfg.ban_hubs,
         handicap: cfg.handicap,
         checkpoints: cfg.checkpoints,
+        checkpoint_slots: cfg.checkpoint_slots,
         mode: cfg.mode,
         toc: cfg.toc,
       });
@@ -6117,7 +6307,8 @@ $("lobby-rematch").onclick = async () => {
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     allow_find: cfg.allow_find, allow_peek: cfg.allow_peek,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
-    handicap: cfg.handicap, checkpoints: cfg.checkpoints, mode: cfg.mode,
+    handicap: cfg.handicap, checkpoints: cfg.checkpoints, checkpoint_slots: cfg.checkpoint_slots,
+    mode: cfg.mode,
     toc: cfg.toc,
   });
 };
