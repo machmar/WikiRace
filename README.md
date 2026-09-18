@@ -186,6 +186,7 @@ everyone plays the same game rather than each machine applying its own settings.
 | **Allow the Back button** | Off makes it a one-way trip. |
 | **Allow find on page** | Off intercepts Ctrl+F, Cmd+F, F3 and Ctrl+G during a race. Honest limitation: a page can block the *shortcut*, not the browser's own Find menu — this discourages the reflex rather than making it impossible. |
 | **Ban hub pages** | Blocks *United States*, *World War II* and two dozen other giants. Nearly every lazy route runs through one of them, so this is the setting that stops repeat games feeling identical. |
+| **Lost** | Nobody picks a start: everyone is dropped on a different random page — one of a dozen well-linked ones the game rolls — and the race is whoever reaches the target first. Your page is decided once, so a reload lands you back on it, and nobody else gets it. Pick only a target. |
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
 | **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
 | **Checkpoints** | Up to six articles you must pass through, in any order. They show in a strip above the article and tick off as you reach them — each one throws up a big *Checkpoint 2 of 3* splash — and the target won't accept you until they're all done. Enforced by the game itself, not just your browser. |

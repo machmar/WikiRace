@@ -660,6 +660,7 @@
   .step.checkpoint { border-color: var(--warn-line); box-shadow: inset 3px 0 0 var(--warn-fg); }
   .step.target     { border-color: var(--good-line); box-shadow: inset 3px 0 0 var(--good); }
   .step.start:hover      { border-color: var(--accent); }
+  .cd-lost { margin: -4px 0 10px; font-size: 14px; color: var(--warn-fg); font-weight: 600; }
   .step.checkpoint:hover { border-color: var(--warn-fg); }
   .step.target:hover     { border-color: var(--good-hover); }
 
@@ -1690,6 +1691,43 @@ function pickFromPool(n) {
   return out;
 }
 
+/* Starting pages for a lost race: a dozen from the same well-linked pool as
+   a random pair, carried into this edition, and never the target, a checkpoint
+   or - when hubs are banned - a hub. The server hands one to each player. */
+async function lostStarts(lang, target, stops, banHubs) {
+  const avoid = new Set([target, ...(stops || [])].map(norm));
+  const banned = banHubs ? await bannedSet(lang) : null;
+  const bag = pickFromPool(POOL.length), out = [];
+  while (out.length < 12 && bag.length) {
+    const titles = await Promise.all(bag.splice(0, 8).map(t => translateTitle(t, lang).catch(() => null)));
+    for (const t of titles) {
+      if (!t || avoid.has(norm(t)) || (banned && banned.has(norm(t))) || out.some(x => norm(x) === norm(t))) continue;
+      out.push(t);
+    }
+  }
+  return out.slice(0, 12);
+}
+
+/* Where this player starts: the race's start, or in a lost race a page of
+   their own, handed out by the server so a reload lands on the same one. */
+async function myStartPage(race) {
+  if (!race.lost) return race.start;
+  const res = await post("/start_page", {});
+  if (res && res.ok && res.start) return res.start;
+  if (res && res.error === "name_in_race" && !picker.open) {
+    openNamePicker({ clash: res.name || (S.snap && S.snap.me.name) });
+  }
+  // Somewhere to stand regardless; joining properly waits on the name.
+  const starts = race.starts || [];
+  const who = norm(S.snap ? S.snap.me.name : "");
+  let h = 0;
+  for (const ch of race.race_id + who) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return starts.length ? starts[h % starts.length] : race.start;
+}
+
+/* What to call the start in a line like "Start → Target". */
+const startLabel = (race, own) => race.lost ? (own || "Lost") : race.start;
+
 /* The chaos option: genuinely random articles, stubs and all. */
 async function wildArticles(n, lang) {
   const d = await wiki({
@@ -2017,7 +2055,8 @@ function renderGoalBar(race) {
   const done = stops.filter(c => visited.has(norm(c))).length;
 
   let html = '<span class="chip lang">' + esc((race.lang || "en").toUpperCase()) + "</span>" +
-             '<span class="chip">' + esc(race.start) + "</span>";
+             '<span class="chip"' + (race.lost ? ' title="your random start — everyone has a different one"' : "") + ">" +
+             (race.lost ? "🧭 " : "") + esc(startLabel(race, S.path[0] || S.startPage)) + "</span>";
 
   if (stops.length) {
     html += '<span class="arrow">→</span>';
@@ -2075,6 +2114,7 @@ function renderRules(race) {
   else if (race.allow_peek === false) bits.push("target stays hidden");
   if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
   bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
+  if (race.lost) bits.push("lost: everyone starts somewhere different");
   if (race.ban_hubs) bits.push("no hub pages");
   if (raceToc(race)) bits.push("contents: " + TOC_LABELS[raceToc(race)].toLowerCase());
   for (const c of raceCheckpoints(race)) bits.push("via " + c);
@@ -2116,7 +2156,7 @@ async function enterRace(race, myRun) {
     // clock keeps running behind it.
     setStage("race");
     renderCrumbs(); updateHud();
-    await navigate(mine.article || race.start, false);
+    await navigate(mine.article || mine.start || (mine.path || [])[0] || await myStartPage(race), false);
     renderGoalBar(race);
     return;
   }
@@ -2127,7 +2167,11 @@ async function enterRace(race, myRun) {
   setStage("race");
   updateHud();
 
-  await countdown(race);
+  // Known before the countdown, so it can say where you're about to be dropped.
+  const startPage = await myStartPage(race);
+  S.startPage = startPage;
+  renderGoalBar(race);
+  await countdown(race, startPage);
 
   S.running = true;
   S.startedAt = performance.now();
@@ -2137,8 +2181,8 @@ async function enterRace(race, myRun) {
   const penalty = (race.handicaps || {})[norm(S.snap ? S.snap.me.name : "")] || 0;
   if (penalty > 0) await servePenalty(penalty);
 
-  await navigate(race.start, false);
-  S.path = [S.current || race.start];
+  await navigate(startPage, false);
+  S.path = [S.current || startPage];
   S.stepTimes = [round1(elapsed())];
   renderCrumbs();
   reportProgress();
@@ -2168,7 +2212,7 @@ function servePenalty(seconds) {
   });
 }
 
-function countdown(race) {
+function countdown(race, startPage) {
   return new Promise(resolve => {
     // A little longer when find is off, so there's time to read the notice
     // and actually close the bar.
@@ -2177,7 +2221,8 @@ function countdown(race) {
     ov.className = "overlay";
     ov.innerHTML =
       '<div class="cd-wrap">' +
-      '<div class="goal-big">' + esc(race.start) + ' &nbsp;→&nbsp; <b>' + esc(race.target) + "</b></div>" +
+      '<div class="goal-big">' + esc(startLabel(race, startPage)) + ' &nbsp;→&nbsp; <b>' + esc(race.target) + "</b></div>" +
+      (race.lost ? '<div class="cd-lost">You\'re lost — everyone starts somewhere different</div>' : "") +
       '<div id="countdown">' + from + "</div>" +
       '<div class="muted tiny">only in-article links count</div>' +
       // A page can't close the browser's find bar, so the only moment to deal
@@ -2642,7 +2687,7 @@ function renderResults(snap) {
 
   let html =
     '<h2 class="hub-h2">' + head + "</h2>" +
-    '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) +
+    '<p class="hub-sub">' + esc(startLabel(race)) + " → " + esc(race.target) +
     (raceCheckpoints(race).length ? " · via " + raceCheckpoints(race).map(esc).join(", ") : "") +
     " · " + (raceMode(race) === "clicks" ? "fewest clicks" : "fastest time") + "</p>";
 
@@ -2674,19 +2719,23 @@ function renderResults(snap) {
     '<div class="fact" id="shortest-fact">Working out the shortest possible route…</div></div>';
 
   host.innerHTML = html;
-  fillShortest(race, fin);
+  // Lost, everyone had a different distance to cover: the best route that
+  // means anything is the one from your own start.
+  if (race.lost) fillShortest(race, mine && mine.finished ? [mine] : [], mine && (mine.path || [])[0]);
+  else fillShortest(race, fin, race.start);
 }
 
-async function fillShortest(race, fin) {
+async function fillShortest(race, fin, start) {
   const el = $("shortest-fact");
   if (!el) return;
+  if (!start) { el.textContent = "Everyone started somewhere different, so there's no one best route."; return; }
   try {
-    const r = await shortestRoute(race.start, race.target, race.lang || "en");
+    const r = await shortestRoute(start, race.target, race.lang || "en");
     if (!$("shortest-fact")) return;
     const best = fin.length ? Math.min(...fin.map(x => x.clicks)) : null;
     let msg;
     if (r.hops === 1) {
-      msg = "<b>" + esc(race.start) + "</b> links straight to <b>" + esc(race.target) +
+      msg = "<b>" + esc(start) + "</b> links straight to <b>" + esc(race.target) +
             "</b> — one click was all it needed.";
     } else if (r.hops === 2) {
       msg = "The shortest route was <b>2 clicks</b>, e.g. via <b>" +
@@ -2846,7 +2895,7 @@ async function findGhost(snap) {
   const race = snap.race;
   if (!race || !snap.races_list) return null;
   const prior = snap.races_list
-    .filter(r => r.race_id !== race.race_id &&
+    .filter(r => r.race_id !== race.race_id && !race.lost && !r.lost &&
                  norm(r.start) === norm(race.start) &&
                  norm(r.target) === norm(race.target))
     .sort((a, b) => (b.created || 0) - (a.created || 0));
@@ -2890,7 +2939,7 @@ async function renderReplay(snap) {
     host.classList.add("wide");
     host.innerHTML =
       '<h2 class="hub-h2">Replay</h2>' +
-      '<p class="hub-sub">' + esc(race.start) + " → " + esc(race.target) + "</p>" +
+      '<p class="hub-sub">' + esc(startLabel(race)) + " → " + esc(race.target) + "</p>" +
       '<div class="rm-bar">' +
       '<div class="seg" id="rp-type" role="group" aria-label="View"></div>' +
       '<div class="seg" id="rp-mode" role="group" aria-label="Combined or separate"></div>' +
@@ -3443,8 +3492,8 @@ function renderLobby(snap) {
   const last = lastFinishedRace(snap);
   setFlag($("lobby-rematch"), "hidden", !last);
   if (last) {
-    setText($("lobby-last"), "Last race: " + last.start + " → " + last.target);
-    setText($("lobby-rematch"), "Rematch: " + last.start + " → " + last.target);
+    setText($("lobby-last"), "Last race: " + startLabel(last) + " → " + last.target);
+    setText($("lobby-rematch"), "Rematch: " + startLabel(last) + " → " + last.target);
   } else {
     setText($("lobby-last"), "");
   }
@@ -3669,8 +3718,11 @@ const RouteMap = (() => {
     // The start and target as typed can be redirects, so read the real titles
     // off the routes wherever there is one to read.
     const done = runs.find(r => r.finished);
+    // Everyone's first page. One page in an ordinary race; in a lost race,
+    // a start each.
+    const startKeys = new Set(runs.length ? runs.map(r => norm(r.path[0])) : [norm(race.start)]);
     return {
-      runs, label, visitors,
+      runs, label, visitors, startKeys,
       startKey: runs.length ? norm(runs[0].path[0]) : norm(race.start),
       targetKey: done ? norm(done.path[done.path.length - 1]) : norm(race.target),
       checkKeys: new Set(raceCheckpoints(race).map(norm)),
@@ -3698,7 +3750,7 @@ const RouteMap = (() => {
       acc.get(k).push(p);
     }));
     const out = new Map([...acc].map(([k, v]) => [k, v.reduce((a, b) => a + b, 0) / v.length]));
-    if (out.has(m.startKey)) out.set(m.startKey, -1);
+    for (const k of m.startKeys) if (out.has(k)) out.set(k, -1);
     if (out.has(m.targetKey)) out.set(m.targetKey, 2);
     return out;
   }
@@ -3742,7 +3794,7 @@ const RouteMap = (() => {
       const k = norm(t);
       col.set(k, Math.min(col.has(k) ? col.get(k) : Infinity, i));
     }));
-    if (col.has(m.startKey)) col.set(m.startKey, 0);
+    for (const k of m.startKeys) if (col.has(k)) col.set(k, 0);
     let widest = 0;
     for (const [k, c] of col) if (k !== m.targetKey) widest = Math.max(widest, c);
     if (col.has(m.targetKey)) col.set(m.targetKey, widest + 1);
@@ -3768,7 +3820,7 @@ const RouteMap = (() => {
   }
 
   function layoutCollapsed(m) {
-    const keep = new Set([m.startKey, m.targetKey, ...m.checkKeys]);
+    const keep = new Set([...m.startKeys, m.targetKey, ...m.checkKeys]);
     for (const [k, v] of m.visitors) if (v.size > 1) keep.add(k);
     m.runs.forEach(r => {
       const seen = new Set();
@@ -3802,8 +3854,12 @@ const RouteMap = (() => {
      shared page is worth a few gaps of stretch to line up. */
   function alignRoutes(m) {
     const R = m.runs.length;
-    const seqs = m.runs.map(r => r.path.map(norm));
-    const pinned = new Set([m.startKey, m.targetKey]);
+    // Players who started apart still start together: every first page lines
+    // up in the first column as a stand-in, and gets its own page back after.
+    const START = "\u0000start", apart = m.startKeys.size > 1;
+    const seqs = m.runs.map(r => r.path.map((t, i) => apart && i === 0 ? START : norm(t)));
+    const pinned = new Set([apart ? START : m.startKey, m.targetKey]);
+    const own = cols => apart ? cols.map(c => c.map((k, ri) => k === START ? norm(m.runs[ri].path[0]) : k)) : cols;
     const MATCH = 4, PIN = 60, GAP = -0.6;
     const single = ri => seqs[ri].map(k => { const c = new Array(R).fill(null); c[ri] = k; return c; });
 
@@ -3838,7 +3894,7 @@ const RouteMap = (() => {
       return { cols: cols.reverse(), score: D[n][q] };
     }
 
-    if (R === 1) return single(0);
+    if (R === 1) return own(single(0));
     // Start from the two routes that agree most, then fold the rest in.
     let best = null;
     for (let a = 0; a < R; a++) for (let b = a + 1; b < R; b++) {
@@ -3857,7 +3913,7 @@ const RouteMap = (() => {
       profile = pick.res.cols;
       used.add(pick.ri);
     }
-    return profile;
+    return own(profile);
   }
 
   /* Which lane each player gets: the people who met most sit together. */
@@ -3951,8 +4007,8 @@ const RouteMap = (() => {
     // 1. An order that the fewest clicks run against (Eades-Lin-Smyth).
     const alive = new Set(keys), head = [], tail = [];
     const live = mp => { let t = 0; for (const [n, w] of mp) if (alive.has(n)) t += w; return t; };
-    const hasStart = alive.has(m.startKey), hasTarget = alive.has(m.targetKey) && m.targetKey !== m.startKey;
-    if (hasStart) { head.push(m.startKey); alive.delete(m.startKey); }
+    const hasTarget = alive.has(m.targetKey) && !m.startKeys.has(m.targetKey);
+    for (const k of m.startKeys) if (alive.has(k)) { head.push(k); alive.delete(k); }
     if (hasTarget) alive.delete(m.targetKey);
     while (alive.size) {
       let changed = true;
@@ -3978,11 +4034,11 @@ const RouteMap = (() => {
     // 2. Layers: longest path first, then each page slides toward the pages it
     //    links to, never so far that a forward link stops pointing right.
     const layer = new Map();
-    for (const k of seq) layer.set(k, k === m.startKey ? 0 : Math.max(1, ...preds(k).map(([p]) => layer.get(p) + 1)));
+    for (const k of seq) layer.set(k, m.startKeys.has(k) ? 0 : Math.max(1, ...preds(k).map(([p]) => layer.get(p) + 1)));
     for (let pass = 0; pass < 80; pass++) {
       let moved = false;
       for (const k of seq) {
-        if (k === m.startKey || k === m.targetKey) continue;
+        if (m.startKeys.has(k) || k === m.targetKey) continue;
         const ps = preds(k), ss = succs(k);
         const lo = Math.max(1, ...ps.map(([p]) => layer.get(p) + 1));
         const hi = ss.length ? Math.min(...ss.map(([n]) => layer.get(n) - 1)) : Infinity;
@@ -4080,7 +4136,8 @@ const RouteMap = (() => {
         const L = layers[i];
         if (!L.length) continue;
         const want = L.map(id => {
-          if (id === m.startKey || id === m.targetKey) return 0;
+          // One start sits on the centre line; several spread out with their routes.
+          if ((m.startKeys.size === 1 && id === m.startKey) || id === m.targetKey) return 0;
           const ns = nbrs(id);
           if (!ns.length) return y.get(id);
           let t = 0, w = 0;
@@ -4111,7 +4168,7 @@ const RouteMap = (() => {
     const keys = [...m.label.keys()];
     const col = columnsOf(m);
     const maxC = Math.max(...col.values());
-    const pinned = new Set([m.startKey, m.targetKey]);
+    const pinned = new Set([...m.startKeys, m.targetKey]);
     const forward = edgeList(m).filter(e => !e.revisit && e.a !== e.b);
     const x = new Map(keys.map(k => [k, col.get(k)]));
     for (let it = 0; it < 200; it++) {
@@ -4134,9 +4191,11 @@ const RouteMap = (() => {
     const prog = progressOf(m);
     const P = relaxedSeed(m);
     const cy = 300;
-    const pinned = new Set([m.startKey, m.targetKey]);
-    if (P.has(m.startKey)) Object.assign(P.get(m.startKey), { x: PAD, y: cy });
-    if (P.has(m.targetKey) && m.targetKey !== m.startKey) Object.assign(P.get(m.targetKey), { x: W - PAD, y: cy });
+    const pinned = new Set([...m.startKeys, m.targetKey]);
+    // Starts down the left edge, one above the other when there are several.
+    const starts = [...m.startKeys].filter(k => P.has(k) && k !== m.targetKey);
+    starts.forEach((k, i) => Object.assign(P.get(k), { x: PAD, y: cy + (i - (starts.length - 1) / 2) * 110 }));
+    if (P.has(m.targetKey) && !m.startKeys.has(m.targetKey)) Object.assign(P.get(m.targetKey), { x: W - PAD, y: cy });
     const links = new Map();
     for (const e of edgeList(m)) {
       if (e.a === e.b) continue;
@@ -4203,7 +4262,7 @@ const RouteMap = (() => {
   }
 
   function nodeLook(m, key) {
-    const isStart = key === m.startKey, isTarget = key === m.targetKey;
+    const isStart = m.startKeys.has(key), isTarget = key === m.targetKey;
     const shared = (m.visitors.get(key) || new Set()).size > 1;
     const isCheck = m.checkKeys.has(key);
     return {
@@ -4882,7 +4941,7 @@ const RouteMap = (() => {
 /* Settings survive between races, so a rematch is one click. */
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
-  ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0,
+  ban_hubs: false, handicap: false, checkpoints: [], mode: "time", toc: 0, lost: false,
   allow_find: true,
   allow_peek: true,
 };
@@ -5061,6 +5120,9 @@ function openConfigurator() {
       '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
       '<button id="c-swap" title="Swap start and target">⇄</button>' +
     "</div>" +
+    '<div class="toggle" id="c-lost" style="margin:-4px 0 18px"><div class="track"></div>' +
+    '<span>Lost <span class="muted tiny">(everyone starts on a different random page — ' +
+    "first to the target wins)</span></span></div>" +
 
     '<div class="field"><label>Rules</label>' +
       '<div class="toggle" id="c-positions"><div class="track"></div>' +
@@ -5167,6 +5229,16 @@ function openConfigurator() {
   bindToggle("#c-hubs", "ban_hubs");
   bindToggle("#c-handicap", "handicap");
 
+  // Lost: there's no start to choose, so the box steps aside.
+  const syncLost = () => {
+    q("#c-lost").classList.toggle("on", cfg.lost);
+    startIn.disabled = cfg.lost;
+    q("#c-swap").disabled = cfg.lost;
+    startIn.placeholder = cfg.lost ? "a random page for each player" : "type to search…";
+  };
+  q("#c-lost").onclick = () => { cfg.lost = !cfg.lost; syncLost(); };
+  syncLost();
+
 
   const getLang = () => langDD.value;
 
@@ -5222,20 +5294,22 @@ function openConfigurator() {
 
   // -- launching --------------------------------------------------------
   const launch = async () => {
-    const start = startIn.value.trim(), target = targetIn.value.trim();
-    if (!start || !target) { toast("Pick both a start and a target"); return; }
+    const lost = cfg.lost;
+    const start = lost ? "" : startIn.value.trim(), target = targetIn.value.trim();
+    if (lost && !target) { toast("Pick a target"); return; }
+    if (!lost && (!start || !target)) { toast("Pick both a start and a target"); return; }
     const go = q("#c-go");
     go.disabled = true; go.textContent = "Checking…";
     try {
       const lang = getLang();
       const [cs, ct] = await Promise.all([
-        canonicalTitle(start, lang), canonicalTitle(target, lang),
+        lost ? "" : canonicalTitle(start, lang), canonicalTitle(target, lang),
       ]);
-      if (!cs || !ct) {
-        toast('No article called "' + (cs ? target : start) + '"');
+      if ((!lost && !cs) || !ct) {
+        toast('No article called "' + (ct ? start : target) + '"');
         go.disabled = false; go.textContent = "Start race"; return;
       }
-      if (norm(cs) === norm(ct)) {
+      if (!lost && norm(cs) === norm(ct)) {
         toast("Those are the same article!");
         go.disabled = false; go.textContent = "Start race"; return;
       }
@@ -5250,9 +5324,18 @@ function openConfigurator() {
         }
         if (!cfg.checkpoints.some(c => norm(c) === norm(canon))) cfg.checkpoints.push(canon);
       }
+      let starts = [];
+      if (lost) {
+        go.textContent = "Getting lost…";
+        starts = await lostStarts(lang, ct, cfg.checkpoints, cfg.ban_hubs);
+        if (starts.length < 2) {
+          toast("Couldn't find starting pages — try again");
+          go.disabled = false; go.textContent = "Start race"; return;
+        }
+      }
       close();
       await post("/start_race", {
-        start: cs, target: ct, lang: lang,
+        start: cs, target: ct, lang: lang, lost, starts,
         show_positions: cfg.show_positions,
         allow_back: cfg.allow_back,
         allow_find: cfg.allow_find,
@@ -5787,8 +5870,11 @@ $("lobby-rematch").onclick = async () => {
   const last = lastFinishedRace(S.snap);
   if (!last) return;
   cfg.lang = last.lang || cfg.lang;
+  // A lost rematch gets lost somewhere new.
+  const starts = last.lost ? await lostStarts(cfg.lang, last.target, cfg.checkpoints, cfg.ban_hubs) : [];
+  if (last.lost && starts.length < 2) { toast("Couldn't reach Wikipedia"); return; }
   await post("/start_race", {
-    start: last.start, target: last.target, lang: cfg.lang,
+    start: last.start, target: last.target, lang: cfg.lang, lost: !!last.lost, starts,
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     allow_find: cfg.allow_find, allow_peek: cfg.allow_peek,
     time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,

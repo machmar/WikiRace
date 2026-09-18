@@ -231,6 +231,36 @@ class GameState:
                 return candidate
         return "Player"
 
+    def lost_start(self, race, me):
+        """A starting page of this player's own, for a lost race.
+
+        The browser that set the race up picked the candidates; this hands one
+        out per player, skipping any somebody already started on, so the page
+        is decided once and a reload lands on the same one. Peers hand out
+        starts independently, so the pick among what's left is by name rather
+        than first-free - two machines rarely choose the same one at once.
+        Call with the lock held.
+        """
+        starts = [t for t in (race.get("starts") or []) if isinstance(t, str) and t.strip()]
+        if not starts:
+            return race.get("start") or ""
+        rid, taken = race["race_id"], set()
+        for p in self.locals.values():
+            run = p.run or {}
+            if p is not me and run.get("race_id") == rid and run.get("start"):
+                taken.add(norm_name(run["start"]))
+            if p is not me and run.get("race_id") == rid and run.get("path"):
+                taken.add(norm_name(run["path"][0]))
+        for peer in self.peers.values():
+            if peer.get("race_id") == rid and peer.get("path"):
+                taken.add(norm_name(peer["path"][0]))
+        for res in (race.get("results") or {}).values():
+            if res.get("path"):
+                taken.add(norm_name(res["path"][0]))
+        free = [t for t in starts if norm_name(t) not in taken] or starts
+        seed = hashlib.sha1((rid + ":" + norm_name(me.name)).encode("utf-8")).digest()
+        return free[int.from_bytes(seed[:4], "big") % len(free)]
+
     def name_in_race(self, name, me, race):
         """Whoever already races - or has finished - this race under this name.
 
@@ -524,7 +554,7 @@ class GameState:
                 # Deliberately compact - this rides every snapshot, so full
                 # paths are fetched on demand from /api/race instead.
                 "races_list": [
-                    {"race_id": r["race_id"], "start": r.get("start"),
+                    {"race_id": r["race_id"], "start": r.get("start"), "lost": bool(r.get("lost")),
                      "target": r.get("target"), "created": r.get("created", 0),
                      "lang": r.get("lang", "en"),
                      "finishers": sum(1 for x in r.get("results", {}).values()
@@ -823,6 +853,8 @@ class PeerNet:
                 "race_id": rid,
                 "start": incoming.get("start"),
                 "target": incoming.get("target"),
+                "lost": bool(incoming.get("lost", False)),
+                "starts": list(incoming.get("starts") or []),
                 "initiator": incoming.get("initiator"),
                 "created": incoming.get("created", now()),
                 "results": dict(incoming.get("results", {})),
@@ -1417,6 +1449,7 @@ def make_handler(state, net, hub):
                 "/api/name": self.act_name,
                 "/api/start_race": self.act_start_race,
                 "/api/progress": self.act_progress,
+                "/api/start_page": self.act_start_page,
                 "/api/finish": self.act_finish,
                 "/api/give_up": self.act_give_up,
                 "/api/toggle_opponents": self.act_toggle,
@@ -1526,13 +1559,28 @@ def make_handler(state, net, hub):
         def act_start_race(self, body, me):
             start = (body.get("start") or "").strip()
             target = (body.get("target") or "").strip()
-            if not start or not target:
+            # Lost: nobody shares a start. The browser setting the race up sends
+            # a handful of pages, and each player is handed one of their own.
+            lost = bool(body.get("lost"))
+            starts = []
+            for t in body.get("starts") or []:
+                if isinstance(t, str) and t.strip() and norm_name(t) != norm_name(target) \
+                        and norm_name(t) not in {norm_name(x) for x in starts}:
+                    starts.append(t.strip()[:200])
+            starts = starts[:16]
+            if lost:
+                if not target or len(starts) < 2:
+                    raise ValueError("a lost race needs a target and some starting pages")
+                start = ""
+            elif not start or not target:
                 raise ValueError("need both a start and a target article")
             limit = body.get("time_limit")
             race = {
                 "race_id": uuid.uuid4().hex[:12],
                 "start": start,
                 "target": target,
+                "lost": lost,
+                "starts": starts if lost else [],
                 "initiator": me.name,
                 "created": now(),
                 "results": {},
@@ -1571,7 +1619,8 @@ def make_handler(state, net, hub):
                     p.run = None
                     p.ready = False
                     p.peek_vote = None
-                state.add_event(f"{me.name} started a race: {start} -> {target}", "race")
+                state.add_event(f"{me.name} started a lost race: everyone -> {target}" if lost else
+                                f"{me.name} started a race: {start} -> {target}", "race")
                 state.bump()
             net.send({"type": "race_start", "race": race,
                       "from": me.id, "name": me.name, "color": me.color})
@@ -1606,6 +1655,31 @@ def make_handler(state, net, hub):
                 run["elapsed"] = float(body.get("elapsed") or 0.0)
                 state.bump()
             net.send_state()
+
+        def act_start_page(self, body, me):
+            """Where this player begins. In a lost race that's a page of their
+            own, handed out the first time they ask and kept on their run, so
+            asking again after a reload gives the same answer."""
+            with state.lock:
+                race = state.active_race()
+                if not race:
+                    return {"ok": False, "error": "no active race"}
+                if not race.get("lost"):
+                    return {"ok": True, "start": race.get("start")}
+                run = me.run
+                if run is None or run.get("race_id") != race["race_id"]:
+                    clash = state.name_in_race(me.name, me, race)
+                    if clash:
+                        return {"ok": False, "error": "name_in_race", "name": clash}
+                    run = {"race_id": race["race_id"], "clicks": 0, "path": [],
+                           "times": [], "started_at": now(), "finished": False,
+                           "gave_up": False, "done": False, "elapsed": None}
+                    me.run = run
+                if not run.get("start"):
+                    run["start"] = state.lost_start(race, me)
+                start = run["start"]
+                state.bump()
+            return {"ok": True, "start": start}
 
         def act_finish(self, body, me):
             return self._record_result(body, me, finished=True)
