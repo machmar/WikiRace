@@ -71,6 +71,22 @@ Traps found the hard way:
 - Synthetic `pointerover` doesn't trigger CSS `:hover`; use a real hover, or
   assert on the classes and styles your code sets.
 
+## Filing issues and PRs
+
+Anything Claude opens is filed by the machine account `machmar-claude`, not by
+the owner, so the history says who did what. It is a collaborator on the repo
+with write access, and its login lives in its own gh config directory.
+
+    $env:GH_CONFIG_DIR = "$env:USERPROFILE\.config\gh-claude"
+    gh issue create ...
+
+There is a `ghc` function in the user's PowerShell profile that does the same
+thing in one word (`ghc issue create ...`), leaving plain `gh` as the owner's
+own login. Assign work to `machmar-claude` too.
+
+Commits keep the owner as committer but carry Claude as co-author, which is
+what the trailer in the commit message is for.
+
 ## Committing
 
 Only when asked. PowerShell here-strings mangle a message containing double
