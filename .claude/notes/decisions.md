@@ -119,3 +119,39 @@ line number. A framework would buy less than the simplicity costs.
 Races are kept in `wikirace.db` (WAL), with the old `wikirace_history.json`
 imported once and renamed. A single JSON file rewritten on every change was
 losing the point at which races got long.
+
+## There is a design language, and it was measured, not invented
+
+Colour was already a real token system; type, space, radius and motion never
+got the same treatment. Measuring `ui.html` found 27 distinct font sizes across
+140 declarations — 48 of them on half-pixels that were the same size written on
+different days — 13 radii expressing 4 roles, and spacing at nearly every
+integer from 1 to 26.
+
+So the scales in `docs/DesignLanguage.md` are derived: each is the value that
+already dominated. Two move away from current practice on purpose, and both say
+so: panels go from 10px to 16px radius (today a panel is rounded *less* than
+the cards inside it, which reads backwards), and four text sizes is fewer than
+the game uses.
+
+**A 4px grid was the worst-fitting scale of everything tested**, because it
+moves `6px` forty times and `10px` twenty-four. The game has always had a
+3-based rhythm. Anyone reaching for the usual grid out of habit will fight the
+file the whole way.
+
+Rejected: a scale fine enough to fit the game exactly. It needed 13–15 steps,
+and a 13-step scale is not a system — it is the status quo with token names on
+it, and "which size?" still has a dozen answers.
+
+Rejected: **retrofitting by attrition**, each feature snapping whatever it
+happened to touch. It was the first plan and it was wrong. A half-converted
+interface has *more* inconsistency than an unconverted one, because two systems
+run at once and "which is right, the old panel or the new one?" becomes a live
+question on every screen. The game is brought over one screen at a time
+instead, each its own issue, commit and before-and-after.
+
+Two things the standard deliberately does not cover: the article, which keeps
+Wikipedia's own colours and type because the reading is meant to look like the
+real thing; and the route maps and timeline, which are data drawings whose
+geometry means something about the race rather than about visual rhythm. The
+chrome around a drawing is ordinary interface and does follow the standard.

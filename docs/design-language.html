@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WikiRace — the design language</title>
+<style>
+  /* The token layer, exactly as it goes into ui.html's :root. This file is the
+     source of truth for the block to paste, so that the reference and the game
+     cannot drift apart without somebody noticing. */
+  :root {
+    /* Colour: unchanged from the game. */
+    --bg: #0d1117;
+    --bg-2: #141b24;
+    --bg-3: #1b232e;
+    --line: #26303d;
+    --line-soft: #1e2733;
+    --line-strong: #38424f;
+    --fg: #e6edf3;
+    --fg-dim: #9aa7b4;
+    --fg-faint: #6b7785;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --gold: #e3b341;
+    --good-bg: #14261a;   --good-line: #2d6b3a;  --good-fg: #7ee787;
+    --warn-bg: #33270c;   --warn-line: #8a6d1f;  --warn-fg: #f2cc60;
+    --bad-bg: #40202a;    --bad-line: #6b2d34;   --bad-fg: #ff9b95;
+    --info-bg: #16222f;   --info-line: #2b4a6b;
+    --accent-solid: #1f6feb; --accent-line: #2f7ff5;
+    --hover: #232d3a;     --sunken: #1b232e;     --raised: #1b2733;
+    --scrim: rgba(6, 10, 15, .6);
+    --shadow: rgba(0, 0, 0, .5);
+
+    /* Type: four text sizes, four display, two mono. Twenty-seven distinct
+       sizes were measured, 48 of them on half-pixels that were the same size
+       written on different days. */
+    --t-xs: 11px;
+    --t-sm: 13px;
+    --t-md: 15px;
+    --t-lg: 17px;
+    --t-xl: 22px;
+    --t-2xl: 30px;
+    --t-3xl: 46px;
+    --t-4xl: 130px;
+
+    /* Space: a 3-based rhythm. A 4px grid was the worst-fitting scale of
+       everything measured — it moves 6px forty times and 10px twenty-four. */
+    --s-1: 3px;
+    --s-2: 6px;
+    --s-3: 9px;
+    --s-4: 12px;
+    --s-5: 15px;
+    --s-6: 20px;
+    --s-7: 26px;
+    --s-8: 40px;
+    --s-9: 60px;
+
+    /* Radius: four roles. Thirteen values were in use to express them. */
+    --r-pill: 999px;
+    --r-box: 8px;
+    --r-card: 12px;
+    --r-panel: 16px;
+
+    /* Motion: three durations, two easings. --e-spring is for arrivals only. */
+    --m-fast: .12s;
+    --m-base: .2s;
+    --m-slow: .6s;
+    --e-out: ease;
+    --e-spring: cubic-bezier(.4, 1.3, .5, 1);
+
+    /* Elevation: built from --shadow, never a literal rgba. */
+    --el-lift: 0 8px 26px var(--shadow);
+    --el-float: 0 20px 60px var(--shadow);
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+
+  html[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-2: #f6f7f9;
+    --bg-3: #eceff3;
+    --line: #d4d9e0;
+    --line-soft: #e7eaef;
+    --line-strong: #b7bfca;
+    --fg: #1b1f24;
+    --fg-dim: #4a5058;
+    --fg-faint: #767e88;
+    --accent: #0b62d6;
+    --good: #1a7f37;
+    --warn: #9a6700;
+    --bad: #cf222e;
+    --gold: #9a6700;
+    --good-bg: #dafbe1;  --good-line: #4ac26b;  --good-fg: #1a7f37;
+    --warn-bg: #fff8c5;  --warn-line: #d4a72c;  --warn-fg: #7d4e00;
+    --bad-bg: #ffebe9;   --bad-line: #ff8182;   --bad-fg: #a40e26;
+    --info-bg: #ddf4ff;  --info-line: #54aeff;
+    --accent-solid: #0969da; --accent-line: #0969da;
+    --hover: #eef1f4;    --sunken: #f6f8fa;     --raised: #eef2f6;
+    --scrim: rgba(27, 31, 36, .45);
+    --shadow: rgba(80, 90, 105, .22);
+  }
+
+  /* ---- the page itself, built on the language it documents ---- */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); font-size: var(--t-sm); line-height: 19px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 var(--s-6); }
+
+  header.top {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  .top-in {
+    max-width: 900px; margin: 0 auto; padding: var(--s-3) var(--s-6);
+    display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap;
+  }
+  .top-name {
+    font-family: var(--mono); font-size: var(--t-xs);
+    letter-spacing: .1em; text-transform: uppercase; color: var(--fg-faint);
+    margin-right: auto;
+  }
+
+  h1 { font-size: var(--t-3xl); line-height: 50px; font-weight: 700; margin: 0 0 var(--s-4); letter-spacing: -.02em; }
+  h2 { font-size: var(--t-xl); line-height: 26px; font-weight: 700; margin: 0 0 var(--s-4); }
+  h3 { font-size: var(--t-lg); line-height: 24px; font-weight: 600; margin: var(--s-7) 0 var(--s-3); }
+  h4 {
+    font-size: var(--t-xs); line-height: 15px; font-weight: 600; margin: 0 0 var(--s-2);
+    letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint);
+  }
+  p { margin: 0 0 var(--s-4); max-width: 68ch; color: var(--fg-dim); }
+  p.plain { color: var(--fg); }
+  a { color: var(--accent); }
+  code {
+    font-family: var(--mono); font-size: var(--t-xs);
+    background: var(--bg-3); border: 1px solid var(--line-soft);
+    border-radius: var(--s-2); padding: 1px var(--s-2);
+  }
+  section { padding: var(--s-8) 0; border-top: 1px solid var(--line-soft); }
+  header.hero { padding: var(--s-9) 0 var(--s-8); }
+  .lede { font-size: var(--t-md); line-height: 23px; color: var(--fg-dim); max-width: 62ch; }
+
+  /* ---- the seven pieces, defined once ---- */
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    border-radius: var(--r-pill); padding: var(--s-1) var(--s-4);
+    font-size: var(--t-sm);
+  }
+  .pill.on { background: var(--info-bg); border-color: var(--info-line); color: var(--accent); }
+  .pill.done { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+
+  .control {
+    font-family: var(--sans); font-size: var(--t-sm); font-weight: 600;
+    background: var(--bg-3); color: var(--fg); border: 1px solid var(--line);
+    border-radius: var(--r-box); padding: var(--s-2) var(--s-4);
+    cursor: pointer; transition: background var(--m-fast) var(--e-out);
+  }
+  .control:hover { background: var(--hover); }
+  .control.primary { background: var(--accent-solid); border-color: var(--accent-line); color: #fff; }
+  .control.danger { background: var(--bad-bg); border-color: var(--bad-line); color: var(--bad-fg); }
+  .control:disabled { opacity: .45; cursor: default; }
+  input.control { font-weight: 400; min-width: 200px; }
+  input.control:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .row {
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
+    display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-sm);
+  }
+  .row .tag {
+    font-family: var(--mono); font-size: var(--t-xs);
+    border: 1px solid var(--line); color: var(--fg-faint);
+    border-radius: var(--r-pill); padding: 0 var(--s-2);
+  }
+  .row .num { margin-left: auto; font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .row.start { border-color: var(--info-line); box-shadow: inset 3px 0 0 var(--accent); }
+  .row.start .tag { background: var(--info-bg); border-color: var(--info-line); color: var(--accent); }
+  .row.stop { border-color: var(--warn-line); box-shadow: inset 3px 0 0 var(--warn-fg); }
+  .row.stop .tag { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); }
+  .row.target { border-color: var(--good-line); box-shadow: inset 3px 0 0 var(--good); }
+  .row.target .tag { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+
+  .note {
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
+    font-size: var(--t-sm); text-align: center;
+  }
+  .note.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-fg); }
+  .note.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); color: var(--bad-fg); }
+  .note.good { background: var(--good-bg); border: 1px solid var(--good-line); color: var(--good-fg); }
+  .note.info { background: var(--info-bg); border: 1px solid var(--info-line); color: var(--fg); }
+  /* A note that belongs to one control stays at that control's edge, because
+     centring it detaches it from the field it is about. */
+  .note.at-field { text-align: left; }
+
+  .tip {
+    background: var(--bg-3); border: 1px solid var(--line-strong); color: var(--fg);
+    border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
+    font-size: var(--t-sm); box-shadow: var(--el-lift); white-space: nowrap;
+  }
+
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: var(--s-5);
+  }
+  .card .big { font-size: var(--t-lg); line-height: 24px; font-weight: 600; }
+  .card p { margin: var(--s-1) 0 0; font-size: var(--t-sm); }
+
+  .panel {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--r-panel); padding: var(--s-6); box-shadow: var(--el-float);
+  }
+
+  /* ---- reference furniture ---- */
+  .demo {
+    background: var(--sunken); border: 1px solid var(--line-soft);
+    border-radius: var(--r-card); padding: var(--s-6); margin: 0 0 var(--s-5);
+  }
+  .stack { display: flex; flex-direction: column; gap: var(--s-3); align-items: stretch; }
+  .line { display: flex; gap: var(--s-4); align-items: center; flex-wrap: wrap; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s-4); }
+
+  .spec { display: grid; grid-template-columns: 150px 1fr; gap: var(--s-4); padding: var(--s-3) 0; border-bottom: 1px dashed var(--line-soft); align-items: baseline; }
+  .spec:last-child { border-bottom: 0; }
+  .spec .k { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); }
+  .spec .k b { color: var(--accent); font-weight: 500; }
+
+  .sw { display: flex; flex-direction: column; gap: var(--s-2); }
+  .sw .chipc { height: 44px; border-radius: var(--r-box); border: 1px solid var(--line); }
+  .sw .n { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); }
+  .sw .u { font-size: var(--t-xs); color: var(--fg-faint); line-height: 15px; }
+
+  .rhythm { display: flex; align-items: flex-end; gap: var(--s-3); flex-wrap: wrap; }
+  .rhythm .b { background: var(--accent); border-radius: var(--s-1); width: 34px; }
+  .rhythm .n { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); margin-top: var(--s-2); text-align: center; }
+
+  .when { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-5); margin: var(--s-4) 0 0; }
+  .when h4 { color: var(--fg-dim); }
+  .when ul { margin: 0; padding-left: var(--s-6); }
+  .when li { margin-bottom: var(--s-2); color: var(--fg-dim); }
+
+  footer { padding: var(--s-8) 0 var(--s-9); border-top: 1px solid var(--line-soft); color: var(--fg-faint); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 600px) {
+    .spec { grid-template-columns: 1fr; gap: var(--s-1); }
+    .top-name { width: 100%; margin-right: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <span class="top-name">WikiRace · the design language</span>
+    <button class="control" type="button" id="theme">Light theme</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+<header class="hero">
+  <h1>The design language</h1>
+  <p class="lede">
+    What every part of WikiRace is meant to look like, be called, and say — so that a new
+    feature is a lookup rather than a judgement call, and the game looks like one thing.
+    The prose version, with the measurements behind each decision, is in
+    <a href="DesignLanguage.md">DesignLanguage.md</a>.
+  </p>
+  <p>
+    This page is built out of the language it documents: every value below comes from the
+    token block at the top of its source, which is the same block that goes into
+    <code>ui.html</code>. If the two ever drift apart, this page stops looking right.
+  </p>
+</header>
+
+<section>
+  <h2>Colour</h2>
+  <p>
+    Unchanged. A base tier, and the tinted surfaces built from it. Switch the theme above and
+    nothing here breaks — that is the standard the other dimensions are held to.
+  </p>
+  <div class="demo">
+    <h4>Base</h4>
+    <div class="cols" style="margin-bottom: var(--s-6)">
+      <div class="sw"><div class="chipc" style="background: var(--bg-2)"></div><span class="n">--bg-2</span><span class="u">Cards and panels</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bg-3)"></div><span class="n">--bg-3</span><span class="u">Controls and chips</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--accent)"></div><span class="n">--accent</span><span class="u">Links and the current thing</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--good)"></div><span class="n">--good</span><span class="u">A target reached</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--warn)"></div><span class="n">--warn</span><span class="u">A rule limiting play</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bad)"></div><span class="n">--bad</span><span class="u">Failed, or not allowed</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--gold)"></div><span class="n">--gold</span><span class="u">Honours</span></div>
+    </div>
+    <h4>Tinted surfaces</h4>
+    <div class="cols">
+      <div class="sw"><div class="chipc" style="background: var(--good-bg); border-color: var(--good-line)"></div><span class="n">--good-bg / -line / -fg</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--warn-bg); border-color: var(--warn-line)"></div><span class="n">--warn-bg / -line / -fg</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bad-bg); border-color: var(--bad-line)"></div><span class="n">--bad-bg / -line / -fg</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--info-bg); border-color: var(--info-line)"></div><span class="n">--info-bg / -line</span></div>
+    </div>
+  </div>
+  <p>
+    Shadows are built from <code>--shadow</code>, never a literal <code>rgba</code>: three
+    places in the game hard-code <code>rgba(0, 0, 0, .5)</code> today and go muddy on the light
+    themes. Player colours come from <code>raceColors</code> and nowhere else, so the timeline,
+    the maps and the player boxes always agree on who is who.
+  </p>
+</section>
+
+<section>
+  <h2>Type</h2>
+  <p>
+    Four text sizes, four display sizes. Twenty-seven distinct sizes were measured across 140
+    declarations; forty-eight sat on half-pixels — 9.5, 10.5, 11.5, 12.5, 13.5 — scattered
+    across unrelated components. Collapsing those is most of what this scale does.
+  </p>
+  <div class="demo">
+    <div class="spec"><span class="k"><b>--t-xs</b> 11px</span><span style="font-size: var(--t-xs)">Fine print: legends, pips, meta, captions</span></div>
+    <div class="spec"><span class="k"><b>--t-sm</b> 13px</span><span style="font-size: var(--t-sm)">The workhorse. If you are unsure, it is this one</span></div>
+    <div class="spec"><span class="k"><b>--t-md</b> 15px</span><span style="font-size: var(--t-md); font-weight: 600">Emphasis and card headings</span></div>
+    <div class="spec"><span class="k"><b>--t-lg</b> 17px</span><span style="font-size: var(--t-lg); font-weight: 600">Section headings</span></div>
+    <div class="spec"><span class="k"><b>--t-xl</b> 22px</span><span style="font-size: var(--t-xl); font-weight: 700">Jazz &rarr; Mississippi</span></div>
+    <div class="spec"><span class="k"><b>--t-2xl</b> 30px</span><span style="font-size: var(--t-2xl); font-weight: 700">Kody wins</span></div>
+    <div class="spec"><span class="k"><b>--t-3xl</b> 46px</span><span style="font-size: var(--t-3xl); font-weight: 700">Finished</span></div>
+    <div class="spec"><span class="k"><b>--t-4xl</b> 130px</span><span style="font-size: var(--t-4xl); font-weight: 700; line-height: 1">3</span></div>
+  </div>
+  <p>Weights are <b>400</b> body, <b>600</b> emphasis, <b>700</b> heading. The 500, 650 and 800 in use today account for six declarations between them.</p>
+</section>
+
+<section>
+  <h2>Space</h2>
+  <p>
+    A 3-based rhythm. This is the part most likely to catch out somebody arriving with habits:
+    a 4px grid was the worst-fitting scale of everything measured, because it moves
+    <code>6px</code> forty times and <code>10px</code> twenty-four times. The game has always
+    had a 3-based rhythm; it just never said so.
+  </p>
+  <div class="demo">
+    <div class="rhythm">
+      <div><div class="b" style="height: 3px"></div><div class="n">3<br>--s-1</div></div>
+      <div><div class="b" style="height: 6px"></div><div class="n">6<br>--s-2</div></div>
+      <div><div class="b" style="height: 9px"></div><div class="n">9<br>--s-3</div></div>
+      <div><div class="b" style="height: 12px"></div><div class="n">12<br>--s-4</div></div>
+      <div><div class="b" style="height: 15px"></div><div class="n">15<br>--s-5</div></div>
+      <div><div class="b" style="height: 20px"></div><div class="n">20<br>--s-6</div></div>
+      <div><div class="b" style="height: 26px"></div><div class="n">26<br>--s-7</div></div>
+      <div><div class="b" style="height: 40px"></div><div class="n">40<br>--s-8</div></div>
+      <div><div class="b" style="height: 60px"></div><div class="n">60<br>--s-9</div></div>
+    </div>
+  </div>
+  <p>Lay sibling groups out with flex or grid and <code>gap</code>, not per-element margins that collapse or double.</p>
+</section>
+
+<section>
+  <h2>Radius, and elevation</h2>
+  <p>
+    Four roles. Thirteen values were in use to express them, and <code>--radius: 10px</code> —
+    the only radius token that existed — was used three times and was already overloaded
+    across two of the four.
+  </p>
+  <div class="demo">
+    <div class="cols">
+      <div class="sw"><div class="chipc" style="background: var(--bg-3); border-radius: var(--r-pill)"></div><span class="n">--r-pill 999px</span><span class="u">A token you read</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bg-3); border-radius: var(--r-box)"></div><span class="n">--r-box 8px</span><span class="u">Controls, rows, notes, tips</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bg-2); border-radius: var(--r-card)"></div><span class="n">--r-card 12px</span><span class="u">A thing among its siblings</span></div>
+      <div class="sw"><div class="chipc" style="background: var(--bg-2); border-radius: var(--r-panel)"></div><span class="n">--r-panel 16px</span><span class="u">The container the rest sits in</span></div>
+    </div>
+  </div>
+  <p>
+    <code>--r-panel</code> moves panels from 10px to 16px. Today a panel is rounded
+    <em>less</em> than the cards inside it, which reads backwards — the container should be the
+    softer shape. It is the one value here that moves for a reason other than consistency, and
+    the first to look at if the standard ever feels wrong.
+  </p>
+  <div class="demo">
+    <div class="panel">
+      <div class="cols">
+        <div class="card"><h4>Start</h4><div class="big">Jazz</div></div>
+        <div class="card"><h4>Target</h4><div class="big">Mississippi River</div></div>
+      </div>
+    </div>
+  </div>
+  <p>
+    Elevation is three levels: <code>--el-lift</code> for a Tip, <code>--el-float</code> for a
+    Panel, and an inset ring for focus. Both shadows are built from <code>--shadow</code>.
+  </p>
+</section>
+
+<section>
+  <h2>Motion</h2>
+  <p>
+    Three durations and two easings. <code>--e-spring</code> is for a checkpoint splash or the
+    finish — something that has arrived. Never for a hover. It appears once in the game today
+    and should stay rare. Everything obeys <code>prefers-reduced-motion</code>.
+  </p>
+  <div class="demo">
+    <div class="spec"><span class="k"><b>--m-fast</b> .12s</span><span>State flicks: hover, press, toggle</span></div>
+    <div class="spec"><span class="k"><b>--m-base</b> .2s</span><span>The default: folds, fades, slides</span></div>
+    <div class="spec"><span class="k"><b>--m-slow</b> .6s</span><span>Celebratory: splashes, fanfare</span></div>
+    <div class="spec"><span class="k"><b>--e-spring</b></span><span><code>cubic-bezier(.4, 1.3, .5, 1)</code> — arrivals only</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>The seven pieces</h2>
+  <p class="plain">
+    Every surface in the game is one of seven. <b>A new piece of UI is one of them, or you have
+    found an eighth — and an eighth goes in this file before it goes in
+    <code>ui.html</code>.</b>
+  </p>
+  <p>
+    The base class sits alongside the feature namespace, so <code>.card</code> carries the
+    shape and <code>.lobby-card</code> carries only what is particular to the lobby:
+    <code>&lt;div class="card lobby-card"&gt;</code>. No rename sweep, no build step, and an
+    area nobody has converted keeps working untouched.
+  </p>
+
+  <h3>Pill &mdash; a standalone token you read</h3>
+  <div class="demo">
+    <div class="line">
+      <span class="pill">No back button</span>
+      <span class="pill on">Jazz (musical style)</span>
+      <span class="pill done">Mississippi River</span>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Reach for it when</h4><ul><li>The thing is a single fact you scan rather than read.</li></ul></div>
+    <div><h4>Not when</h4><ul><li>Something sits inside it beyond a word and a number — that is a Card.</li><li>You want it to fill its width. Pills never stretch.</li></ul></div>
+  </div>
+
+  <h3>Control &mdash; something you operate</h3>
+  <div class="demo">
+    <div class="line">
+      <button class="control primary" type="button">Start the race</button>
+      <button class="control" type="button">Swap start and target</button>
+      <button class="control danger" type="button">Give up</button>
+      <input class="control" type="text" value="Mississippi River" aria-label="Target article">
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Rules</h4><ul><li>One primary per screen. Two means the screen has not decided what it is for.</li><li>The label says what will happen — &ldquo;Start the race&rdquo;, not &ldquo;OK&rdquo;.</li><li>Hover moves the ground over <code>--m-fast</code>. Nothing else moves.</li></ul></div>
+    <div><h4>Not when</h4><ul><li>It only reports state. Something that looks clickable but is not is worse than one that looks inert — use a Pill.</li></ul></div>
+  </div>
+
+  <h3>Row &mdash; one of many, and neutral</h3>
+  <div class="demo">
+    <div class="stack">
+      <div class="row start"><span class="tag">start</span> Jazz (musical style) <span class="num">0:00</span></div>
+      <div class="row">New Orleans <span class="num">0:12</span></div>
+      <div class="row stop"><span class="tag">stop</span> Louisiana <span class="num">0:31</span></div>
+      <div class="row target"><span class="tag">target</span> Mississippi River <span class="num">0:44</span></div>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>The stripe</h4><ul><li>A significant Row takes a left stripe in the colour of what makes it significant.</li><li>The stripe belongs to Rows. Notes never use it — it is the one piece of form that tells the two apart.</li></ul></div>
+    <div><h4>Rules</h4><ul><li>Every Row in a list is the same height unless its content genuinely differs.</li><li>Numbers sit right, in mono with <code>tabular-nums</code>.</li></ul></div>
+  </div>
+
+  <h3>Note &mdash; one of one, and tinted</h3>
+  <div class="demo">
+    <div class="stack" style="margin-bottom: var(--s-5)">
+      <div class="note warn">Find is switched off for this race</div>
+      <div class="note bad">Couldn't reach Wikipedia</div>
+      <div class="note good">Everyone agreed &mdash; the target is open to study</div>
+    </div>
+    <h4>The carve-out: a Note that belongs to one control</h4>
+    <div style="max-width: 300px">
+      <input class="control" type="text" value="Kody" aria-label="Your name" style="width: 100%; border-color: var(--bad-line); margin-bottom: var(--s-2)">
+      <div class="note bad at-field">Already on the list</div>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Why centred</h4><ul><li>Row and Note are the same shape, so colour alone is a thin way to tell them apart — especially for anybody who does not see the colours.</li></ul></div>
+    <div><h4>Except</h4><ul><li>A Note that belongs to one control stays left-aligned at that control's edge, because centring detaches it from the field it is about.</li></ul></div>
+  </div>
+
+  <h3>Tip &mdash; floating, and pointing at what is under it</h3>
+  <div class="demo">
+    <div class="line"><span class="tip">Bee &mdash; 11 clicks</span><span class="tip">Only article links count &mdash; that one's off-limits</span></div>
+  </div>
+  <div class="when">
+    <div><h4>Rules</h4><ul><li><code>pointer-events: none</code> unless it contains a Control.</li><li>It fades over <code>--m-base</code>. It does not slide, spring or scale.</li><li>Padding is tighter than a Note's on purpose, because a Tip is read in a glance.</li></ul></div>
+    <div><h4>Not when</h4><ul><li>It stays put and belongs to the layout — that is a Note.</li><li>It has taken over the screen — that is a Panel.</li></ul></div>
+  </div>
+
+  <h3>Card &mdash; a grouped thing among its siblings</h3>
+  <div class="demo">
+    <div class="cols">
+      <div class="card"><h4>Who's in</h4><div class="big">Six players</div><p>Kody, Bee and four others</p></div>
+      <div class="card"><h4>The rules</h4><div class="big">Hard</div><p>No back button, no find</p></div>
+      <div class="card"><h4>The route</h4><div class="big">Two stops</div><p>In a fixed order</p></div>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Rules</h4><ul><li>Cards in a row are one object: same edges, same baselines, same inner padding.</li><li>Let content set the height; never stretch one to match another.</li><li>Cards do not get shadows. Depth comes from the ground, not from lifting every box.</li></ul></div>
+    <div><h4>The three spellings</h4><ul><li><code>.card</code>, <code>.lobby-card</code> and <code>.np-card</code> were three implementations of this one idea, at radius 14 / 12 / 14.</li></ul></div>
+  </div>
+
+  <h3>Panel &mdash; the container the rest sits inside</h3>
+  <div class="demo">
+    <div class="panel">
+      <h4 style="margin-bottom: var(--s-4)">Before we start</h4>
+      <div class="cols" style="margin-bottom: var(--s-5)">
+        <div class="card"><h4>Start</h4><div class="big">Jazz</div></div>
+        <div class="card"><h4>Target</h4><div class="big">Mississippi River</div></div>
+      </div>
+      <div class="line" style="justify-content: flex-end; gap: var(--s-3)">
+        <button class="control" type="button">Back to the game modes</button>
+        <button class="control primary" type="button">Start the race</button>
+      </div>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Rules</h4><ul><li>One Panel at a time. Panels do not nest; a Panel inside a Panel is a Card.</li><li>Actions bottom-right, gap <code>--s-3</code>, primary last.</li><li><code>--el-float</code>, never <code>--el-lift</code> — the two shadows are what say which is which.</li></ul></div>
+  </div>
+</section>
+
+<section>
+  <h2>Words</h2>
+  <p>
+    Anything a player can see is plain English. Every rule is transcribed from a line that
+    already ships — this layer was already right, it just was not written down.
+  </p>
+  <div class="demo">
+    <div class="spec"><span class="k">Name it their way</span><span class="plain">&ldquo;Everyone started somewhere different&rdquo;, never &ldquo;lost mode enabled&rdquo;.</span></div>
+    <div class="spec"><span class="k">Failures</span><span class="plain">What happened, then what to do: &ldquo;Couldn't find a pair in that language &mdash; try again&rdquo;.</span></div>
+    <div class="spec"><span class="k">Refusals</span><span class="plain">Say why in the same breath: &ldquo;Only article links count &mdash; that one's off-limits&rdquo;.</span></div>
+    <div class="spec"><span class="k">Settings</span><span class="plain">A qualifying line, not a definition: &ldquo;A real help &mdash; and arguably a cheat&rdquo;.</span></div>
+    <div class="spec"><span class="k">Limits</span><span class="plain">Advice, not validation: &ldquo;Six checkpoints is plenty&rdquo;.</span></div>
+    <div class="spec"><span class="k">Case</span><span class="plain">Sentence case, no shouting. Labels and buttons take no full stop.</span></div>
+    <div class="spec"><span class="k">Two messages, one rule</span><span class="plain">The server's message and the browser's say the same thing. The browser check exists only to be faster.</span></div>
+  </div>
+  <p>
+    The test: read it aloud to somebody who has never played. If you have to explain a word, it
+    is the wrong word.
+  </p>
+</section>
+
+<footer>
+  <p>
+    Derived by measuring <code>ui.html</code> &mdash; 6,504 lines, 1,282 of them CSS. The rules
+    about how the game <em>works</em>, rather than how it looks, live in
+    <code>.claude/notes/decisions.md</code>. The article itself is not covered here: Wikipedia's
+    own colours and type apply inside the reading surfaces, because the reading is meant to look
+    like the real thing.
+  </p>
+</footer>
+
+</div>
+
+<script>
+  // The theme button says what it will do, not what is currently on - the same
+  // rule the rest of the game's controls follow.
+  (function () {
+    var btn = document.getElementById('theme');
+    btn.addEventListener('click', function () {
+      var light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      btn.textContent = light ? 'Light theme' : 'Dark theme';
+    });
+  })();
+</script>
+</body>
+</html>
