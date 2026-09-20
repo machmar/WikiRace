@@ -227,7 +227,7 @@
   .ta-item:hover, .ta-item.on { background: var(--hover-strong); color: var(--accent); }
 
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .card.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
+  .panel.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
 
   /* rule chips under the racer list */
   #rules { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
@@ -448,12 +448,12 @@
 
   /* ---------- panels ---------- */
 
-  .panel { border-bottom: 1px solid var(--line); padding: 14px 16px; }
-  .panel h3 {
+  .side-sec { border-bottom: 1px solid var(--line); padding: 14px 16px; }
+  .side-sec h3 {
     margin: 0 0 11px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
     color: var(--fg-faint); font-weight: 700; display: flex; align-items: center; justify-content: space-between;
   }
-  .row { display: flex; align-items: center; gap: 9px; }
+  .hstack { display: flex; align-items: center; gap: 9px; }
   .muted { color: var(--fg-dim); }
   .tiny { font-size: 12px; }
   .empty { color: var(--fg-faint); font-size: 13px; font-style: italic; padding: 3px 0; }
@@ -539,12 +539,12 @@
     background: rgba(6, 10, 15, .93); backdrop-filter: blur(5px);
     display: flex; align-items: center; justify-content: center; padding: 30px;
   }
-  .card {
+  .panel {
     background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
     padding: 28px 30px; max-width: 560px; width: 100%;
     box-shadow: 0 22px 60px rgba(0,0,0,.55);
   }
-  .card h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
+  .panel h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
 
   /* ---- game mode chooser ---- */
   .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -589,7 +589,7 @@
     .modes { grid-template-columns: 1fr; }
     .mode { min-height: 120px; }
   }
-  .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
+  .panel p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
   .sub-label { display: block; color: var(--fg-dim); }
   /* The stops, in the order they're meant to be made, with the box that adds
      one more as the last row. */
@@ -637,8 +637,8 @@
   .num .spin button { width: 24px; height: 18px; padding: 0; border: 0; border-radius: 0; background: var(--bg-3); color: var(--fg-dim); font-size: 8px; line-height: 1; }
   .num .spin button + button { border-top: 1px solid var(--line); }
   .num .spin button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
-  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-  .card-head h2 { margin: 0; }
+  .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .panel-head h2 { margin: 0; }
   .back-btn { flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
   .back-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   /* A fold-away section: the button says what's inside so you needn't open it. */
@@ -963,7 +963,7 @@
     #results-pane, #myrun-pane, #replay-pane { padding: 16px 14px 50px; }
     #spec-body.tiles { grid-template-columns: 1fr; }
     .two { grid-template-columns: 1fr; }
-    .card { padding: 20px 16px; }
+    .panel { padding: 20px 16px; }
     .awards { grid-template-columns: 1fr; }
   }
 
@@ -1361,7 +1361,7 @@
       <div class="stat"><div class="v" id="hud-clicks">—</div><div class="k">clicks</div></div>
     </div>
 
-    <div class="row">
+    <div class="hstack">
       <div id="theme" role="radiogroup" aria-label="Appearance">
         <span class="knob"></span>
         <button type="button" data-theme="light" role="radio" title="Light">☀</button>
@@ -1395,7 +1395,7 @@
         the rest of the race — you can study it, then close it and carry on.
         You still can't click through from it.</div>
       <div id="vote-tally"></div>
-      <div class="row">
+      <div class="hstack">
         <button id="vote-yes" class="primary" style="flex:1">I agree</button>
         <button id="vote-no" class="danger" style="flex:1">Keep it hidden</button>
       </div>
@@ -1462,7 +1462,7 @@
           <p class="tiny muted" style="margin:0 0 var(--s-3)" id="share-note">
             Anyone on this network can play from this link — nothing to install.
           </p>
-          <div class="row">
+          <div class="hstack">
             <input type="text" id="share-url" readonly>
             <button id="share-copy" class="ghost">Copy</button>
           </div>
@@ -1521,9 +1521,9 @@
   <div id="scrim" hidden></div>
 
   <div id="side">
-    <div class="panel">
+    <div class="side-sec">
       <h3>You</h3>
-      <div class="row">
+      <div class="hstack">
         <input type="text" id="myname" maxlength="24" placeholder="your name">
         <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
@@ -1534,19 +1534,19 @@
         standings. <a href="#" id="guest-keep">Keep this name</a></div>
     </div>
 
-    <div class="panel">
+    <div class="side-sec">
       <h3>Racers <span id="peercount" class="muted"></span></h3>
       <div id="rules"></div>
       <div id="racers"><div class="empty">Looking for players on the LAN…</div></div>
       <button id="btn-ready" style="width:100%;margin-top:11px">Mark me ready</button>
     </div>
 
-    <div class="panel">
+    <div class="side-sec">
       <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:2px 7px;font-size:11px">clear</button></h3>
       <div id="board"><div class="empty">No races finished yet.</div></div>
     </div>
 
-    <div class="panel">
+    <div class="side-sec">
       <h3>Play-by-play</h3>
       <div id="ticker"></div>
       <div id="feed"><div class="empty">Nothing yet.</div></div>
@@ -5284,7 +5284,7 @@ function attachTypeahead(input, list, getLang) {
     list.hidden = false;
     // Inside a dialog that scrolls, a list hanging off the bottom is a list
     // nobody can read, so drop it upwards when there's no room below.
-    const box = input.closest(".card") || document.documentElement;
+    const box = input.closest(".panel") || document.documentElement;
     const room = box.getBoundingClientRect().bottom - input.getBoundingClientRect().bottom;
     list.classList.toggle("up", room < Math.min(list.scrollHeight + 12, 130));
   };
@@ -5485,7 +5485,7 @@ function openModePicker() {
   ov.className = "overlay";
   ov.id = "mode-overlay";
   ov.innerHTML =
-    '<div class="card wide"><h2>New race</h2>' +
+    '<div class="panel wide"><h2>New race</h2>' +
     '<p class="lede">Three games, and the setup that goes with each.</p>' +
     '<div class="modes">' + MODES.map(m =>
       '<button class="mode" data-mode="' + m.id + '">' + modePreview(m.id) +
@@ -5514,8 +5514,8 @@ function openConfigurator(kind) {
   ov.className = "overlay";
   ov.id = "config-overlay";
   ov.innerHTML =
-    '<div class="card wide">' +
-    '<div class="card-head">' +
+    '<div class="panel wide">' +
+    '<div class="panel-head">' +
     '<button class="back-btn" id="c-back-mode" aria-label="Back to the game modes" title="Back to the game modes">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg></button>' +
     "<h2>" + esc(MODES.find(m => m.id === mode).name) + " race</h2></div>" +
@@ -5535,7 +5535,7 @@ function openConfigurator(kind) {
       '<div class="ta-list" id="c-target-list" hidden></div></div></div>' +
     "</div>" +
 
-    '<div class="row" style="margin-bottom:16px">' +
+    '<div class="hstack" style="margin-bottom:16px">' +
       '<button id="c-easy" style="flex:2">🎲 ' + (mode === "lost" ? "Random target" : "Random pair") + "</button>" +
       '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
       '<button id="c-swap" title="Swap start and target">⇄</button>' +
@@ -6509,7 +6509,7 @@ function showOffline(reason) {
   ov.id = "offline-overlay";
   const needsCode = reason === "code";
   ov.innerHTML =
-    '<div class="card">' +
+    '<div class="panel">' +
     '<div style="text-align:center;font-size:40px;line-height:1">' +
     (needsCode ? "&#128274;" : "&#128268;") + "</div>" +
     '<h2 style="text-align:center">' +
