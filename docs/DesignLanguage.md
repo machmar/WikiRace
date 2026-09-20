@@ -16,11 +16,22 @@ repeated here.
 
 ## How this gets applied
 
-Nothing is retrofitted in a sweep. The tokens exist, new work is built on them,
-and **each feature snaps the area it touches** — so the game arrives at the
-standard in small reviewable pieces rather than one enormous diff nobody can
-check. An area nobody has touched yet keeps its own values until someone does,
-and that is fine.
+New work is built on the tokens from the start — that part is not negotiable,
+and it is why the token layer landed before anything else.
+
+The game itself is brought over **one screen at a time, deliberately**, each
+screen its own issue, its own commit and its own before-and-after. An earlier
+draft of this file said the retrofit would happen by attrition, each feature
+snapping whatever it happened to touch. That was wrong, and the reason is worth
+keeping: a half-converted interface has *more* inconsistency than an
+unconverted one, because now there are two systems running at once and "which
+is right, the old panel or the new one?" becomes a live question on every
+screen. Attrition ends in a mixed game indefinitely; a campaign ends in a
+coherent one.
+
+The screens, as the file actually divides: lobby, mode picker, race setup, name
+picker, racing chrome, side panel, peek sheet and vote card, hub results, hub
+replay chrome.
 
 Two consequences worth being explicit about:
 
@@ -214,7 +225,18 @@ that already ship, not invented.
 
 ## What this does not cover
 
-The article itself. Wikipedia's own colours and type apply inside
+**The article itself.** Wikipedia's own colours and type apply inside
 `#article-wrap` and the other reading surfaces on the `wiki` theme, because the
 reading is meant to look like the real thing. The game around it follows this
 file; the article does not.
+
+**The route maps and the timeline.** These are data drawings, not interface.
+Lane heights, node radii and the distance between hops are computed so that a
+race can be read at a glance, and a number in that geometry means something
+about the race rather than something about visual rhythm. Forcing `--s-3` into
+a lane height would break a picture to satisfy a rule that was never about
+pictures.
+
+The chrome *around* a drawing — the replay controls, the player boxes, the view
+switcher, the info panel — is ordinary interface and does follow this file. The
+line is the drawing surface itself.

@@ -21,6 +21,39 @@ Notes for working on it live in `.claude/notes/`:
 
 `.claude/tools/` holds the scripts that drive fake races and the test suites.
 
+## Design
+
+**Read [docs/DesignLanguage.md](docs/DesignLanguage.md) before writing any CSS
+or any words a player will see.** It is short, and it is binding: every value
+in it was measured off this game rather than imposed on it, so following it is
+mostly a matter of not inventing a new number.
+[docs/design-language.html](docs/design-language.html) is the same thing as a
+page you can open, with every piece rendered live.
+
+The short version, which is not a substitute for reading it:
+
+- **Never write a bare `px`.** The scales are `--t-*` type, `--s-*` space,
+  `--r-*` radius, `--m-*`/`--e-*` motion, `--el-*` elevation, all in `:root`
+  beside the colour tokens. A literal is a bug unless it is a border width or
+  genuinely one-off, and then it gets a comment saying why.
+- Space is a **3-based** rhythm: 3, 6, 9, 12, 15, 20, 26, 40, 60. Not a 4px
+  grid — that was measured and it fits this game worst of everything tried.
+- Type is four text sizes and four display sizes. No half-pixels.
+- **Every surface is one of seven pieces** — Pill, Control, Row, Note, Tip,
+  Card, Panel. A new piece of UI is one of the seven, or you have found an
+  eighth, and an eighth goes in the standard before it goes in `ui.html`.
+- New components take a **base class plus the feature namespace**:
+  `class="card lobby-card"`. The base class carries the shape; the namespaced
+  one carries only what is particular to that area.
+- Shadows are built from `--shadow`, never a literal `rgba` — a literal goes
+  muddy on the light themes.
+
+Two things the standard deliberately does **not** cover, so don't "fix" them
+to match: the Wikipedia article itself, which keeps Wikipedia's own colours and
+type because the reading is meant to look like the real thing; and the route
+maps and timeline, which are data drawings whose spacing is computed for
+legibility of the race, not for visual rhythm.
+
 ## House style
 
 - Comments say **why**, not what. Full sentences, no shouting, no decoration.
