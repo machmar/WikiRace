@@ -33,8 +33,12 @@ ROUTES = {
     # Got lost in the history of the game itself.
     "Ada": [START, "Chess piece", "Queen (chess)", "Monarchy", "Middle Ages", "Feudalism", "Europe",
             "Renaissance", "Art", "Painting", "Colour", "Light"],
+    # Joined, looked at the start page and walked off. No route at all, which
+    # is a real result with an empty path, and the replay has to say something
+    # about it.
+    "Nessa": [],
 }
-QUIT = {"Ada"}
+QUIT = {"Ada", "Nessa"}
 PAUSES = [5.0, 8.5, 3.0, 18.0, 6.0, 4.5, 11.0, 3.5, 26.0, 7.0, 2.5, 14.0, 5.0, 9.0, 4.0, 12.0, 6.5, 22.0, 3.0, 8.0]
 # Kody and BuraG cross the line within a second of each other.
 PACE = {"Kimmy": 1.08, "Kody": 0.82, "BuraG": 0.955, "machmar": 1.0, "Robin Boson": 1.14, "Ada": 1.0}
@@ -67,6 +71,10 @@ race = post("/api/start_race", SID("Kody"), {
 print("race:", race.get("ok"), START, "->", TARGET)
 
 for name, path in ROUTES.items():
+    if not path:
+        post("/api/give_up", SID(name), {"elapsed": 41.0, "clicks": 0})
+        print("  %-12s gave up without clicking anything" % name)
+        continue
     times = times_for(name, path)
     post("/api/progress", SID(name),
          {"article": path[-1], "clicks": len(path) - 1, "path": path, "times": times})

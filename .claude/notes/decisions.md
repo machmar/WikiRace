@@ -78,6 +78,10 @@ race seconds). Switching view mid-replay carries on from where you were.
 - **Play and stop only** — no scrubber, no speed control. Stopping shows the
   whole race.
 - The player boxes under the view are also how you pick whose route to follow.
+- **A box always reads as a sentence.** Where there is no page to name — a
+  player who gave up before clicking anything — it says "at the start", and
+  "gave up at the start" once they are out. An em dash standing in for the
+  missing page read as "gave up on —", which is not a thing anyone says.
 
 ## Four map layouts, kept
 

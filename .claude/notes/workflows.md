@@ -18,8 +18,10 @@ quicker than clicking through Wikipedia, and gives the replay and the maps
 something real to draw:
 
 - `drive.py [port]` — four players, one start, a straightforward race.
-- `drive_classic.py [port]` — six long routes from one start that keep
-  colliding at the same hubs, one photo finish, one player who gives up.
+- `drive_classic.py [port]` — seven long routes from one start that keep
+  colliding at the same hubs, one photo finish, one player who gives up
+  part-way, and one who gives up without clicking anything (an empty path,
+  which the replay has to draw).
 - `drive_lost.py [port]` — a lost race; also checks the server hands out a
   different start per player and keeps it across asks.
 - `drive_tangle.py [port]` — six players, six starts, a checkpoint, long
