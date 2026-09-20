@@ -84,6 +84,23 @@ There is a `ghc` function in the user's PowerShell profile that does the same
 thing in one word (`ghc issue create ...`), leaving plain `gh` as the owner's
 own login. Assign work to `machmar-claude` too.
 
+In a Claude session this is already the default: `.claude/settings.local.json`
+sets `GH_CONFIG_DIR` for the session, so every `gh` call is the machine account
+without anyone remembering. `.claude/settings.json` adds a hook that refuses
+`gh issue create`, `gh pr create` and the other commands that stamp a name,
+unless the machine account is what is being used - a backstop for a machine
+where the env var is missing.
+
+To act as the owner on purpose - creating a repository under their account,
+inviting a collaborator - clear it for that one command:
+
+    $old = $env:GH_CONFIG_DIR; Remove-Item Env:GH_CONFIG_DIR
+    gh repo create machmar/thing --private
+    $env:GH_CONFIG_DIR = $old
+
+The settings files are only read when a session starts, so a change to either
+takes effect in the next chat, not the one that made it.
+
 Commits keep the owner as committer but carry Claude as co-author, which is
 what the trailer in the commit message is for.
 
