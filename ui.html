@@ -3401,9 +3401,11 @@ function drawPlaces(t, active) {
     let k = 0;
     while (k + 1 < l.steps.length && l.steps[k + 1].t <= now) k++;
     const over = now >= laneEnd(l);
-    const page = l.steps.length ? l.steps[k].title : "—";
+    // Somebody who never clicked has no page to name, so say where they were.
+    const page = l.steps.length ? l.steps[k].title : null;
     const text = over && l.finished ? "🏁 " + ordinal(finishers.indexOf(l) + 1) + " · " + fmtTime(l.elapsed)
-               : over ? "gave up on " + page : page;
+               : over ? (page ? "gave up on " + page : "gave up at the start")
+               : (page || "at the start");
     const at = b.querySelector(".at"), cl = b.querySelector(".cl");
     if (at.textContent !== text) { at.textContent = text; at.title = text; }
     cl.textContent = (over && l.clicks != null ? l.clicks : k) + "c";

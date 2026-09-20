@@ -81,6 +81,9 @@ Metro, Spring, Collapsed. It plays itself once when the tab comes into view, on
 the race clock (a light waits on a page as long as that player read it, then
 hops), and the whole race takes `REPLAY_SECONDS`. Stopping shows everything.
 The player boxes under the view are also how you pick whose route to follow.
+A player who gave up without ever reporting a page has an empty `path`, so their
+lane has no steps at all: every view has to cope with that, and the box says
+"at the start" rather than naming a page.
 
 The maps don't assume one start page: `m.startKeys` is a set, so lost races
 fan out from several. Colours come from `raceColors` so the timeline, the maps
