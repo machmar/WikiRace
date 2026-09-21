@@ -138,9 +138,12 @@ Three durations and two easings.
 | `--e-out` | ease | everything |
 | `--e-spring` | cubic-bezier(.4, 1.3, .5, 1) | arrivals only |
 
-`--e-spring` is for a checkpoint splash or the finish — something that has
-arrived. It is never for a hover. It appears once in the file today and should
-stay rare.
+`--e-spring` is for something that **travels and lands**: the theme switch's
+knob reaching its slot, someone arriving on your page, a checkpoint, the
+finish. It is never for a hover, and never for a dialog simply appearing — a
+fade with a lift says that. An earlier draft said the spring was for arrivals
+only, but the one place the game already used it was the theme knob, which is
+exactly the movement it suits.
 
 Everything obeys `prefers-reduced-motion`.
 
@@ -198,6 +201,12 @@ centred**, with one carve-out: a Note that belongs to one control stays
 left-aligned at that control's edge, because centring it detaches it from the
 field it is about. The name picker's error and hint are the left-aligned case;
 the race warning, the awards and the facts are the centred case.
+
+The **toast** is a Note that floats. It carries a sentence and points at
+nothing, which is what separates it from a Tip, which always points at
+something under it. So it takes the Note's padding and, like everything that
+floats, `--el-lift`, and sits centred at the bottom until it times out. An
+earlier draft called the toast a Tip.
 
 A **left stripe** (`inset 3px 0 0 <colour>`) marks a Row as significant — a
 start, a checkpoint, a target. It belongs to Rows, so Notes do not use it.
