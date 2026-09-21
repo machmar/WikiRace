@@ -420,6 +420,62 @@
   #btn-peek.asked { border-color: var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
   #btn-peek .cnt { font-family: var(--mono); font-size: var(--t-xs); opacity: .85; }
 
+  /* The reveal popup. A Tip, because it points at the button it is about,
+     and a pressable one, because the sentence saying a vote is open and the
+     way to answer it should not be two separate things. Like a pressable
+     Card it is a button that keeps its piece's shape; it carries a sentence
+     rather than a label, so it takes the Note's padding and tint. */
+  #reveal-tip { display: none; }
+  #reveal-tip:not([hidden]) {
+    position: fixed; z-index: 70; display: block; text-align: left;
+    /* Wide enough for a name and a tally on one line, and no wider. */
+    width: min(310px, calc(100vw - var(--s-6)));
+    margin-top: var(--s-2);              /* clears the caret */
+    padding: var(--s-3) var(--s-4) var(--s-6);   /* the drain sits in the extra bottom */
+    background: var(--warn-bg); border-color: var(--warn-line); color: var(--fg);
+    /* The Tip is unpressable by default; this is the one that is not. */
+    pointer-events: auto; line-height: 1.45;
+  }
+  #reveal-tip b { color: var(--warn-fg); }
+  #reveal-tip:hover { background: var(--warn-bg); border-color: var(--warn-fg); }
+  #reveal-tip .rv-sub {
+    display: flex; align-items: baseline; gap: var(--s-3);
+    font-size: var(--t-xs); color: var(--fg-dim); margin-top: var(--s-2);
+  }
+  #reveal-tip .rv-act { margin-left: auto; color: var(--warn-fg); font-weight: 600; white-space: nowrap; }
+  /* The caret is a square stood on its corner, so it takes the Tip's own
+     border and tint instead of needing a second colour. --rv-caret is set
+     from the button's middle when the Tip is placed, the same way the maps
+     are measured off the page rather than chosen. */
+  #reveal-tip::before {
+    content: ""; position: absolute; top: calc(var(--s-3) / -2);
+    right: var(--rv-caret, var(--s-6)); width: var(--s-3); height: var(--s-3);
+    background: var(--warn-bg);
+    border-left: 1px solid var(--warn-line); border-top: 1px solid var(--warn-line);
+    transform: rotate(45deg);
+  }
+  #reveal-tip.open:not([hidden]), #reveal-tip.open::before {
+    background: var(--good-bg); border-color: var(--good-line);
+  }
+  #reveal-tip.open b, #reveal-tip.open .rv-act { color: var(--good-fg); }
+  #reveal-tip.open:hover { background: var(--good-bg); border-color: var(--good-fg); }
+  /* It times out, and says so with a hairline draining over the twenty
+     seconds rather than a number counting down at someone mid-paragraph.
+     The twenty is repeated in REVEAL_TIP_MS and the two go together. */
+  #reveal-tip .rv-drain {
+    position: absolute; left: var(--s-4); right: var(--s-4); bottom: var(--s-3);
+    height: 2px;                         /* a rule, not a bar: thin enough to ignore */
+    border-radius: var(--r-pill); background: var(--warn-line);
+    transform-origin: left; animation: rv-drain 20s linear forwards;
+  }
+  #reveal-tip.open .rv-drain { background: var(--good-line); }
+  @keyframes rv-drain { to { transform: scaleX(0); } }
+  /* The drain is information as well as motion, so it stays put rather
+     than disappearing; the timer still takes the Tip away. */
+  @media (prefers-reduced-motion: reduce) {
+    #reveal-tip .rv-drain { animation: none; }
+  }
+
   #hud { display: flex; align-items: center; gap: var(--s-5); }
   .stat { text-align: right; line-height: 1.15; }
   .stat .v { font-family: var(--mono); font-size: var(--t-xl); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -1554,6 +1610,8 @@
   </div>
 
   <div id="scrim" hidden></div>
+
+  <button type="button" id="reveal-tip" class="tip" hidden></button>
 
   <div id="side">
     <div class="side-sec">
@@ -6282,7 +6340,7 @@ $("share-copy").onclick = async () => {
  * and once it opens it stays open - the page is there to study, not a peek on
  * a timer. Reading it is no shortcut: you still have to get there.
  * ------------------------------------------------------------------ */
-const peek = { title: null, html: null, loading: false, scroll: 0, seen: false };
+const peek = { title: null, html: null, loading: false, scroll: 0 };
 
 function raceNow() {
   return (S.snap && S.snap.race) || S.race;
@@ -6370,12 +6428,9 @@ function renderPeek(snap) {
     setHTML(btn, '<span class="ico">📖</span><span class="lbl">Target</span>');
     btn.className = "granted";
     btn.title = "Read the target page - agreed by everyone";
-    if (!peek.seen) {                        // announce the moment it opens
-      peek.seen = true;
-      toast("Everyone agreed — the target is open to study", 3200);
-    }
+    // The news that it opened is the reveal Tip's to break, below: a toast
+    // could not be pressed, and this one wants to be the way in.
   } else {
-    peek.seen = false;
     const rows = (snap && snap.peek_tally) || [];
     const yes = rows.filter(r => r.vote === "yes").length;
     const asked = yes > 0;
@@ -6389,7 +6444,143 @@ function renderPeek(snap) {
     if (!$("peek-scrim").hidden) closePeek();
   }
   renderVote(snap);
+  // After the button, so the Tip measures where the button actually is.
+  renderRevealTip(snap);
 }
+
+/* ------------------------------------------------------------------ *
+ * Saying out loud that somebody wants the target open
+ *
+ * The button has carried the tally for as long as the vote has existed, but
+ * the button is in the chrome and the game is played in the article, so an
+ * ask could pass a whole table by. This says it once, next to the button it
+ * is about, and takes itself away. Pressing it opens the vote card rather
+ * than casting a vote: being told a vote is open is not being asked to rush
+ * it.
+ *
+ * It speaks to everyone, including people who have already answered, because
+ * "three of us are waiting on you" is news to the three as well. What it will
+ * not do is tell you about your own vote.
+ * ------------------------------------------------------------------ */
+const REVEAL_TIP_MS = 20000;               // in step with the drain in the CSS
+const revealTip = { race: null, yes: [], mine: null, shown: null, up: null, timer: null };
+
+function hideRevealTip() {
+  clearTimeout(revealTip.timer);
+  revealTip.timer = null;
+  revealTip.up = null;
+  setFlag($("reveal-tip"), "hidden", true);
+}
+
+/* Under the reveal button, with the caret on the button's middle however far
+   the Tip had to slide to stay on screen. Measured off the page, like the
+   maps, rather than chosen. */
+function placeRevealTip() {
+  const el = $("reveal-tip"), btn = $("btn-peek");
+  if (!el || el.hidden || !btn || btn.hidden) return;
+  const b = btn.getBoundingClientRect();
+  const w = el.offsetWidth;
+  const gutter = 12;                       // the gap the phone layout leaves at the edge
+  const caretW = 9;                        // the square the caret is made of
+  const left = Math.max(gutter, Math.min(b.right - w, window.innerWidth - w - gutter));
+  el.style.left = left + "px";
+  el.style.top = b.bottom + "px";
+  // Kept off the corners: on a narrow phone the button can slide almost out of
+  // reach, and a caret sitting on the rounded edge reads as a mistake rather
+  // than as pointing at anything.
+  const caret = left + w - (b.left + b.width / 2);
+  el.style.setProperty("--rv-caret",
+                       Math.round(Math.min(Math.max(caret, gutter), w - gutter - caretW)) + "px");
+}
+
+function announceReveal(key, open, lead, sub, act) {
+  if (revealTip.shown === key) return;     // the tally moves on every snapshot; this must not
+  revealTip.shown = key;
+  revealTip.up = key;
+  const el = $("reveal-tip");
+  el.classList.toggle("open", open);
+  // Written straight rather than through setHTML: a fresh drain node is what
+  // restarts the twenty seconds.
+  // The newlines are for the reading of it: this is a button, so its whole
+  // text is its name, and without them a screen reader runs the sentence and
+  // the tally together. Whitespace between blocks draws nothing.
+  el.innerHTML = "<div>" + lead + "</div>\n" +
+                 '<div class="rv-sub"><span>' + sub + "</span>\n" +
+                 '<span class="rv-act">' + act + " →</span></div>\n" +
+                 '<div class="rv-drain"></div>';
+  el.hidden = false;
+  placeRevealTip();
+  clearTimeout(revealTip.timer);
+  revealTip.timer = setTimeout(hideRevealTip, REVEAL_TIP_MS);
+}
+
+function renderRevealTip(snap) {
+  const race = snap && snap.race;
+  if (!race) {
+    revealTip.race = null; revealTip.yes = []; revealTip.mine = null; revealTip.shown = null;
+    hideRevealTip();
+    return;
+  }
+
+  const rows = snap.peek_tally || [];
+  const yes = rows.filter(r => r.vote === "yes").map(r => r.name);
+  const me = (snap.me && snap.me.name) || "";
+  const mine = myVote(snap);
+
+  // First sight of a race: take the tally down without saying anything.
+  // Arriving mid-vote is not news about anybody, and the button already says
+  // one is open.
+  if (revealTip.race !== race.race_id) {
+    revealTip.race = race.race_id; revealTip.yes = yes;
+    revealTip.mine = mine; revealTip.shown = null;
+    hideRevealTip();
+    return;
+  }
+
+  // Nothing is said while the countdown or the results have the screen. The
+  // tally to compare against is deliberately left where it was rather than
+  // moved on, so somebody asking while you were still getting your bearings
+  // is news the moment you land rather than something you never hear about.
+  if (!S.running || S.done || $("btn-peek").hidden) { hideRevealTip(); return; }
+
+  const before = revealTip.yes;
+  const answered = revealTip.mine === null && mine !== null;
+  revealTip.yes = yes;
+  revealTip.mine = mine;
+
+  // Answering is the end of it as far as you are concerned. So is the asker
+  // changing their mind - and that one is forgotten rather than remembered,
+  // so that asking again is news again.
+  if (!yes.length && !race.peek) { revealTip.shown = null; hideRevealTip(); }
+  else if (revealTip.up && answered) hideRevealTip();
+
+  if (race.peek) {
+    announceReveal("open:" + race.race_id, true,
+                   "<b>Everyone</b> agreed — the target is open.",
+                   "Read it whenever you like", "Open it");
+  } else {
+    const fresh = yes.filter(n => n !== me && before.indexOf(n) < 0);
+    if (fresh.length) {
+      const lead = before.length
+        ? "<b>" + esc(fresh[0]) + "</b> agreed too."
+        : "<b>" + esc(fresh[0]) + "</b> wants the target page opened.";
+      const left = rows.filter(r => r.vote !== "yes").map(r => r.name);
+      const sub = yes.length + " of " + rows.length + " agreed" +
+                  (left.length === 1 ? " · waiting on " + esc(left[0] === me ? "you" : left[0]) : "");
+      announceReveal("ask:" + race.race_id + ":" + yes.join("|"), false,
+                     lead, sub, mine === null ? "Have your say" : "See who");
+    }
+  }
+  placeRevealTip();                        // the chrome reflows; the Tip follows
+}
+
+$("reveal-tip").onclick = () => {
+  const race = raceNow();
+  hideRevealTip();
+  if (race && race.peek) openPeek();
+  else openVote();
+};
+window.addEventListener("resize", placeRevealTip);
 
 $("btn-peek").onclick = () => {
   const race = raceNow();
@@ -6407,6 +6598,7 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Escape") return;
   if (!$("peek-scrim").hidden) { closePeek(); ev.preventDefault(); }
   else if (!$("vote-scrim").hidden) { closeVote(); ev.preventDefault(); }
+  else if (!$("reveal-tip").hidden) { hideRevealTip(); ev.preventDefault(); }
 });
 
 /* Three ways to look at it: light throughout, dark throughout, or dark with

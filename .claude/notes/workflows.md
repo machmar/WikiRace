@@ -35,6 +35,11 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_store.py` — history, SQLite, the JSON migration. Starts its own server.
 - `test_names.py` — a name is a player; one name races once. Starts its own.
 - `test_cp_order.py` — checkpoint order rules. Needs a server on 8477 first.
+- `test_reveal_tip.py` — the reveal popup, issue #18. Needs a server on 8477
+  first, and Playwright (`pip install playwright && playwright install
+  chromium`), because it is the one thing here that has to be watched in a
+  real browser. It stubs Wikipedia, so it runs with no internet; set
+  `WIKIRACE_CHROME` if Playwright's own Chromium is not where it expects.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 
@@ -93,6 +98,12 @@ Traps found the hard way:
   at `t = 0` and look broken when it isn't. Step it by hand: `stepReplay(0.1)`.
 - Synthetic `pointerover` doesn't trigger CSS `:hover`; use a real hover, or
   assert on the classes and styles your code sets.
+- Anything that reacts to a *change* in a snapshot can't be tested with a
+  sleep. Driving the API and then waiting a fixed second races the stream, and
+  the test passes or fails on the machine's mood. Wait for the page to have
+  seen the thing — `wait_for_function` on `S.snap.race.race_id`, or
+  `wait_for_selector` on what should appear — and the same test goes green
+  every run. `test_reveal_tip.py` was flaky three ways before it did this.
 
 ## Filing issues and PRs
 
