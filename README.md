@@ -186,6 +186,7 @@ everyone plays the same game rather than each machine applying its own settings.
 | **Allow the Back button** | Off makes it a one-way trip. |
 | **Allow find on page** | Off intercepts Ctrl+F, Cmd+F, F3 and Ctrl+G during a race. Honest limitation: a page can block the *shortcut*, not the browser's own Find menu — this discourages the reflex rather than making it impossible. |
 | **Ban hub pages** | Blocks *United States*, *World War II* and two dozen other giants. Nearly every lazy route runs through one of them, so this is the setting that stops repeat games feeling identical. |
+| **Allow the tables of links at the foot of an article** | The boxes of related links that sit under most articles — the one on *Finger* lists every other finger, the hand, the arm. Off by default, and then they aren't on the page at all: they put half the encyclopedia one click from the other half. *One click away* counts them only when they're allowed. |
 | **Lost** | Nobody picks a start: everyone is dropped on a different random page — one of a dozen well-linked ones the game rolls — and the race is whoever reaches the target first. Your page is decided once, so a reload lands you back on it, and nobody else gets it. Pick only a target. |
 | **Handicap the leaders** | Whoever's 1st and 2nd in the standings start 10s and 5s late. Their clock runs during the wait. |
 | **Who wins** | Fastest time, or fewest clicks. Whichever you don't pick still earns a bonus, so both styles of play are worth something. |
@@ -361,6 +362,11 @@ Ada is one click away!
 Ada → Colombia
 Boris → Brazil
 ```
+
+One click away means a link you could actually click. The links API behind it
+sees every link in the article, including the ones in the tables of related
+links and the rest of the furniture the game hides, so the shout is checked
+against the page as the race actually draws it.
 
 Suppressed, like everything else, when the race hides positions.
 
