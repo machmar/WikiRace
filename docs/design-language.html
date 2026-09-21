@@ -479,6 +479,7 @@
   </div>
   <div class="when">
     <div><h4>Why</h4><ul><li>A box inside a box is heavy. Inside a Card, a Row drops its own box and is divided from the next by a hairline: <code>.row.in-card</code>.</li><li>Every list in a card in the game was already drawn this way.</li></ul></div>
+    <div><h4>Not a log</h4><ul><li>The play-by-play is not a list of Rows. It is fine print: <code>--t-xs</code> lines at <code>--s-1</code>, glanced at and never read.</li></ul></div>
   </div>
 
   <h3>Note &mdash; one of one, and tinted</h3>
@@ -565,9 +566,12 @@
   <p>
     Derived by measuring <code>ui.html</code> &mdash; 6,504 lines, 1,282 of them CSS. The rules
     about how the game <em>works</em>, rather than how it looks, live in
-    <code>.claude/notes/decisions.md</code>. The article itself is not covered here: Wikipedia's
-    own colours and type apply inside the reading surfaces, because the reading is meant to look
-    like the real thing.
+    <code>.claude/notes/decisions.md</code>. Four things are deliberately not covered: the
+    article itself, which keeps Wikipedia's own colours and type; the route maps and timeline,
+    which are data drawings; illustrations, such as the miniature screens behind the mode
+    picker's cards; and the big moments &mdash; the countdown and the splashes &mdash; which are
+    loud on purpose. The interface around any of them, and any message shown with them, does
+    follow this page.
   </p>
 </footer>
 

@@ -19,8 +19,8 @@ repeated here.
 New work is built on the tokens from the start — that part is not negotiable,
 and it is why the token layer landed before anything else.
 
-The game itself is brought over **one screen at a time, deliberately**, each
-screen its own issue, its own commit and its own before-and-after. An earlier
+The game itself was brought over **one screen at a time, deliberately**, each
+screen its own commit and its own before-and-after. An earlier
 draft of this file said the retrofit would happen by attrition, each feature
 snapping whatever it happened to touch. That was wrong, and the reason is worth
 keeping: a half-converted interface has *more* inconsistency than an
@@ -29,9 +29,13 @@ is right, the old panel or the new one?" becomes a live question on every
 screen. Attrition ends in a mixed game indefinitely; a campaign ends in a
 coherent one.
 
-The screens, as the file actually divides: lobby, mode picker, race setup, name
-picker, racing chrome, side panel, peek sheet and vote card, hub results, hub
-replay chrome.
+That is done. The pieces every screen shares went first, then the screens as
+the file divides them: lobby, mode picker, race setup, name picker, racing
+chrome, side panel, peek sheet and vote card, hub results and My run,
+Watching, and the replay's chrome. The patch script for each is kept in
+`.claude/tools/` as the record of what moved, and `decisions.md` has what the
+work settled along the way. Anything built from here is built on the standard
+from the start.
 
 Two consequences worth being explicit about:
 
