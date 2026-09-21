@@ -37,7 +37,6 @@
     --scrim: rgba(6, 10, 15, .6);
     --shadow: rgba(0, 0, 0, .5);
 
-    --radius: 10px;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
     /* The design language: docs/DesignLanguage.md, and docs/design-language.html
@@ -70,10 +69,8 @@
     --s-8: 40px;
     --s-9: 60px;
 
-    /* Radius. Four roles; thirteen values were in use to express them. --radius
-       above is what these replace - it was used three times and was already
-       overloaded across two of the four roles, so leave it alone and let it go
-       as its last users are converted. */
+    /* Radius. Four roles; thirteen values were in use to express them, and
+       the single --radius token that existed was overloaded across two. */
     --r-pill: 999px;
     --r-box: 8px;
     --r-card: 12px;
@@ -1054,34 +1051,13 @@
   .seg.wide { width: 100%; }
   .seg.wide button { flex: 1; }
 
-  /* routes view */
-  .rp-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
-  .rp-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .rp-tools input[type=range] { flex: 1; max-width: 260px; accent-color: var(--accent); }
-  .tiny-btn { padding: 4px 11px; font-size: 12px; }
-  .leg.pick.latched { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
-
   /* instant label for a timeline point, rather than the browser's slow one */
   #rp-chart { position: relative; }
-  .rp-tip {
-    position: absolute; z-index: 5; transform: translateX(-50%);
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 6px;
-    padding: 3px 9px; font-size: 12px; white-space: nowrap; pointer-events: none;
-    box-shadow: 0 6px 18px rgba(0,0,0,.45);
-  }
+  /* A Tip: the shape, surface and lift come from .tip. */
+  .rp-tip { position: absolute; z-index: 5; transform: translateX(-50%); white-space: nowrap; }
   .tl-hit { cursor: pointer; }
   .tl-dot { cursor: pointer; }
   #rp-chart [data-art] { transition: opacity .1s; }
-  .rp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12.5px; }
-  .leg { display: inline-flex; align-items: center; gap: 6px; }
-  .leg .sw { width: 16px; height: 3px; border-radius: 2px; }
-  .leg .sw.dash {
-    background: none;
-    border-top: 3px dashed var(--fg-faint);
-  }
-  .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
-  .leg.pick { cursor: pointer; transition: opacity .12s; }
-  .leg.pick.faded { opacity: .3; }
   /* ---- picking a name: asked once, answered in one tap ---- */
   #namepick {
     position: fixed; inset: 0; z-index: 150; background: var(--scrim);
@@ -1205,10 +1181,9 @@
 
   /* ---- routes: the race as a map ---- */
   #replay-pane.wide { max-width: 1240px; }
-  .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+  .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-bottom: var(--s-4); }
   .rm-bar .seg { max-width: 100%; overflow-x: auto; }
   .rm-bar .seg button { white-space: nowrap; }
-  .rp-legend .leg.still { cursor: default; }
   /* The diagram's own names for colours, mapped onto the theme so all three
      appearances draw it properly. */
   .rm-screen {
@@ -1217,7 +1192,7 @@
     --dg-shared: var(--fg-faint); --dg-text: var(--fg); --dg-ink: var(--fg-dim); --dg-faint: var(--fg-faint);
     --dg-accent: var(--accent); --dg-good: var(--good); --dg-good-bg: var(--good-bg); --dg-warn: var(--warn);
     --dg-station: var(--bg); --dg-station-line: var(--fg);
-    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--dg-bg);
+    border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; background: var(--dg-bg);
   }
   /* A pale page washes the diagram's greys out: on the light themes its lines,
      unvisited dots and shared-page ties all take a darker set. */
@@ -1238,27 +1213,27 @@
   .rm-map text { font-family: var(--mono); }
   .rm-map .rm-lbl text { fill: var(--dg-ink); paint-order: stroke; stroke: var(--dg-bg); stroke-width: 3.5px; stroke-linejoin: round; }
   .rm-map:not(.rm-labels) .rm-lbl { display: none; }
-  .rm-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; }
+  .rm-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; align-items: center; gap: var(--s-2); }
   .rm-tools button {
-    min-width: 34px; height: 34px; padding: 0 10px; border-radius: 8px;
-    border: 1px solid var(--dg-line); background: var(--dg-glass); color: var(--dg-text); font-size: 15px; line-height: 1;
+    min-width: 34px; height: 34px; padding: 0 var(--s-3); border-radius: var(--r-box);
+    border: 1px solid var(--dg-line); background: var(--dg-glass); color: var(--dg-text); font-size: var(--t-md); line-height: 1;
   }
   .rm-tools button[data-act="done"] { background: var(--accent-solid); border-color: var(--accent-line); color: var(--on-accent); font-weight: 600; }
-  .rm-zoom { font: 12px var(--mono); color: var(--dg-faint); min-width: 44px; text-align: right; }
+  .rm-zoom { font: var(--t-xs) var(--mono); color: var(--dg-faint); min-width: 44px; text-align: right; }
   .rm-hint {
     position: absolute; left: 10px; bottom: 10px; z-index: 2; pointer-events: none; max-width: calc(100% - 20px);
-    font-size: 12px; color: var(--dg-faint); background: var(--dg-glass);
-    border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px; transition: color .25s, border-color .25s;
+    font-size: var(--t-xs); color: var(--dg-faint); background: var(--dg-glass);
+    border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-1) var(--s-3); transition: color var(--m-base), border-color var(--m-base);
   }
   .rm-hint.nudge { color: var(--dg-text); border-color: var(--dg-accent); }
   .rm-info {
     position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
     max-width: min(380px, calc(100% - 200px)); background: var(--dg-glass);
-    border: 1px solid var(--dg-line); border-radius: 8px; padding: 7px 11px;
-    color: var(--dg-text); font-size: 13.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 2px;
+    border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4);
+    color: var(--dg-text); font-size: var(--t-sm); line-height: 1.4; display: flex; flex-direction: column; gap: var(--s-1);
   }
   .rm-info[hidden] { display: none; }
-  .rm-info span { color: var(--dg-ink); font-size: 12px; }
+  .rm-info span { color: var(--dg-ink); font-size: var(--t-xs); }
   .rm-multi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); }
   .rm-multi .rm-map { height: clamp(300px, 42vh, 440px); }
   .rm-multi .rm-info { top: 48px; }
@@ -1266,18 +1241,18 @@
   .rm-multi .rm-map:not(:first-child) .rm-tools > :not([data-act="done"]) { display: none; }
   .rm-pname {
     position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
-    display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--dg-text);
-    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px;
+    display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-sm); font-weight: 600; color: var(--dg-text);
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
   }
-  .rm-pname .c { font: 11.5px var(--mono); color: var(--dg-faint); font-weight: 400; }
-  .rm-caption { margin-top: 6px; }
+  .rm-pname .c { font: var(--t-xs) var(--mono); color: var(--dg-faint); font-weight: 400; }
+  .rm-caption { margin-top: var(--s-2); }
 
   /* ---- replay: one clock for the timeline and every map ---- */
   .rp-frame { position: relative; }
   .rp-ctl {
     position: absolute; left: 10px; top: 10px; z-index: 4;
-    display: flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px;
-    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 999px;
+    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-1) var(--s-5) var(--s-1) var(--s-1);
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: var(--r-pill);
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
   .rp-ctl .rp-pp {
@@ -1288,8 +1263,8 @@
   .rp-ctl .rp-pp:hover:not(:disabled) { background: var(--accent-hover); }
   .rp-ctl .rp-pp.stop, .rp-ctl .rp-pp.stop:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
   .rp-ctl .rp-pp svg { width: 15px; height: 15px; display: block; fill: currentColor; }
-  .rp-clock { font: 600 16px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--dg-text); min-width: 3.4em; }
-  .rp-clock.still { color: var(--dg-faint); font-weight: 500; }
+  .rp-clock { font: 600 var(--t-md)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--dg-text); min-width: 3.4em; }
+  .rp-clock.still { color: var(--dg-faint); font-weight: 400; }
   .rp-tl { padding: 62px 14px 8px; }
   .rp-frame .rm-map .rm-info { top: 60px; }
   .rp-frame .rm-multi .rm-map .rm-info { top: 48px; }
@@ -1314,33 +1289,33 @@
   @keyframes rm-ping { from { transform: scale(.5); opacity: .95; } to { transform: scale(2.8); opacity: 0; } }
 
   /* Where everyone is at this moment of the replay. */
-  .rp-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-top: 12px; }
+  .rp-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--s-3); margin-top: var(--s-4); }
   .rp-place {
     position: relative; text-align: left; min-width: 0;
-    display: flex; flex-direction: column; gap: 3px;
-    padding: 8px 11px 9px 15px; border-radius: 8px;
+    display: flex; flex-direction: column; gap: var(--s-1);
+    padding: var(--s-3) var(--s-4) var(--s-3) var(--s-5); border-radius: var(--r-box);
     border: 1px solid var(--line); background: var(--bg-2); color: var(--fg);
-    font-size: 13px; line-height: 1.3; transition: opacity .2s, border-color .2s, background .12s;
+    font-size: var(--t-sm); line-height: 1.3; transition: opacity var(--m-base), border-color var(--m-base), background var(--m-fast);
   }
   .rp-place::before {
     content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c);
   }
   .rp-place:hover:not(:disabled) { background: var(--hover-soft); }
-  .rp-place .top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .rp-place .top { display: flex; align-items: baseline; gap: var(--s-3); min-width: 0; }
   .rp-place .nm { font-weight: 600; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .rp-place .cl { font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-faint); flex: none; }
-  .rp-place .at { color: var(--fg-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rp-place .cl { font: var(--t-xs) var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-faint); flex: none; }
+  .rp-place .at { color: var(--fg-dim); font-size: var(--t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rp-place.done { border-color: var(--good-line); }
   .rp-place.done .at { color: var(--good-fg); }
   .rp-place[aria-pressed="true"], .rp-place[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
   .rp-places.focused .rp-place[aria-pressed="false"] { opacity: .5; }
   .rp-places.focused .rp-place[aria-pressed="false"]:hover { opacity: .8; }
-  .rp-note { margin-top: 10px; }
+  .rp-note { margin-top: var(--s-3); }
   @media (prefers-reduced-motion: reduce) {
     .rm-ping { display: none; }
     .rm-map .rm-world > path, .rm-map .rm-world > rect, .rm-map .rm-marks, .rp-place { transition: none; }
   }
-  @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: 17px; } }
+  @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: var(--t-lg); } }
   @media (prefers-reduced-motion: reduce) { .rm-hint { transition: none; } }
   /* After the rules above, or they would win: one panel per row on a phone. */
   @media (max-width: 760px) {
@@ -1354,12 +1329,11 @@
     .rp-frame .rm-multi .rm-map:first-child .rm-info { top: 100px; }
     .rp-tl { padding: 60px 6px 6px; }
     #rp-type { width: 100%; }
-    #rp-type button { flex: 1; padding: 6px 4px; font-size: 12.5px; }
-    .rp-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-    .rp-place { padding: 7px 9px 8px 14px; }
+    #rp-type button { flex: 1; padding: var(--s-2) var(--s-1); font-size: var(--t-sm); }
+    .rp-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+    .rp-place { padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5); }
   }
 
-  /* compact per-player pill for the mobile strip */
   /* A Pill, compact: a phone has one thin strip for everybody. */
   .mp {
     flex: none; font-size: var(--t-xs); padding: var(--s-1) var(--s-3) var(--s-1) var(--s-2);
@@ -3456,7 +3430,7 @@ function drawPlaces(t, active) {
 
 /* The timeline as a view of the replay. */
 function timelineStage(host) {
-  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"><div class="rp-tl-svg"></div><div class="rp-tip" hidden></div></div></div>';
+  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"><div class="rp-tl-svg"></div><div class="tip rp-tip" hidden></div></div></div>';
   const chart = $("rp-chart"), svgHost = chart.firstChild, tip = chart.lastChild;
   // What the pointer is on, kept across redraws so a replay running
   // underneath doesn't throw the highlight away.
