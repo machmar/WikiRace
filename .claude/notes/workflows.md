@@ -73,6 +73,18 @@ Prefer reading values out of the page over screenshots:
 ({ mode: replay.mapType, players: replay.lanes.length, clock: $('rp-clock').textContent })
 ```
 
+To get the browser's own player into a state without playing to it, drive the
+API from the page with its `post()`, which carries the tab's sid, then reload.
+A run that is already over, with a checkpoint on its trail:
+
+```js
+await post("/name", { name: "Tester" });
+await post("/start_race", { target: "Pulsar", lang: "cs", kind: "classic",
+  start: "Karel IV.", starts: ["Karel IV."], checkpoints: ["Praha", "Vltava"] });
+await post("/progress", { article: "Praha", clicks: 1, path: ["Karel IV.", "Praha"], times: [0, 5], elapsed: 6 });
+await post("/give_up", { elapsed: 8, clicks: 1, path: ["Karel IV.", "Praha"], times: [0, 5] });
+```
+
 Traps found the hard way:
 
 - Computed styles lag for nodes the script just changed; reload rather than
@@ -146,8 +158,9 @@ is best shown as two live copies side by side rather than described:
 Traps:
 
 - A tab that has been reloaded and one that has not can show different state
-  for the same race (the goal bar after a reload, issue #19). Reload both
-  before believing a difference.
+  for the same race. Reload both before believing a difference. (The goal bar
+  used to be the example, issue #19; a reload now draws it from the restored
+  trail.)
 - Messages the game re-hides on every update (the name-clash and guest notes)
   can be pinned visible for a comparison with a temporary style in the page -
   never in the source.

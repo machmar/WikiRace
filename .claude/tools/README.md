@@ -21,6 +21,10 @@ anchor, which is the point:
     retrofit_racing.py  retrofit_side.py  retrofit_peekvote.py  retrofit_results.py
     retrofit_watching.py  retrofit_replay.py  retrofit_moments.py
 
+One-off fixes, the same way:
+
+    fix_goalbar_reload.py   # issue #19: the goal bar after a reload
+
 Test suites:
 
     python test_store.py             # history and SQLite (starts its own server)
