@@ -191,6 +191,11 @@ hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
 in a card in this game — the lobby's players, the standings, the racers — was
 already drawn that way before there was a standard to say so.
 
+A **log** — the play-by-play — is not a list of Rows. It is fine print:
+`--t-xs` lines at `--s-1`, divided by hairlines, glanced at and never read.
+Spacing it like Rows, or setting it at the body size, makes an insignificant
+log look like a feature and competes with the racers above it.
+
 **Row and Note are the same shape**, and differ in what they are for: a Row is
 one of many and neutral — a checkpoint in the list, a player in the ready list,
 a finishing place. A Note is one of one and tinted, and it is there because

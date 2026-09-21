@@ -291,12 +291,10 @@
   .panel.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
 
   /* rule chips under the racer list */
-  #rules { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  #rules { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-3); }
   #rules:empty { margin: 0; }
-  .rule {
-    font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
-    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg-dim);
-  }
+  /* A Pill, compact: a race can carry half a dozen rules. */
+  .rule { font-size: var(--t-xs); padding: var(--s-1) var(--s-3); color: var(--fg-dim); }
 
   /* ready check */
   .ready-row .sub { margin-left: auto; }
@@ -505,9 +503,9 @@
 
   /* ---------- panels ---------- */
 
-  .side-sec { border-bottom: 1px solid var(--line); padding: 14px 16px; }
+  .side-sec { border-bottom: 1px solid var(--line); padding: var(--s-5); }
   .side-sec h3 {
-    margin: 0 0 11px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+    margin: 0 0 var(--s-4); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
     color: var(--fg-faint); font-weight: 700; display: flex; align-items: center; justify-content: space-between;
   }
   .hstack { display: flex; align-items: center; gap: var(--s-3); }
@@ -516,35 +514,33 @@
   .empty { color: var(--fg-faint); font-size: var(--t-sm); font-style: italic; padding: var(--s-1) 0; }
 
   /* racers */
-  .racer {
-    display: flex; align-items: center; gap: 9px; padding: 7px 0;
-    border-bottom: 1px solid var(--line-soft);
-  }
-  .racer:last-child { border-bottom: none; }
   .swatch { width: 8px; height: 26px; border-radius: 3px; flex: none; }
   .racer .who { flex: 1; min-width: 0; }
-  .racer .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .racer .at { font-size: 11.5px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .nm { font-weight: 600; font-size: var(--t-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .at { font-size: var(--t-xs); color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .racer .at.hidden-pos { color: var(--fg-faint); font-style: italic; }
-  .racer .n { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .racer .n { font-family: var(--mono); font-size: var(--t-md); font-variant-numeric: tabular-nums; }
   .racer.done .nm { color: var(--good); }
   .racer.gone .nm { color: var(--fg-faint); }
   .racer.near .nm { color: var(--bad); font-weight: 700; }
   .racer .pip.cp {
-    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
-    padding: 1px 6px; border-radius: 999px; vertical-align: 1px;
+    margin-left: var(--s-2); font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+    padding: 1px var(--s-2); border-radius: var(--r-pill); vertical-align: 1px;
     background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
     font-family: var(--mono);
   }
   .racer .pip.cp.all { border-color: var(--line-strong); color: var(--fg-strong); background: var(--line-strong); }
 
   .racer.near .pip {
-    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
-    text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
+    margin-left: var(--s-2); font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; padding: 1px var(--s-2); border-radius: var(--r-pill);
     background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad-fg);
     vertical-align: 1px;
   }
-  .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
+  .racer.me {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+    margin: 0 calc(-1 * var(--s-5)); padding: var(--s-3) var(--s-5);
+  }
 
   /* leaderboard */
   table.board { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
@@ -556,21 +552,23 @@
   .sub { color: var(--fg-faint); font-size: var(--t-xs); }
 
   /* play-by-play ticker */
-  #ticker { max-height: 200px; overflow-y: auto; margin-bottom: 9px; }
+  #ticker { max-height: 200px; overflow-y: auto; margin-bottom: var(--s-3); }
   #ticker:empty { display: none; }
   .tk {
-    display: flex; align-items: baseline; gap: 6px; font-size: 12.5px;
-    padding: 4px 0; border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: baseline; gap: var(--s-2); font-size: var(--t-xs);
+    padding: var(--s-1) 0; border-bottom: 1px solid var(--line-soft);
   }
   .tk:last-child { border-bottom: none; }
   .tk .who { font-weight: 600; flex: none; }
   .tk .what { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tk .cl { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+  .tk .cl { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); }
   .tk.hot .what { color: var(--warn); font-weight: 600; }
 
   /* feed */
-  #feed { max-height: 190px; overflow-y: auto; font-size: 12.5px; }
-  #feed .e { padding: 3px 0; color: var(--fg-dim); border-bottom: 1px solid var(--line-soft); }
+  /* A log is fine print: glanced at, never read, so it never competes with
+     the racers above it. */
+  #feed { max-height: 190px; overflow-y: auto; font-size: var(--t-xs); }
+  #feed .e { padding: var(--s-1) 0; color: var(--fg-dim); border-bottom: 1px solid var(--line-soft); }
   #feed .e:last-child { border-bottom: none; }
   #feed .e.finish { color: var(--good); }
   #feed .e.race { color: var(--accent); }
@@ -953,8 +951,9 @@
     #side {
       position: fixed; top: 0; right: 0; bottom: 0; z-index: 80;
       width: min(330px, 86vw); border-left: 1px solid var(--line);
-      transform: translateX(101%); transition: transform .22s ease;
-      box-shadow: -14px 0 44px rgba(0, 0, 0, .55);
+      transform: translateX(101%); transition: transform var(--m-base) var(--e-out);
+      /* Sideways, because the drawer slides in from the side. */
+      box-shadow: -14px 0 44px var(--shadow);
     }
     #side.open { transform: translateX(0); }
     #scrim {
@@ -1120,13 +1119,13 @@
   @media (prefers-reduced-motion: reduce) {
     .np-card, .np-roll.rolling span { animation: none; }
   }
-  #guest-note { margin-top: 8px; font-size: 12px; color: var(--fg-dim); line-height: 1.4; }
+  #guest-note { margin-top: var(--s-3); line-height: 1.4; }
   #guest-note[hidden] { display: none; }
-  #name-twin { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--warn-fg); }
+  #name-twin { margin-top: var(--s-3); line-height: 1.4; }
   #name-twin[hidden] { display: none; }
   #name-twin a { color: var(--accent); }
   #guest-note a { color: var(--accent); }
-  #btn-rollname { flex: none; padding: 6px 9px; font-size: 15px; line-height: 1; }
+  #btn-rollname { flex: none; padding: var(--s-2) var(--s-3); font-size: var(--t-md); line-height: 1; }
 
   /* ---- the big moments: a checkpoint, the finish ----
      Deliberately loud and arcade-like - it's a celebration, not a notice. A
@@ -1573,9 +1572,9 @@
         <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
       </div>
-      <div id="name-twin" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
+      <div id="name-twin" class="note warn at-field" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
         of you can race under it. <a href="#" id="name-twin-pick">Pick another name</a></div>
-      <div id="guest-note" hidden>Playing as a guest — this name isn't saved and won't count in the
+      <div id="guest-note" class="note info at-field" hidden>Playing as a guest — this name isn't saved and won't count in the
         standings. <a href="#" id="guest-keep">Keep this name</a></div>
     </div>
 
@@ -1583,11 +1582,11 @@
       <h3>Racers <span id="peercount" class="muted"></span></h3>
       <div id="rules"></div>
       <div id="racers"><div class="empty">Looking for players on the LAN…</div></div>
-      <button id="btn-ready" style="width:100%;margin-top:11px">Mark me ready</button>
+      <button id="btn-ready" style="width:100%;margin-top:var(--s-4)">Mark me ready</button>
     </div>
 
     <div class="side-sec">
-      <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:2px 7px;font-size:11px">clear</button></h3>
+      <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:var(--s-1) var(--s-2)">clear</button></h3>
       <div id="board"><div class="empty">No races finished yet.</div></div>
     </div>
 
@@ -2391,7 +2390,7 @@ function renderRules(race) {
   const slots = raceSlots(race), stops = raceCheckpoints(race);
   stops.forEach((c, i) => bits.push("via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
-  setHTML(host, bits.map(b => '<span class="rule">' + esc(b) + "</span>").join(""));
+  setHTML(host, bits.map(b => '<span class="pill rule">' + esc(b) + "</span>").join(""));
 }
 
 /* Entering a race has three flavours: a fresh start, picking up a run we
@@ -6000,7 +5999,7 @@ function renderRacers(snap) {
   }
 
   if (rows.length === 1 && !race) {
-    host.innerHTML = '<div class="racer me"><div class="swatch" style="background:' + snap.me.color + '"></div>' +
+    host.innerHTML = '<div class="row in-card racer me"><div class="swatch" style="background:' + snap.me.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(snap.me.name) + ' (you)</div>' +
       '<div class="at">waiting for others…</div></div></div>';
     return;
@@ -6031,7 +6030,7 @@ function renderRacers(snap) {
     // stays visible either way.
     const showCp = stops && r.active && !r.finished && !r.gave_up;
 
-    return '<div class="racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
+    return '<div class="row in-card racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
       (r.gave_up ? " gone" : "") + (near ? " near" : "") + '">' +
       '<div class="swatch" style="background:' + r.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(r.name) +
