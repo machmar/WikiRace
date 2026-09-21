@@ -882,7 +882,7 @@
   /* ---------- spectator view ---------- */
 
   #spec-bar {
-    display: flex; align-items: center; gap: 11px; padding: 9px 16px;
+    display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-5);
     background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
   }
   #spec-who { width: 190px; flex: none; }
@@ -891,27 +891,27 @@
   .seg button { border: none; border-radius: 0; background: transparent; padding: var(--s-2) var(--s-4); font-size: var(--t-sm); }
   .seg button.on { background: var(--accent-solid); color: var(--on-accent); font-weight: 600; }
 
-  #spec-body { flex: 1; overflow: hidden; padding: 12px; }
+  #spec-body { flex: 1; overflow: hidden; padding: var(--s-4); }
   #spec-body.tiles {
-    display: grid; gap: 12px; overflow-y: auto;
+    display: grid; gap: var(--s-4); overflow-y: auto;
     grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
     grid-auto-rows: minmax(260px, 1fr);
   }
   #spec-body.one { display: block; }
 
+  /* A Card whose contents run flush - a header strip, then the article - so
+     it keeps the Card's shape and surface and gives up its padding. */
   .spec-tile {
-    display: flex; flex-direction: column; min-height: 0;
-    background: var(--bg-2); border: 1px solid var(--line);
-    border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden;
   }
   #spec-body.one .spec-tile { height: 100%; }
   .spec-head {
-    display: flex; align-items: center; gap: 8px; padding: 7px 11px;
-    background: var(--bg-3); border-bottom: 1px solid var(--line); flex: none; font-size: 13px;
+    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-4);
+    background: var(--bg-3); border-bottom: 1px solid var(--line); flex: none; font-size: var(--t-sm);
   }
   .spec-head .nm { font-weight: 600; white-space: nowrap; }
   .spec-head .meta {
-    margin-left: auto; color: var(--fg-dim); font-size: 11.5px;
+    margin-left: auto; color: var(--fg-dim); font-size: var(--t-xs);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -926,7 +926,7 @@
   #spec-body.one .spec-view .wiki .infobox { width: 280px; }
   .spec-view h1.sp-title { font-size: 17px; margin: 0 0 9px; font-weight: 700; }
   #spec-body.one .spec-view h1.sp-title { font-size: 24px; }
-  .spec-empty { color: var(--fg-faint); font-style: italic; padding: 26px; text-align: center; font-size: 13px; }
+  .spec-empty { color: var(--fg-faint); font-style: italic; padding: var(--s-7); text-align: center; font-size: var(--t-sm); }
   .spec-fade {
     position: absolute; left: 0; right: 0; bottom: 0; height: 34px; pointer-events: none;
     background: linear-gradient(transparent, var(--bg-2));
@@ -3786,7 +3786,7 @@ function renderSpectate(snap) {
   const blocked = !snap.race
     ? "No race is running."
     : (!spectateAllowed(snap)
-        ? "This race hides opponent positions.<br>Spectating opens once everyone has finished."
+        ? "This race hides opponent positions.<br>You can watch once everyone has finished."
         : null);
   if (blocked) {
     body.className = "";
@@ -3838,7 +3838,7 @@ function renderSpectate(snap) {
     body.innerHTML = "";
     for (const p of shown) {
       const tile = document.createElement("div");
-      tile.className = "spec-tile";
+      tile.className = "card spec-tile";
       tile.innerHTML =
         '<div class="spec-head">' +
         '<span class="swatch" style="height:14px;width:6px;background:' + p.color + '"></span>' +
