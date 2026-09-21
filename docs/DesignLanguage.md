@@ -178,6 +178,11 @@ this file gave Controls a fixed `--t-sm`, but the game has always let buttons
 inherit, and forcing one size on every button would have been a restyle rather
 than a snap. `.primary`, `.ghost`, `.danger` and `.big` are its variants.
 
+A **Card you can press** — a game mode, a choice among a few big options — is
+a `button` that keeps the Card's shape: `--r-card`, sitting among its siblings.
+It behaves like a Control, with a hover and a focus, but it reads as a Card
+because it is one of a group. It is not an eighth piece.
+
 A **Row inside a Card** drops its own box and is divided from the next by a
 hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
 in a card in this game — the lobby's players, the standings, the racers — was
@@ -262,6 +267,12 @@ about the race rather than something about visual rhythm. Forcing `--s-3` into
 a lane height would break a picture to satisfy a rule that was never about
 pictures.
 
+**Illustrations.** The miniature behind each card in the mode picker is a
+shrunken picture of that mode's setup screen, faded to a fifth of its strength.
+Its four-pixel bars and nine-pixel labels are drawn at picture scale; snapping
+them to the type scale would make the miniature less of a miniature. The same
+goes for any picture of the game drawn inside the game.
+
 The chrome *around* a drawing — the replay controls, the player boxes, the view
-switcher, the info panel — is ordinary interface and does follow this file. The
-line is the drawing surface itself.
+switcher, the info panel, the mode card an illustration sits in — is ordinary
+interface and does follow this file. The line is the drawing surface itself.

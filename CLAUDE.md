@@ -53,11 +53,13 @@ The short version, which is not a substitute for reading it:
   literal `rgba` — a literal is the dark theme's colour, and on the light
   themes it goes muddy or turns the screen near-black.
 
-Two things the standard deliberately does **not** cover, so don't "fix" them
+Three things the standard deliberately does **not** cover, so don't "fix" them
 to match: the Wikipedia article itself, which keeps Wikipedia's own colours and
-type because the reading is meant to look like the real thing; and the route
-maps and timeline, which are data drawings whose spacing is computed for
-legibility of the race, not for visual rhythm.
+type because the reading is meant to look like the real thing; the route maps
+and timeline, which are data drawings whose spacing is computed for legibility
+of the race, not for visual rhythm; and illustrations, such as the miniature
+setup screens behind the mode picker's cards, which are drawn at picture scale.
+The interface around any of them does follow the standard.
 
 ## House style
 
