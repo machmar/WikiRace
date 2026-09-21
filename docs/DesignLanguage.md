@@ -296,6 +296,14 @@ Its four-pixel bars and nine-pixel labels are drawn at picture scale; snapping
 them to the type scale would make the miniature less of a miniature. The same
 goes for any picture of the game drawn inside the game.
 
+**The big moments.** The countdown before a race and the splashes for a
+checkpoint and the finish are deliberately loud and arcade-like: a celebration,
+not a notice. The pulsing number, the goal line over it, the rays, glows and
+coloured edges of a splash are drawn at their own sizes and in their own
+colours, and are not snapped onto the scale.
+
 The chrome *around* a drawing — the replay controls, the player boxes, the view
 switcher, the info panel, the mode card an illustration sits in — is ordinary
-interface and does follow this file. The line is the drawing surface itself.
+interface and does follow this file. So does a message shown with a big
+moment: the warning on the countdown that find is off for the race is a Note.
+The line is the drawing surface itself.

@@ -710,12 +710,12 @@
   .actions { display: flex; gap: var(--s-3); margin-top: var(--s-6); }
   .actions button { flex: 1; }
 
+  /* The countdown is one of the big moments, and the design language's
+     carve-out: its number, the goal line above it and the lost-race line are a
+     composition drawn at their own sizes. The warning under it is a message,
+     and is a Note. */
   #countdown { font-size: 130px; font-weight: 800; font-family: var(--mono); letter-spacing: -6px; animation: pop .45s ease-out; }
-  .cd-warn {
-    margin-top: 16px; padding: 9px 16px; border-radius: 9px;
-    background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-fg);
-    font-size: 13.5px; max-width: 420px;
-  }
+  .cd-warn { margin-top: var(--s-5); max-width: 420px; }
   .cd-warn b { color: var(--fg-strong); }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .cd-wrap { text-align: center; }
@@ -1103,7 +1103,9 @@
   #btn-rollname { flex: none; padding: var(--s-2) var(--s-3); font-size: var(--t-md); line-height: 1; }
 
   /* ---- the big moments: a checkpoint, the finish ----
-     Deliberately loud and arcade-like - it's a celebration, not a notice. A
+     Deliberately loud and arcade-like - it's a celebration, not a notice, and
+     so it is the design language's carve-out: its sizes, glows and colours are
+     its own and are not snapped onto the scale. A
      checkpoint lets clicks straight through so the race doesn't stall; the
      finish holds the screen for a moment and can be tapped away. */
   #fanfare {
@@ -2472,7 +2474,7 @@ function countdown(race, startPage) {
       // A page can't close the browser's find bar, so the only moment to deal
       // with one that's already open is before anybody starts reading.
       (race.allow_find === false
-        ? '<div class="cd-warn">Find is off this race — if your find bar is ' +
+        ? '<div class="note warn cd-warn">Find is off this race — if your find bar is ' +
           "open, press <b>Esc</b> now to close it</div>"
         : "") +
       "</div>";
