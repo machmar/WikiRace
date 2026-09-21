@@ -49,10 +49,15 @@ their siblings) — and the light and Wikipedia themes swap values rather than
 hunting hex codes. Everything below is an attempt to give type, space, radius
 and motion the same treatment.
 
-Two standing rules that the file currently half-follows:
+Standing rules that the file used to half-follow:
 
 - Shadows use `var(--shadow)`, never a literal `rgba`. Three places hard-code
   `rgba(0, 0, 0, .5)` today and go muddy on the light themes.
+- **Every backdrop behind a Panel is `var(--scrim)`**, whatever the Panel is.
+  The one behind the race setup used to hard-code the dark theme's colour at
+  93%, so on the light theme it turned the whole screen near-black while the
+  name picker and peek sheet used a soft grey — three dimmings for one idea.
+  A blur on top is fine; a different colour is not.
 - Player colours come from `raceColors` and nowhere else, with `ink()` swapping
   in the `LIGHT_INK` twins on light themes, so the timeline, the maps and the
   boxes always agree on who is who.
@@ -68,7 +73,7 @@ collapsing them is most of what this scale does.
 | Token | Size | What it is for |
 |---|---|---|
 | `--t-xs` | 11px | fine print: legends, pips, meta, captions |
-| `--t-sm` | 13px | the workhorse: body, buttons, rows, chips |
+| `--t-sm` | 13px | the workhorse: body, rows, pills, notes — Controls inherit instead |
 | `--t-md` | 15px | emphasis: card headings, lead-ins |
 | `--t-lg` | 17px | section headings |
 | `--t-xl` | 22px | display |
@@ -156,15 +161,27 @@ Every surface in the game is one of these. **A new piece of UI is one of the
 seven, or you have found an eighth — and an eighth goes in this file before it
 goes in `ui.html`.**
 
-| Piece | What it is | Radius | Padding |
-|---|---|---|---|
-| **Pill** | a standalone token you read, not a surface things sit on | `--r-pill` | `--s-1 --s-4` |
-| **Control** | something you operate | `--r-box` | `--s-2 --s-4` |
-| **Row** | one repeated line in a list | `--r-box` | `--s-3 --s-4` |
-| **Note** | a tinted message saying how things stand | `--r-box` | `--s-3 --s-4` |
-| **Tip** | something floating that points at what is under it | `--r-box` | `--s-1 --s-3`, `--el-lift` |
-| **Card** | a grouped thing among its siblings | `--r-card` | `--s-5`, or `--s-6` roomy |
-| **Panel** | the container the rest sits inside | `--r-panel` | `--s-6`, or `--s-7` for a dialog |
+| Piece | In the markup | What it is | Radius | Padding |
+|---|---|---|---|---|
+| **Pill** | `.pill` | a standalone token you read, not a surface things sit on | `--r-pill` | `--s-1 --s-4` |
+| **Control** | `button`, `input`, `select` | something you operate | `--r-box` | `--s-2 --s-4` |
+| **Row** | `.row`, or `.row.in-card` | one repeated line in a list | `--r-box` | `--s-3 --s-4` |
+| **Note** | `.note` + `.good` `.warn` `.bad` `.info` | a tinted message saying how things stand | `--r-box` | `--s-3 --s-4` |
+| **Tip** | `.tip` | something floating that points at what is under it | `--r-box` | `--s-1 --s-3`, `--el-lift` |
+| **Card** | `.card` | a grouped thing among its siblings | `--r-card` | `--s-5`, or `--s-6` roomy |
+| **Panel** | `.panel` | the container the rest sits inside | `--r-panel` | `--s-7` |
+
+A **Control** is the element itself — a plain `button`, text field or `select`
+is already one, with no class. Its text takes the size of wherever it sits:
+fifteen pixels on an open screen, less in the side panel. An earlier draft of
+this file gave Controls a fixed `--t-sm`, but the game has always let buttons
+inherit, and forcing one size on every button would have been a restyle rather
+than a snap. `.primary`, `.ghost`, `.danger` and `.big` are its variants.
+
+A **Row inside a Card** drops its own box and is divided from the next by a
+hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
+in a card in this game — the lobby's players, the standings, the racers — was
+already drawn that way before there was a standard to say so.
 
 **Row and Note are the same shape**, and differ in what they are for: a Row is
 one of many and neutral — a checkpoint in the list, a player in the ready list,
@@ -192,11 +209,19 @@ The base class sits alongside the namespaced one:
 
 ```html
 <div class="card lobby-card">
+<div class="row in-card lp">
 ```
 
 `.card` carries the radius, padding and surface; `.lobby-card` carries only
-what is genuinely particular to the lobby. This needs no rename sweep and no
-build step, and an area nobody has converted keeps working untouched.
+what is genuinely particular to the lobby. The lobby is built exactly this way,
+and is the example to copy.
+
+Three of these names used to mean something else in `ui.html`, and were renamed
+out of the way before the base classes went in: the dialog was `.card` (it is a
+Panel, and is now `.panel`), the side panel's sections were `.panel` (now
+`.side-sec`), and a flex layout helper was `.row` (now `.hstack`). `.hstack`
+is a helper for laying things out in a line, not one of the seven — it has no
+surface of its own.
 
 ## Words
 

@@ -44,9 +44,14 @@ The short version, which is not a substitute for reading it:
   eighth, and an eighth goes in the standard before it goes in `ui.html`.
 - New components take a **base class plus the feature namespace**:
   `class="card lobby-card"`. The base class carries the shape; the namespaced
-  one carries only what is particular to that area.
-- Shadows are built from `--shadow`, never a literal `rgba` — a literal goes
-  muddy on the light themes.
+  one carries only what is particular to that area. The lobby is built this
+  way and is the example to copy.
+- A **Control** is the plain `button`, `input` or `select` — no class, and its
+  text inherits. A **Row inside a Card** is `.row.in-card`: a hairline, not a
+  box. `.hstack` is a layout helper, not a piece.
+- Shadows and backdrops are built from `--shadow` and `--scrim`, never a
+  literal `rgba` — a literal is the dark theme's colour, and on the light
+  themes it goes muddy or turns the screen near-black.
 
 Two things the standard deliberately does **not** cover, so don't "fix" them
 to match: the Wikipedia article itself, which keeps Wikipedia's own colours and

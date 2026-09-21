@@ -165,8 +165,10 @@
   button {
     font: inherit; cursor: pointer; color: var(--fg);
     background: var(--bg-3); border: 1px solid var(--line);
-    padding: 7px 13px; border-radius: 7px;
-    transition: background .12s, border-color .12s, transform .06s;
+    padding: var(--s-2) var(--s-4); border-radius: var(--r-box);
+    /* The press is quicker than --m-fast on purpose: it is the one motion that
+       has to feel like it happened under your finger. */
+    transition: background var(--m-fast), border-color var(--m-fast), transform .06s;
   }
   button:hover:not(:disabled) { background: var(--hover); border-color: var(--line-strong); }
   button:active:not(:disabled) { transform: translateY(1px); }
@@ -178,9 +180,13 @@
 
   input[type=text], input[type=number] {
     font: inherit; color: var(--fg); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+    border: 1px solid var(--line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4); width: 100%;
   }
-  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+  /* A coloured border alone is easy to miss, especially for anyone who does
+     not see the accent well; the ring is what makes focus unmistakable. */
+  input[type=text]:focus, input[type=number]:focus {
+    outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+  }
   /* The browser's own spinner is tiny, ugly and in the way; the box is typed in. */
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   input[type=number]::-webkit-outer-spin-button,
@@ -188,9 +194,62 @@
 
   select {
     font: inherit; color: var(--fg); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+    border: 1px solid var(--line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4); width: 100%;
   }
-  select:focus { outline: none; border-color: var(--accent); }
+  select:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+  /* ---------- the seven pieces ----------
+     docs/DesignLanguage.md. Every surface is one of these; a screen adds its
+     own namespaced class beside the base one - class="card lobby-card" - and
+     that class carries only what is particular to the screen. Control is the
+     button, text field and select above; Panel is .panel, the dialog, below. */
+
+  /* Pill: a standalone token you read. */
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    border-radius: var(--r-pill); padding: var(--s-1) var(--s-4); font-size: var(--t-sm);
+  }
+
+  /* Row: one of many. Boxed on its own; inside a card it drops the box and is
+     divided by a hairline instead, because a box inside a box is heavy. */
+  .row {
+    display: flex; align-items: center; gap: var(--s-3);
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4); font-size: var(--t-sm);
+  }
+  .row.in-card {
+    background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+    border-radius: 0; padding: var(--s-3) 0;
+  }
+  .row.in-card:last-child { border-bottom: none; }
+
+  /* Note: one of one, tinted, and centred so it reads as a message rather than
+     a row - except beside a field, where centring would detach it from the
+     thing it is about. */
+  .note {
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
+    font-size: var(--t-sm); text-align: center; border: 1px solid;
+  }
+  .note.at-field { text-align: left; }
+  .note.good { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+  .note.warn { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); }
+  .note.bad  { background: var(--bad-bg);  border-color: var(--bad-line);  color: var(--bad-fg); }
+  .note.info { background: var(--info-bg); border-color: var(--info-line); color: var(--fg); }
+
+  /* Tip: floating, pointing at what is under it. Never in the way of a click. */
+  .tip {
+    background: var(--bg-3); border: 1px solid var(--line-strong); color: var(--fg);
+    border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
+    font-size: var(--t-sm); box-shadow: var(--el-lift); pointer-events: none;
+  }
+
+  /* Card: a grouped thing among its siblings. No shadow - depth comes from the
+     ground it sits on. */
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: var(--s-5);
+  }
 
   /* Our own dropdown. A native <select> pops its list directly over the
      pointer, so the mouseup that ends the opening click can land on an option
@@ -453,10 +512,10 @@
     margin: 0 0 11px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
     color: var(--fg-faint); font-weight: 700; display: flex; align-items: center; justify-content: space-between;
   }
-  .hstack { display: flex; align-items: center; gap: 9px; }
+  .hstack { display: flex; align-items: center; gap: var(--s-3); }
   .muted { color: var(--fg-dim); }
-  .tiny { font-size: 12px; }
-  .empty { color: var(--fg-faint); font-size: 13px; font-style: italic; padding: 3px 0; }
+  .tiny { font-size: var(--t-xs); }
+  .empty { color: var(--fg-faint); font-size: var(--t-sm); font-style: italic; padding: var(--s-1) 0; }
 
   /* racers */
   .racer {
@@ -490,13 +549,13 @@
   .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
 
   /* leaderboard */
-  table.board { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.board td { padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+  table.board { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+  table.board td { padding: var(--s-2) 0; border-bottom: 1px solid var(--line-soft); }
   table.board tr:last-child td { border-bottom: none; }
   .pos { width: 22px; color: var(--fg-faint); font-family: var(--mono); }
   .pos.p1 { color: var(--gold); font-weight: 700; }
   .pts { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .sub { color: var(--fg-faint); font-size: 11px; }
+  .sub { color: var(--fg-faint); font-size: var(--t-xs); }
 
   /* play-by-play ticker */
   #ticker { max-height: 200px; overflow-y: auto; margin-bottom: 9px; }
@@ -536,15 +595,18 @@
 
   .overlay {
     position: absolute; inset: 0; z-index: 50;
-    background: rgba(6, 10, 15, .93); backdrop-filter: blur(5px);
+    background: var(--scrim); backdrop-filter: blur(5px);
     display: flex; align-items: center; justify-content: center; padding: 30px;
   }
+  /* Panel: the container the rest sits inside. Rounded more than the cards in
+     it, never less, and its shadow is built from --shadow so it stays clean on
+     the light themes, where a literal black went muddy. */
   .panel {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
-    padding: 28px 30px; max-width: 560px; width: 100%;
-    box-shadow: 0 22px 60px rgba(0,0,0,.55);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-panel);
+    padding: var(--s-7); max-width: 560px; width: 100%;
+    box-shadow: var(--el-float);
   }
-  .panel h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
+  .panel h2 { margin: 0 0 var(--s-2); font-size: var(--t-xl); letter-spacing: -.02em; }
 
   /* ---- game mode chooser ---- */
   .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -589,7 +651,7 @@
     .modes { grid-template-columns: 1fr; }
     .mode { min-height: 120px; }
   }
-  .panel p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
+  .panel p.lede { margin: 0 0 var(--s-6); color: var(--fg-dim); font-size: var(--t-md); }
   .sub-label { display: block; color: var(--fg-dim); }
   /* The stops, in the order they're meant to be made, with the box that adds
      one more as the last row. */
@@ -637,7 +699,7 @@
   .num .spin button { width: 24px; height: 18px; padding: 0; border: 0; border-radius: 0; background: var(--bg-3); color: var(--fg-dim); font-size: 8px; line-height: 1; }
   .num .spin button + button { border-top: 1px solid var(--line); }
   .num .spin button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
-  .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .panel-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-2); }
   .panel-head h2 { margin: 0; }
   .back-btn { flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
   .back-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -737,22 +799,13 @@
 
   .lobby-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
   @media (max-width: 720px) { .lobby-cols { grid-template-columns: 1fr; } }
-  .lobby-card {
-    background: var(--bg-2); border: 1px solid var(--line);
-    border-radius: var(--r-card); padding: var(--s-5);
-  }
   .lobby-card h3 {
     margin: 0 0 var(--s-4); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
     color: var(--fg-faint); font-weight: 700;
   }
   .lobby-actions { display: flex; gap: var(--s-4); justify-content: center; margin-top: var(--s-7); }
-  button.big { padding: 12px 26px; font-size: 15px; border-radius: 9px; }
+  button.big { padding: var(--s-4) var(--s-7); font-size: var(--t-md); border-radius: var(--r-box); }
 
-  .lp {
-    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) 0;
-    border-bottom: 1px solid var(--line-soft); font-size: var(--t-sm);
-  }
-  .lp:last-child { border-bottom: none; }
   .lp .nm { font-weight: 600; }
   .lp .you { color: var(--accent); font-size: var(--t-xs); }
   .lp .state { margin-left: auto; font-size: var(--t-xs); color: var(--fg-faint); }
@@ -899,7 +952,7 @@
     #side.open { transform: translateX(0); }
     #scrim {
       display: block; position: fixed; inset: 0; z-index: 70;
-      background: rgba(6, 10, 15, .6); backdrop-filter: blur(2px);
+      background: var(--scrim); backdrop-filter: blur(2px);
     }
     #btn-menu, #btn-toc:not([hidden]) {
       display: inline-flex; align-items: center; justify-content: center;
@@ -963,7 +1016,7 @@
     #results-pane, #myrun-pane, #replay-pane { padding: 16px 14px 50px; }
     #spec-body.tiles { grid-template-columns: 1fr; }
     .two { grid-template-columns: 1fr; }
-    .panel { padding: 20px 16px; }
+    .panel { padding: var(--s-6) var(--s-5); }
     .awards { grid-template-columns: 1fr; }
   }
 
@@ -1442,7 +1495,7 @@
         </div>
 
         <div class="lobby-cols">
-          <div class="lobby-card">
+          <div class="card lobby-card">
             <h3>In the lobby <span id="lobby-count" class="muted"></span></h3>
             <div id="lobby-players"></div>
             <button id="lobby-ready" class="primary" style="width:100%;margin-top:var(--s-4)">
@@ -1450,14 +1503,14 @@
             </button>
           </div>
 
-          <div class="lobby-card">
+          <div class="card lobby-card">
             <h3>Standings</h3>
             <div id="lobby-board"><div class="empty">No races yet.</div></div>
             <div id="lobby-last" class="tiny muted" style="margin-top:var(--s-3)"></div>
           </div>
         </div>
 
-        <div class="lobby-card" id="share-card" style="margin-top:var(--s-4)" hidden>
+        <div class="card lobby-card" id="share-card" style="margin-top:var(--s-4)" hidden>
           <h3>Invite people</h3>
           <p class="tiny muted" style="margin:0 0 var(--s-3)" id="share-note">
             Anyone on this network can play from this link — nothing to install.
@@ -3705,7 +3758,7 @@ function renderLobby(snap) {
     .concat(peers.map(p => ({ name: p.name, color: p.color, ready: !!p.ready, me: false })));
 
   setHTML($("lobby-players"), rows.map(r =>
-    '<div class="lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
+    '<div class="row in-card lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
     '<span class="nm">' + esc(r.name) + "</span>" +
     (r.me ? '<span class="you">you</span>' : "") +
     '<span class="state' + (r.ready ? " rdy" : "") + '">' +
