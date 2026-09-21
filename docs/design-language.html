@@ -184,6 +184,12 @@
   .row.stop .tag { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); }
   .row.target { border-color: var(--good-line); box-shadow: inset 3px 0 0 var(--good); }
   .row.target .tag { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+  .row.in-card {
+    background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+    border-radius: 0; padding: var(--s-3) 0;
+  }
+  .row.in-card:last-child { border-bottom: none; }
+  .row.in-card .nm { font-weight: 600; }
 
   .note {
     border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
@@ -393,15 +399,16 @@
 <section>
   <h2>Motion</h2>
   <p>
-    Three durations and two easings. <code>--e-spring</code> is for a checkpoint splash or the
-    finish — something that has arrived. Never for a hover. It appears once in the game today
-    and should stay rare. Everything obeys <code>prefers-reduced-motion</code>.
+    Three durations and two easings. <code>--e-spring</code> is for something that travels and
+    lands — the theme switch's knob reaching its slot, someone arriving on your page, a
+    checkpoint, the finish. Never for a hover, and never for a dialog simply appearing.
+    Everything obeys <code>prefers-reduced-motion</code>.
   </p>
   <div class="demo">
     <div class="spec"><span class="k"><b>--m-fast</b> .12s</span><span>State flicks: hover, press, toggle</span></div>
     <div class="spec"><span class="k"><b>--m-base</b> .2s</span><span>The default: folds, fades, slides</span></div>
     <div class="spec"><span class="k"><b>--m-slow</b> .6s</span><span>Celebratory: splashes, fanfare</span></div>
-    <div class="spec"><span class="k"><b>--e-spring</b></span><span><code>cubic-bezier(.4, 1.3, .5, 1)</code> — arrivals only</span></div>
+    <div class="spec"><span class="k"><b>--e-spring</b></span><span><code>cubic-bezier(.4, 1.3, .5, 1)</code> — things that travel and land</span></div>
   </div>
 </section>
 
@@ -444,6 +451,7 @@
   <div class="when">
     <div><h4>Rules</h4><ul><li>One primary per screen. Two means the screen has not decided what it is for.</li><li>The label says what will happen — &ldquo;Start the race&rdquo;, not &ldquo;OK&rdquo;.</li><li>Hover moves the ground over <code>--m-fast</code>. Nothing else moves.</li></ul></div>
     <div><h4>Not when</h4><ul><li>It only reports state. Something that looks clickable but is not is worse than one that looks inert — use a Pill.</li></ul></div>
+    <div><h4>In the game</h4><ul><li>A Control is the element itself: a plain <code>button</code>, text field or <code>select</code>, with no class. Its text takes the size of wherever it sits.</li><li>Variants are <code>.primary</code>, <code>.ghost</code>, <code>.danger</code> and <code>.big</code>.</li></ul></div>
   </div>
 
   <h3>Row &mdash; one of many, and neutral</h3>
@@ -458,6 +466,20 @@
   <div class="when">
     <div><h4>The stripe</h4><ul><li>A significant Row takes a left stripe in the colour of what makes it significant.</li><li>The stripe belongs to Rows. Notes never use it — it is the one piece of form that tells the two apart.</li></ul></div>
     <div><h4>Rules</h4><ul><li>Every Row in a list is the same height unless its content genuinely differs.</li><li>Numbers sit right, in mono with <code>tabular-nums</code>.</li></ul></div>
+  </div>
+
+  <h3>Row, inside a Card</h3>
+  <div class="demo">
+    <div class="card" style="max-width: 420px">
+      <h4>In the lobby (3)</h4>
+      <div class="row in-card"><span class="nm">Bee</span><span class="num">not ready</span></div>
+      <div class="row in-card"><span class="nm">Kody</span><span class="num">ready</span></div>
+      <div class="row in-card"><span class="nm">Kimmy</span><span class="num">not ready</span></div>
+    </div>
+  </div>
+  <div class="when">
+    <div><h4>Why</h4><ul><li>A box inside a box is heavy. Inside a Card, a Row drops its own box and is divided from the next by a hairline: <code>.row.in-card</code>.</li><li>Every list in a card in the game was already drawn this way.</li></ul></div>
+    <div><h4>Not a log</h4><ul><li>The play-by-play is not a list of Rows. It is fine print: <code>--t-xs</code> lines at <code>--s-1</code>, glanced at and never read.</li></ul></div>
   </div>
 
   <h3>Note &mdash; one of one, and tinted</h3>
@@ -480,11 +502,11 @@
 
   <h3>Tip &mdash; floating, and pointing at what is under it</h3>
   <div class="demo">
-    <div class="line"><span class="tip">Bee &mdash; 11 clicks</span><span class="tip">Only article links count &mdash; that one's off-limits</span></div>
+    <div class="line"><span class="tip">Bee &mdash; 11 clicks</span><span class="tip">01:42</span></div>
   </div>
   <div class="when">
     <div><h4>Rules</h4><ul><li><code>pointer-events: none</code> unless it contains a Control.</li><li>It fades over <code>--m-base</code>. It does not slide, spring or scale.</li><li>Padding is tighter than a Note's on purpose, because a Tip is read in a glance.</li></ul></div>
-    <div><h4>Not when</h4><ul><li>It stays put and belongs to the layout — that is a Note.</li><li>It has taken over the screen — that is a Panel.</li></ul></div>
+    <div><h4>Not when</h4><ul><li>It stays put and belongs to the layout — that is a Note.</li><li>It carries a sentence and points at nothing, like the toast — that is a Note that floats.</li><li>It has taken over the screen — that is a Panel.</li></ul></div>
   </div>
 
   <h3>Card &mdash; a grouped thing among its siblings</h3>
@@ -544,9 +566,12 @@
   <p>
     Derived by measuring <code>ui.html</code> &mdash; 6,504 lines, 1,282 of them CSS. The rules
     about how the game <em>works</em>, rather than how it looks, live in
-    <code>.claude/notes/decisions.md</code>. The article itself is not covered here: Wikipedia's
-    own colours and type apply inside the reading surfaces, because the reading is meant to look
-    like the real thing.
+    <code>.claude/notes/decisions.md</code>. Four things are deliberately not covered: the
+    article itself, which keeps Wikipedia's own colours and type; the route maps and timeline,
+    which are data drawings; illustrations, such as the miniature screens behind the mode
+    picker's cards; and the big moments &mdash; the countdown and the splashes &mdash; which are
+    loud on purpose. The interface around any of them, and any message shown with them, does
+    follow this page.
   </p>
 </footer>
 

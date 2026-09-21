@@ -37,7 +37,6 @@
     --scrim: rgba(6, 10, 15, .6);
     --shadow: rgba(0, 0, 0, .5);
 
-    --radius: 10px;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
     /* The design language: docs/DesignLanguage.md, and docs/design-language.html
@@ -70,17 +69,16 @@
     --s-8: 40px;
     --s-9: 60px;
 
-    /* Radius. Four roles; thirteen values were in use to express them. --radius
-       above is what these replace - it was used three times and was already
-       overloaded across two of the four roles, so leave it alone and let it go
-       as its last users are converted. */
+    /* Radius. Four roles; thirteen values were in use to express them, and
+       the single --radius token that existed was overloaded across two. */
     --r-pill: 999px;
     --r-box: 8px;
     --r-card: 12px;
     --r-panel: 16px;
 
-    /* Motion. --e-spring is for arrivals - a checkpoint splash, the finish -
-       and never for a hover. */
+    /* Motion. --e-spring is for something that travels and lands - the theme
+       knob reaching its slot, a checkpoint, the finish - and never for a hover
+       or a dialog simply appearing. */
     --m-fast: .12s;
     --m-base: .2s;
     --m-slow: .6s;
@@ -165,8 +163,10 @@
   button {
     font: inherit; cursor: pointer; color: var(--fg);
     background: var(--bg-3); border: 1px solid var(--line);
-    padding: 7px 13px; border-radius: 7px;
-    transition: background .12s, border-color .12s, transform .06s;
+    padding: var(--s-2) var(--s-4); border-radius: var(--r-box);
+    /* The press is quicker than --m-fast on purpose: it is the one motion that
+       has to feel like it happened under your finger. */
+    transition: background var(--m-fast), border-color var(--m-fast), transform .06s;
   }
   button:hover:not(:disabled) { background: var(--hover); border-color: var(--line-strong); }
   button:active:not(:disabled) { transform: translateY(1px); }
@@ -178,9 +178,13 @@
 
   input[type=text], input[type=number] {
     font: inherit; color: var(--fg); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+    border: 1px solid var(--line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4); width: 100%;
   }
-  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+  /* A coloured border alone is easy to miss, especially for anyone who does
+     not see the accent well; the ring is what makes focus unmistakable. */
+  input[type=text]:focus, input[type=number]:focus {
+    outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+  }
   /* The browser's own spinner is tiny, ugly and in the way; the box is typed in. */
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   input[type=number]::-webkit-outer-spin-button,
@@ -188,9 +192,62 @@
 
   select {
     font: inherit; color: var(--fg); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; width: 100%;
+    border: 1px solid var(--line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4); width: 100%;
   }
-  select:focus { outline: none; border-color: var(--accent); }
+  select:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+  /* ---------- the seven pieces ----------
+     docs/DesignLanguage.md. Every surface is one of these; a screen adds its
+     own namespaced class beside the base one - class="card lobby-card" - and
+     that class carries only what is particular to the screen. Control is the
+     button, text field and select above; Panel is .panel, the dialog, below. */
+
+  /* Pill: a standalone token you read. */
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
+    border-radius: var(--r-pill); padding: var(--s-1) var(--s-4); font-size: var(--t-sm);
+  }
+
+  /* Row: one of many. Boxed on its own; inside a card it drops the box and is
+     divided by a hairline instead, because a box inside a box is heavy. */
+  .row {
+    display: flex; align-items: center; gap: var(--s-3);
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4); font-size: var(--t-sm);
+  }
+  .row.in-card {
+    background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+    border-radius: 0; padding: var(--s-3) 0;
+  }
+  .row.in-card:last-child { border-bottom: none; }
+
+  /* Note: one of one, tinted, and centred so it reads as a message rather than
+     a row - except beside a field, where centring would detach it from the
+     thing it is about. */
+  .note {
+    border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
+    font-size: var(--t-sm); text-align: center; border: 1px solid;
+  }
+  .note.at-field { text-align: left; }
+  .note.good { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+  .note.warn { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); }
+  .note.bad  { background: var(--bad-bg);  border-color: var(--bad-line);  color: var(--bad-fg); }
+  .note.info { background: var(--info-bg); border-color: var(--info-line); color: var(--fg); }
+
+  /* Tip: floating, pointing at what is under it. Never in the way of a click. */
+  .tip {
+    background: var(--bg-3); border: 1px solid var(--line-strong); color: var(--fg);
+    border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
+    font-size: var(--t-sm); box-shadow: var(--el-lift); pointer-events: none;
+  }
+
+  /* Card: a grouped thing among its siblings. No shadow - depth comes from the
+     ground it sits on. */
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: var(--s-5);
+  }
 
   /* Our own dropdown. A native <select> pops its list directly over the
      pointer, so the mouseup that ends the opening click can land on an option
@@ -199,18 +256,19 @@
   .dd { position: relative; }
   .dd-btn {
     width: 100%; text-align: left; display: flex; align-items: center;
-    justify-content: space-between; gap: 8px;
+    justify-content: space-between; gap: var(--s-3);
     background: var(--bg); border: 1px solid var(--line);
   }
   .dd-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--line-strong); }
   .dd.open .dd-btn { border-color: var(--accent); }
-  .dd-btn .caret { color: var(--fg-faint); font-size: 10px; }
+  .dd-btn .caret { color: var(--fg-faint); font-size: var(--t-xs); }
+  /* A list that opens over the page is a popover, so it lifts like a Tip. */
   .dd-list {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 75;
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
-    max-height: 250px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+    position: absolute; top: calc(100% + var(--s-1)); left: 0; right: 0; z-index: 75;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r-box);
+    max-height: 250px; overflow-y: auto; box-shadow: var(--el-lift);
   }
-  .dd-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
+  .dd-item { padding: var(--s-2) var(--s-4); font-size: var(--t-sm); cursor: pointer; }
   .dd-item:hover { background: var(--hover-strong); color: var(--accent); }
   .dd-item.on { color: var(--accent); font-weight: 600; }
   .dd-item.on::after { content: " ✓"; }
@@ -218,44 +276,37 @@
   /* typeahead */
   .ta { position: relative; }
   .ta-list {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 70;
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
-    max-height: 230px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+    position: absolute; top: calc(100% + var(--s-1)); left: 0; right: 0; z-index: 70;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r-box);
+    max-height: 230px; overflow-y: auto; box-shadow: var(--el-lift);
   }
-  .ta-list.up { top: auto; bottom: calc(100% + 4px); }
-  .ta-item { padding: 7px 11px; font-size: 13.5px; cursor: pointer; }
+  .ta-list.up { top: auto; bottom: calc(100% + var(--s-1)); }
+  .ta-item { padding: var(--s-2) var(--s-4); font-size: var(--t-sm); cursor: pointer; }
   .ta-item:hover, .ta-item.on { background: var(--hover-strong); color: var(--accent); }
 
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .card.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
+  .panel.wide { max-width: 620px; max-height: 88vh; overflow-y: auto; overflow-x: visible; }
 
   /* rule chips under the racer list */
-  #rules { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  #rules { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-3); }
   #rules:empty { margin: 0; }
-  .rule {
-    font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
-    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg-dim);
-  }
+  /* A Pill, compact: a race can carry half a dozen rules. */
+  .rule { font-size: var(--t-xs); padding: var(--s-1) var(--s-3); color: var(--fg-dim); }
 
   /* ready check */
-  .ready-row {
-    display: flex; align-items: center; gap: 9px; padding: 6px 0;
-    border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
-  }
-  .ready-row:last-child { border-bottom: none; }
   .ready-row .sub { margin-left: auto; }
   .tick {
     width: 20px; height: 20px; border-radius: 50%; flex: none;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; background: var(--bg-3); color: var(--fg-faint);
+    font-size: var(--t-xs); background: var(--bg-3); color: var(--fg-faint);
     border: 1px solid var(--line);
   }
   .tick.on { background: var(--good-bg); border-color: var(--good-line); color: var(--good); }
 
   .toggle.locked { opacity: .55; cursor: not-allowed; }
   .chip.lang {
-    background: var(--raised); color: var(--fg-dim); font-size: 11px;
-    letter-spacing: .6px; font-weight: 600; padding: 4px 9px;
+    background: var(--raised); color: var(--fg-dim); font-size: var(--t-xs);
+    letter-spacing: .06em; font-weight: 600; padding: var(--s-1) var(--s-3);
   }
 
   /* ---------- layout ---------- */
@@ -280,18 +331,19 @@
   /* ---------- top bar ---------- */
 
   #topbar {
-    display: flex; align-items: center; gap: 14px;
-    padding: 9px 16px; background: var(--bg-2); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: var(--s-5);
+    padding: var(--s-3) var(--s-5); background: var(--bg-2); border-bottom: 1px solid var(--line);
     min-height: 56px;
   }
-  .brand { font-weight: 700; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .brand { font-weight: 700; letter-spacing: -.02em; display: flex; align-items: center; gap: var(--s-3); white-space: nowrap; }
   .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 9px var(--good); }
   .brand .dot.off { background: var(--fg-faint); box-shadow: none; }
 
-  #goal { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; font-size: 14px; }
+  #goal { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; font-size: var(--t-sm); }
+  /* A Pill. Inline-block rather than the Pill's flex, because a title too long
+     for its chip has to end in an ellipsis, and a flex box only clips. */
   .chip {
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
-    padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+    display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
   }
   .chip.target { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   .arrow { color: var(--fg-faint); }
@@ -308,7 +360,7 @@
     position: absolute; top: 2px; left: 2px;
     width: 26px; height: 26px; border-radius: 50%;
     background: var(--accent-solid);
-    transition: transform .2s cubic-bezier(.4, 1.3, .5, 1);
+    transition: transform var(--m-base) var(--e-spring);
     pointer-events: none;
   }
   #theme[data-at="1"] .knob { transform: translateX(26px); }
@@ -316,7 +368,7 @@
   #theme button {
     position: relative; z-index: 1; width: 26px; height: 26px; padding: 0;
     border: none; background: none; border-radius: 50%;
-    font-size: 13px; line-height: 1; color: var(--fg-faint);
+    font-size: var(--t-sm); line-height: 1; color: var(--fg-faint);
     display: flex; align-items: center; justify-content: center;
   }
   #theme button:hover:not(:disabled) { background: none; color: var(--fg-dim); }
@@ -328,21 +380,23 @@
   #peek-scrim, #vote-scrim { display: none; }
   #peek-scrim:not([hidden]), #vote-scrim:not([hidden]) {
     position: fixed; inset: 0; z-index: 100; background: var(--scrim);
-    display: flex; align-items: center; justify-content: center; padding: 20px;
+    display: flex; align-items: center; justify-content: center; padding: var(--s-6);
   }
+  /* A Panel that holds an article: flush, and on the page's own ground rather
+     than the dialogs', so the reading looks like the reading. */
   #peek-sheet {
     display: flex; flex-direction: column; width: min(900px, 100%); height: 100%;
     background: var(--bg); border: 1px solid var(--line);
-    border-radius: var(--radius); box-shadow: 0 20px 60px var(--shadow);
+    border-radius: var(--r-panel); box-shadow: var(--el-float);
     overflow: hidden;
   }
   #peek-head {
-    display: flex; align-items: center; gap: 12px; flex: none;
-    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg-2);
+    display: flex; align-items: center; gap: var(--s-4); flex: none;
+    padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--line); background: var(--bg-2);
   }
   #peek-head .who { flex: 1; min-width: 0; }
-  #peek-head .who b { font-size: 15px; }
-  #peek-head .who div { font-size: 11.5px; color: var(--fg-faint); margin-top: 2px; }
+  #peek-head .who b { font-size: var(--t-md); }
+  #peek-head .who div { font-size: var(--t-xs); color: var(--fg-faint); margin-top: var(--s-1); }
   #peek-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
   /* Reading only. Every link in here is inert - the way out of the target is
      to race to it, not to click out of the window. */
@@ -351,39 +405,32 @@
     border-bottom: 1px dotted var(--line-strong);
   }
 
-  #vote-card {
-    width: min(430px, 100%); background: var(--bg); border: 1px solid var(--line);
-    border-radius: var(--radius); box-shadow: 0 20px 60px var(--shadow); padding: 20px;
-  }
-  #vote-card h3 { margin: 0 0 8px; font-size: 17px; }
-  #vote-card .why { font-size: 13px; color: var(--fg-dim); line-height: 1.55; margin-bottom: 14px; }
-  #vote-tally { margin-bottom: 16px; }
-  .vote-row {
-    display: flex; align-items: center; gap: 9px; padding: 6px 0;
-    border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
-  }
-  .vote-row:last-child { border-bottom: none; }
+  /* A Panel; what is its own is the width. */
+  #vote-card { width: min(430px, 100%); }
+  #vote-card h3 { margin: 0 0 var(--s-3); font-size: var(--t-lg); }
+  #vote-card .why { font-size: var(--t-sm); color: var(--fg-dim); line-height: 1.55; margin-bottom: var(--s-5); }
+  #vote-tally { margin-bottom: var(--s-5); }
   .vote-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .vote-row .st { font-size: 12px; color: var(--fg-faint); }
+  .vote-row .st { font-size: var(--t-xs); color: var(--fg-faint); }
   .vote-row.yes .st { color: var(--good-fg); }
   .vote-row.no .st { color: var(--bad-fg); }
 
-  #btn-peek { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  #btn-peek { display: inline-flex; align-items: center; gap: var(--s-2); flex: none; }
   #btn-peek.granted { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   #btn-peek.asked { border-color: var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
-  #btn-peek .cnt { font-family: var(--mono); font-size: 11.5px; opacity: .85; }
+  #btn-peek .cnt { font-family: var(--mono); font-size: var(--t-xs); opacity: .85; }
 
-  #hud { display: flex; align-items: center; gap: 16px; }
+  #hud { display: flex; align-items: center; gap: var(--s-5); }
   .stat { text-align: right; line-height: 1.15; }
-  .stat .v { font-family: var(--mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); }
+  .stat .v { font-family: var(--mono); font-size: var(--t-xl); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--fg-faint); }
 
   /* ---------- article stage ---------- */
 
   #crumbs {
-    display: flex; align-items: center; gap: 6px; padding: 7px 16px;
+    display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-5);
     background: var(--bg-2); border-bottom: 1px solid var(--line-soft);
-    overflow-x: auto; white-space: nowrap; font-size: 12.5px; color: var(--fg-dim);
+    overflow-x: auto; white-space: nowrap; font-size: var(--t-sm); color: var(--fg-dim);
     scrollbar-width: thin;
   }
   #crumbs .c { color: var(--fg-dim); }
@@ -401,22 +448,22 @@
   }
   #company[hidden] { display: none; }
   #company .pill {
-    display: inline-flex; align-items: center; gap: 9px; max-width: calc(100% - 24px);
-    margin-top: 10px; padding: 7px 15px 7px 10px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: var(--s-3); max-width: calc(100% - 2 * var(--s-4));
+    margin-top: var(--s-3); padding: var(--s-2) var(--s-5) var(--s-2) var(--s-3); border-radius: var(--r-pill);
     background: var(--raised); border: 1px solid var(--accent-line); color: var(--fg);
-    box-shadow: 0 8px 26px var(--shadow); font-size: 13.5px; line-height: 1.3;
-    animation: company-in .32s cubic-bezier(.2, 1.3, .4, 1) both;
+    box-shadow: var(--el-lift); font-size: var(--t-sm); line-height: 1.3;
+    animation: company-in var(--m-base) var(--e-spring) both;
   }
-  #company .pill.bump { animation: company-bump .42s ease-out; }
+  #company .pill.bump { animation: company-bump var(--m-base) var(--e-out); }
   #company .who { display: inline-flex; flex: none; }
   #company .who i {
     width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--raised);
     display: inline-flex; align-items: center; justify-content: center;
     font: 700 10px/1 var(--mono); font-style: normal; color: #0d1117;
   }
-  #company .who i + i { margin-left: -6px; }
+  #company .who i + i { margin-left: calc(-1 * var(--s-2)); }
   #company .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #company b { font-weight: 650; }
+  #company b { font-weight: 600; }
   @keyframes company-in { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
   @keyframes company-bump { 40% { transform: scale(1.06); } }
   @media (prefers-reduced-motion: reduce) {
@@ -426,20 +473,20 @@
   /* Contents list, when the race allows one. */
   #toc-panel {
     width: 236px; flex: none; overflow-y: auto; background: var(--bg-2);
-    border-right: 1px solid var(--line); padding: 14px 0 40px;
+    border-right: 1px solid var(--line); padding: var(--s-5) 0 var(--s-8);
   }
   #toc-panel h4 {
-    margin: 0 14px 10px; font-size: 10px; text-transform: uppercase;
-    letter-spacing: 1.1px; color: var(--fg-faint); font-weight: 700;
+    margin: 0 var(--s-5) var(--s-3); font-size: var(--t-xs); text-transform: uppercase;
+    letter-spacing: .1em; color: var(--fg-faint); font-weight: 700;
   }
   #toc-panel a {
-    display: block; padding: 5px 14px; font-size: 12.5px; line-height: 1.35;
+    display: block; padding: var(--s-2) var(--s-5); font-size: var(--t-sm); line-height: 1.35;
     color: var(--fg-dim); cursor: pointer; border-left: 2px solid transparent;
   }
   #toc-panel a:hover { color: var(--accent); background: var(--hover-soft); border-left-color: var(--accent); }
-  #toc-panel a.lv3 { padding-left: 26px; font-size: 12px; }
-  #toc-panel a.lv4 { padding-left: 38px; font-size: 11.5px; color: var(--fg-faint); }
-  #toc-panel .empty { padding: 0 14px; }
+  #toc-panel a.lv3 { padding-left: var(--s-7); }
+  #toc-panel a.lv4 { padding-left: var(--s-8); font-size: var(--t-xs); color: var(--fg-faint); }
+  #toc-panel .empty { padding: 0 var(--s-5); }
   #article { max-width: 860px; margin: 0 auto; padding: 26px 34px 90px; }
   #article h1.title {
     font-size: 30px; margin: 0 0 4px; font-weight: 700; letter-spacing: -.5px;
@@ -448,86 +495,86 @@
 
   /* ---------- panels ---------- */
 
-  .panel { border-bottom: 1px solid var(--line); padding: 14px 16px; }
-  .panel h3 {
-    margin: 0 0 11px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+  .side-sec { border-bottom: 1px solid var(--line); padding: var(--s-5); }
+  .side-sec h3 {
+    margin: 0 0 var(--s-4); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
     color: var(--fg-faint); font-weight: 700; display: flex; align-items: center; justify-content: space-between;
   }
-  .row { display: flex; align-items: center; gap: 9px; }
+  .hstack { display: flex; align-items: center; gap: var(--s-3); }
   .muted { color: var(--fg-dim); }
-  .tiny { font-size: 12px; }
-  .empty { color: var(--fg-faint); font-size: 13px; font-style: italic; padding: 3px 0; }
+  .tiny { font-size: var(--t-xs); }
+  .empty { color: var(--fg-faint); font-size: var(--t-sm); font-style: italic; padding: var(--s-1) 0; }
 
   /* racers */
-  .racer {
-    display: flex; align-items: center; gap: 9px; padding: 7px 0;
-    border-bottom: 1px solid var(--line-soft);
-  }
-  .racer:last-child { border-bottom: none; }
   .swatch { width: 8px; height: 26px; border-radius: 3px; flex: none; }
   .racer .who { flex: 1; min-width: 0; }
-  .racer .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .racer .at { font-size: 11.5px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .nm { font-weight: 600; font-size: var(--t-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .racer .at { font-size: var(--t-xs); color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .racer .at.hidden-pos { color: var(--fg-faint); font-style: italic; }
-  .racer .n { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .racer .n { font-family: var(--mono); font-size: var(--t-md); font-variant-numeric: tabular-nums; }
   .racer.done .nm { color: var(--good); }
   .racer.gone .nm { color: var(--fg-faint); }
   .racer.near .nm { color: var(--bad); font-weight: 700; }
   .racer .pip.cp {
-    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
-    padding: 1px 6px; border-radius: 999px; vertical-align: 1px;
+    margin-left: var(--s-2); font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+    padding: 1px var(--s-2); border-radius: var(--r-pill); vertical-align: 1px;
     background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
     font-family: var(--mono);
   }
   .racer .pip.cp.all { border-color: var(--line-strong); color: var(--fg-strong); background: var(--line-strong); }
 
   .racer.near .pip {
-    margin-left: 6px; font-size: 9.5px; font-weight: 700; letter-spacing: .5px;
-    text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
+    margin-left: var(--s-2); font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; padding: 1px var(--s-2); border-radius: var(--r-pill);
     background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad-fg);
     vertical-align: 1px;
   }
-  .racer.me { background: linear-gradient(90deg, rgba(88,166,255,.09), transparent); margin: 0 -16px; padding: 7px 16px; }
+  .racer.me {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+    margin: 0 calc(-1 * var(--s-5)); padding: var(--s-3) var(--s-5);
+  }
 
   /* leaderboard */
-  table.board { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.board td { padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+  table.board { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+  table.board td { padding: var(--s-2) 0; border-bottom: 1px solid var(--line-soft); }
   table.board tr:last-child td { border-bottom: none; }
   .pos { width: 22px; color: var(--fg-faint); font-family: var(--mono); }
   .pos.p1 { color: var(--gold); font-weight: 700; }
   .pts { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .sub { color: var(--fg-faint); font-size: 11px; }
+  .sub { color: var(--fg-faint); font-size: var(--t-xs); }
 
   /* play-by-play ticker */
-  #ticker { max-height: 200px; overflow-y: auto; margin-bottom: 9px; }
+  #ticker { max-height: 200px; overflow-y: auto; margin-bottom: var(--s-3); }
   #ticker:empty { display: none; }
   .tk {
-    display: flex; align-items: baseline; gap: 6px; font-size: 12.5px;
-    padding: 4px 0; border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: baseline; gap: var(--s-2); font-size: var(--t-xs);
+    padding: var(--s-1) 0; border-bottom: 1px solid var(--line-soft);
   }
   .tk:last-child { border-bottom: none; }
   .tk .who { font-weight: 600; flex: none; }
   .tk .what { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tk .cl { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+  .tk .cl { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); }
   .tk.hot .what { color: var(--warn); font-weight: 600; }
 
   /* feed */
-  #feed { max-height: 190px; overflow-y: auto; font-size: 12.5px; }
-  #feed .e { padding: 3px 0; color: var(--fg-dim); border-bottom: 1px solid var(--line-soft); }
+  /* A log is fine print: glanced at, never read, so it never competes with
+     the racers above it. */
+  #feed { max-height: 190px; overflow-y: auto; font-size: var(--t-xs); }
+  #feed .e { padding: var(--s-1) 0; color: var(--fg-dim); border-bottom: 1px solid var(--line-soft); }
   #feed .e:last-child { border-bottom: none; }
   #feed .e.finish { color: var(--good); }
   #feed .e.race { color: var(--accent); }
   #feed .e.leave { color: var(--fg-faint); }
 
   /* toggle */
-  .toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; font-size: 13px; }
+  .toggle { display: flex; align-items: center; gap: var(--s-3); cursor: pointer; user-select: none; font-size: var(--t-sm); }
   .track {
-    width: 36px; height: 20px; border-radius: 999px; background: var(--bg-3);
-    border: 1px solid var(--line); position: relative; transition: background .15s, border-color .15s; flex: none;
+    width: 36px; height: 20px; border-radius: var(--r-pill); background: var(--bg-3);
+    border: 1px solid var(--line); position: relative; transition: background var(--m-fast), border-color var(--m-fast); flex: none;
   }
   .track::after {
     content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
-    border-radius: 50%; background: var(--fg-faint); transition: transform .15s, background .15s;
+    border-radius: 50%; background: var(--fg-faint); transition: transform var(--m-fast), background var(--m-fast);
   }
   .toggle.on .track { background: var(--info-bg); border-color: var(--accent); }
   .toggle.on .track::after { transform: translateX(16px); background: var(--accent); }
@@ -536,37 +583,42 @@
 
   .overlay {
     position: absolute; inset: 0; z-index: 50;
-    background: rgba(6, 10, 15, .93); backdrop-filter: blur(5px);
+    background: var(--scrim); backdrop-filter: blur(5px);
     display: flex; align-items: center; justify-content: center; padding: 30px;
   }
-  .card {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
-    padding: 28px 30px; max-width: 560px; width: 100%;
-    box-shadow: 0 22px 60px rgba(0,0,0,.55);
+  /* Panel: the container the rest sits inside. Rounded more than the cards in
+     it, never less, and its shadow is built from --shadow so it stays clean on
+     the light themes, where a literal black went muddy. */
+  .panel {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-panel);
+    padding: var(--s-7); max-width: 560px; width: 100%;
+    box-shadow: var(--el-float);
   }
-  .card h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.4px; }
+  .panel h2 { margin: 0 0 var(--s-2); font-size: var(--t-xl); letter-spacing: -.02em; }
 
   /* ---- game mode chooser ---- */
-  .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
+  /* A Card you can press: a button, so it behaves like a Control, but it keeps
+     the Card's shape because it sits among siblings. */
   .mode {
     position: relative; overflow: hidden; text-align: left; padding: 0;
     min-height: 196px; display: flex; flex-direction: column; justify-content: flex-end;
-    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-3);
+    border: 1px solid var(--line); border-radius: var(--r-card); background: var(--bg-3);
   }
   .mode:hover:not(:disabled) { background: var(--bg-3); border-color: var(--accent); }
   /* The words sit on a fade, so the preview behind them never muddles them. */
   .mode .mtx {
-    position: relative; padding: 26px 13px 13px;
+    position: relative; padding: var(--s-7) var(--s-4) var(--s-4);
     background: linear-gradient(to top, var(--bg-3) 62%, color-mix(in srgb, var(--bg-3) 70%, transparent) 82%, transparent);
   }
-  .mode .mt { display: block; font-size: 16px; font-weight: 650; }
-  .mode .md { font-size: 12.5px; line-height: 1.45; color: var(--fg-dim); margin: 5px 0 0; }
+  .mode .mt { display: block; font-size: var(--t-md); font-weight: 600; }
+  .mode .md { font-size: var(--t-sm); line-height: 1.45; color: var(--fg-dim); margin: var(--s-2) 0 0; }
   /* A glimpse of the mode behind the words, brighter as you consider it. */
-  .mode .mv { position: absolute; inset: 0; opacity: .18; transition: opacity .18s; pointer-events: none; }
+  .mode .mv { position: absolute; inset: 0; opacity: .18; transition: opacity var(--m-base); pointer-events: none; }
   .mode:hover .mv, .mode:focus-visible .mv { opacity: .6; }
   @media (hover: hover) {
-    .mode .md { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .18s, opacity .18s, margin .18s; margin-top: 0; }
-    .mode:hover .md, .mode:focus-visible .md { max-height: 130px; opacity: 1; margin-top: 5px; }
+    .mode .md { max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--m-base), opacity var(--m-base), margin var(--m-base); margin-top: 0; }
+    .mode:hover .md, .mode:focus-visible .md { max-height: 130px; opacity: 1; margin-top: var(--s-2); }
   }
   /* The previews: an article, an article with a checkpoint landing on it, and
      four different articles at once. */
@@ -589,93 +641,104 @@
     .modes { grid-template-columns: 1fr; }
     .mode { min-height: 120px; }
   }
-  .card p.lede { margin: 0 0 20px; color: var(--fg-dim); font-size: 14px; }
+  .panel p.lede { margin: 0 0 var(--s-6); color: var(--fg-dim); font-size: var(--t-md); }
   .sub-label { display: block; color: var(--fg-dim); }
   /* The stops, in the order they're meant to be made, with the box that adds
      one more as the last row. */
   /* Not overflow:hidden - the suggestions drop out of this box, and clipping
      them leaves a sliver of a list nobody can read. The rows round their own
      corners instead. */
-  .cp-box { border: 1px solid var(--line); border-radius: 9px; }
-  .cp-box > div:first-child > .cp-row:first-child { border-radius: 8px 8px 0 0; }
-  .cp-box > .cp-add:last-child { border-radius: 0 0 8px 8px; }
-  .cp-box > div:first-child:empty + .cp-add { border-top: 0; border-radius: 8px; }
+  .cp-box { --cp-in: calc(var(--r-box) - 1px); border: 1px solid var(--line); border-radius: var(--r-box); }
+  .cp-box > div:first-child > .cp-row:first-child { border-radius: var(--cp-in) var(--cp-in) 0 0; }
+  .cp-box > .cp-add:last-child { border-radius: 0 0 var(--cp-in) var(--cp-in); }
+  .cp-box > div:first-child:empty + .cp-add { border-top: 0; border-radius: var(--cp-in); }
   .cp-row {
-    display: grid; grid-template-columns: 1fr 46px repeat(4, 28px); align-items: center; gap: 6px;
-    padding: 4px 8px 4px 12px; background: var(--bg-3);
+    display: grid; grid-template-columns: 1fr 46px repeat(4, 28px); align-items: center; gap: var(--s-2);
+    padding: var(--s-1) var(--s-3) var(--s-1) var(--s-4); background: var(--bg-3);
   }
   .cp-row + .cp-row, .cp-add { border-top: 1px solid var(--line); }
-  .cp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+  .cp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-sm); }
+  /* The slot is a Pill whose height comes from its line-height; the single
+     pixel only keeps the number optically centred. */
   .cp-row .slot {
-    padding: 1px 0; font-size: 11px; line-height: 1.6; text-align: center; border-radius: 999px;
+    padding: 1px 0; font-size: var(--t-xs); line-height: 1.6; text-align: center; border-radius: var(--r-pill);
     background: var(--bg); border: 1px solid var(--line); color: var(--fg-faint);
   }
   .cp-row .slot.on { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-fg); font-weight: 600; }
   .cp-btn {
-    padding: 0; height: 24px; font-size: 11px; line-height: 1;
+    padding: 0; height: 24px; font-size: var(--t-xs); line-height: 1;
     background: transparent; border-color: transparent; color: var(--fg-faint);
   }
   .cp-btn:hover:not(:disabled) { background: var(--hover); border-color: var(--line); color: var(--fg); }
   .cp-btn.on { color: var(--warn-fg); }
   .cp-btn:disabled { opacity: .25; }
   .cp-x:hover:not(:disabled) { color: var(--bad-fg); border-color: var(--bad-line); background: var(--bad-bg); }
-  .cp-add { grid-template-columns: 1fr auto auto; gap: 8px; padding: 6px 8px; background: var(--bg-2); }
+  .cp-add { grid-template-columns: 1fr auto auto; gap: var(--s-3); padding: var(--s-2) var(--s-3); background: var(--bg-2); }
   .cp-add .ta { min-width: 0; }
-  .cp-add input[type=text] { border-color: transparent; background: transparent; padding-left: 4px; }
-  .cp-add button { padding: 5px 12px; font-size: 13px; }
-  .cp-add .icon { padding: 5px 9px; }
-  .cp-phrase { margin: 8px 0 0; }
-  .cpn { margin-left: 5px; font-size: 10px; letter-spacing: .04em; color: var(--warn-fg); }
+  .cp-add input[type=text] { border-color: transparent; background: transparent; padding-left: var(--s-1); }
+  .cp-add button { font-size: var(--t-sm); }
+  .cp-add .icon { padding: var(--s-2) var(--s-3); }
+  .cp-phrase { margin: var(--s-3) 0 0; }
+  .cpn { margin-left: var(--s-2); font-size: var(--t-xs); letter-spacing: .04em; color: var(--warn-fg); }
   /* Two dropdowns side by side line up on the control, not the label. */
   .fold-body .two { align-items: end; }
-  .num { display: flex; align-items: center; gap: 9px; }
+  .num { display: flex; align-items: center; gap: var(--s-3); }
   .num input { flex: 1; min-width: 0; }
-  .num .unit { flex: none; color: var(--fg-dim); font-size: 13px; }
+  .num .unit { flex: none; color: var(--fg-dim); font-size: var(--t-sm); }
   /* The browser's own spinner is tiny and only appears on hover, so here's one
      that's always there and matches everything else. */
-  .num .spin { flex: none; display: flex; flex-direction: column; margin-left: -5px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-  .num .spin button { width: 24px; height: 18px; padding: 0; border: 0; border-radius: 0; background: var(--bg-3); color: var(--fg-dim); font-size: 8px; line-height: 1; }
+  .num .spin { flex: none; display: flex; flex-direction: column; margin-left: calc(-1 * var(--s-2)); border: 1px solid var(--line); border-radius: var(--r-box); overflow: hidden; }
+  .num .spin button { width: 24px; height: 18px; padding: 0; border: 0; border-radius: 0; background: var(--bg-3); color: var(--fg-dim); font-size: 8px; line-height: 1; } /* a glyph sized to its 18px button */
   .num .spin button + button { border-top: 1px solid var(--line); }
   .num .spin button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
-  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-  .card-head h2 { margin: 0; }
+  .panel-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-2); }
+  .panel-head h2 { margin: 0; }
   .back-btn { flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
   .back-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   /* A fold-away section: the button says what's inside so you needn't open it. */
-  .fold-btn { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; }
-  .fold-btn .fold-sum { flex: 1; color: var(--fg-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fold-btn .caret { color: var(--fg-faint); font-size: 10px; transition: transform .15s; }
+  .fold-btn { width: 100%; display: flex; align-items: center; gap: var(--s-3); text-align: left; }
+  .fold-btn .fold-sum { flex: 1; color: var(--fg-dim); font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fold-btn .caret { color: var(--fg-faint); font-size: var(--t-xs); transition: transform var(--m-base); }
   .fold-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
-  .fold-body { margin-top: 12px; }
+  .fold-body { margin-top: var(--s-4); }
   .fold-body[hidden] { display: none; }
-  .field { margin-bottom: 13px; }
-  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--fg-faint); margin-bottom: 5px; font-weight: 600; }
-  .actions { display: flex; gap: 9px; margin-top: 20px; }
+  .field { margin-bottom: var(--s-4); }
+  .field label { display: block; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--fg-faint); margin-bottom: var(--s-2); font-weight: 600; }
+  /* A hint inside a label is a sentence, not part of the label, so it must not
+     inherit the label's capitals - otherwise it shouts. */
+  .field label .muted { text-transform: none; letter-spacing: normal; font-weight: 400; }
+  .actions { display: flex; gap: var(--s-3); margin-top: var(--s-6); }
   .actions button { flex: 1; }
 
+  /* The countdown is one of the big moments, and the design language's
+     carve-out: its number, the goal line above it and the lost-race line are a
+     composition drawn at their own sizes. The warning under it is a message,
+     and is a Note. */
   #countdown { font-size: 130px; font-weight: 800; font-family: var(--mono); letter-spacing: -6px; animation: pop .45s ease-out; }
-  .cd-warn {
-    margin-top: 16px; padding: 9px 16px; border-radius: 9px;
-    background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-fg);
-    font-size: 13.5px; max-width: 420px;
-  }
+  .cd-warn { margin-top: var(--s-5); max-width: 420px; }
   .cd-warn b { color: var(--fg-strong); }
   @keyframes pop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .cd-wrap { text-align: center; }
   .cd-wrap .goal-big { font-size: 19px; margin-bottom: 8px; }
   .cd-wrap .goal-big b { color: var(--good-fg); }
 
-  .result-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
-  .result-row .medal { width: 26px; font-size: 16px; }
+  /* Rows in a Card, lined up on the baseline so a medal sits with its name,
+     and a size up from other lists: the finishing order is what this screen
+     is for. */
+  .result-row { align-items: baseline; font-size: var(--t-md); }
+  .result-row .medal { width: 26px; font-size: var(--t-md); }
   .result-row .rn { flex: 1; font-weight: 600; }
-  .result-row .rs { font-family: var(--mono); font-size: 13px; color: var(--fg-dim); }
-  .path-line { font-size: 11.5px; color: var(--fg-faint); margin-left: 36px; word-break: break-word; line-height: 1.45; }
+  .result-row .rs { font-family: var(--mono); font-size: var(--t-sm); color: var(--fg-dim); }
+  /* Under the name, past the medal column and the row's gap. */
+  .path-line { font-size: var(--t-xs); color: var(--fg-faint); margin-left: calc(26px + var(--s-3)); word-break: break-word; line-height: 1.45; }
 
+  /* A Note that floats: it carries a sentence and points at nothing, which is
+     what makes it a Note and not a Tip. Floating, it lifts. */
   #toast {
-    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 9px;
-    padding: 9px 18px; font-size: 13.5px; z-index: 60; pointer-events: none;
-    opacity: 0; transition: opacity .2s;
+    position: absolute; bottom: var(--s-6); left: 50%; transform: translateX(-50%);
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r-box);
+    padding: var(--s-3) var(--s-4); font-size: var(--t-sm); z-index: 60; pointer-events: none;
+    box-shadow: var(--el-lift); opacity: 0; transition: opacity var(--m-base);
   }
   #toast.show { opacity: 1; }
 
@@ -744,41 +807,32 @@
   /* ---------- lobby ---------- */
 
   #lobby { flex: 1; overflow-y: auto; }
-  .lobby-inner { max-width: 820px; margin: 0 auto; padding: 40px 30px 60px; }
-  .lobby-hero { text-align: center; margin-bottom: 30px; }
-  .lobby-hero .flag { font-size: 46px; line-height: 1; margin-bottom: 10px; }
-  .lobby-hero h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.6px; }
-  .lobby-hero .lede { margin: 0; color: var(--fg-dim); font-size: 14.5px; }
-  #lobby-room { margin-top: 8px; }
+  .lobby-inner { max-width: 820px; margin: 0 auto; padding: var(--s-8) var(--s-7) var(--s-9); }
+  .lobby-hero { text-align: center; margin-bottom: var(--s-7); }
+  .lobby-hero .flag { font-size: var(--t-3xl); line-height: 1; margin-bottom: var(--s-3); }
+  .lobby-hero h1 { font-size: var(--t-2xl); margin: 0 0 var(--s-2); letter-spacing: -.02em; }
+  .lobby-hero .lede { margin: 0; color: var(--fg-dim); font-size: var(--t-md); }
+  #lobby-room { margin-top: var(--s-3); }
 
-  .lobby-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .lobby-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
   @media (max-width: 720px) { .lobby-cols { grid-template-columns: 1fr; } }
-  .lobby-card {
-    background: var(--bg-2); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px 18px;
-  }
   .lobby-card h3 {
-    margin: 0 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
+    margin: 0 0 var(--s-4); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
     color: var(--fg-faint); font-weight: 700;
   }
-  .lobby-actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; }
-  button.big { padding: 12px 26px; font-size: 15px; border-radius: 9px; }
+  .lobby-actions { display: flex; gap: var(--s-4); justify-content: center; margin-top: var(--s-7); }
+  button.big { padding: var(--s-4) var(--s-7); font-size: var(--t-md); border-radius: var(--r-box); }
 
-  .lp {
-    display: flex; align-items: center; gap: 10px; padding: 8px 0;
-    border-bottom: 1px solid var(--line-soft); font-size: 14px;
-  }
-  .lp:last-child { border-bottom: none; }
   .lp .nm { font-weight: 600; }
-  .lp .you { color: var(--accent); font-size: 11px; }
-  .lp .state { margin-left: auto; font-size: 12px; color: var(--fg-faint); }
+  .lp .you { color: var(--accent); font-size: var(--t-xs); }
+  .lp .state { margin-left: auto; font-size: var(--t-xs); color: var(--fg-faint); }
   .lp .state.rdy { color: var(--good); }
 
   /* ---------- post-race hub ---------- */
 
   #hub { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   #hub-bar {
-    display: flex; align-items: center; gap: 12px; padding: 9px 16px;
+    display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-5);
     background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
   }
   #hub-body { flex: 1; min-height: 0; display: flex; }
@@ -786,45 +840,45 @@
   .hub-pane[data-pane="results"], .hub-pane[data-pane="myrun"], .hub-pane[data-pane="replay"] {
     overflow-y: auto;
   }
-  #results-pane, #myrun-pane, #replay-pane { max-width: 860px; margin: 0 auto; padding: 24px 28px 60px; width: 100%; }
+  #results-pane, #myrun-pane, #replay-pane { max-width: 860px; margin: 0 auto; padding: var(--s-7) var(--s-7) var(--s-9); width: 100%; }
 
-  .hub-h2 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.3px; }
-  .hub-sub { color: var(--fg-dim); font-size: 13.5px; margin: 0 0 20px; }
-  .hub-sec { margin-bottom: 26px; }
+  .hub-h2 { font-size: var(--t-xl); margin: 0 0 var(--s-1); letter-spacing: -.02em; }
+  .hub-sub { color: var(--fg-dim); font-size: var(--t-sm); margin: 0 0 var(--s-6); }
+  .hub-sec { margin-bottom: var(--s-7); }
   .hub-sec h4 {
-    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
-    color: var(--fg-faint); font-weight: 700; margin: 0 0 10px;
+    font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
+    color: var(--fg-faint); font-weight: 700; margin: 0 0 var(--s-3);
   }
+  /* A hint inside a label is a sentence, so it keeps its own case. */
+  .hub-sec h4 .muted { text-transform: none; letter-spacing: normal; font-weight: 400; }
 
   /* awards */
-  .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-  .award {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
-    padding: 11px 13px; display: flex; gap: 10px; align-items: center;
-  }
-  .award .ic { font-size: 20px; }
-  .award .t { font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--fg-faint); font-weight: 700; }
-  .award .v { font-weight: 600; font-size: 14px; }
-  .award .d { font-size: 11.5px; color: var(--fg-dim); }
+  .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s-3); }
+  /* A Card: one of a grid of honours. */
+  .award { display: flex; gap: var(--s-3); align-items: center; }
+  .award .ic { font-size: var(--t-xl); }
+  .award .t { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--fg-faint); font-weight: 700; }
+  .award .v { font-weight: 600; font-size: var(--t-sm); }
+  .award .d { font-size: var(--t-xs); color: var(--fg-dim); }
 
-  .fact {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
-    padding: 13px 15px; font-size: 13.5px; color: var(--fg-dim);
-  }
+  /* A Card holding a finding - the best route, or where the reader will show
+     a step once one is picked. */
+  .fact { font-size: var(--t-sm); color: var(--fg-dim); }
   .fact b { color: var(--fg); }
 
   /* my-run trail */
+  /* A Row, and the example the standard points at: boxed, one of many, with
+     a stripe for the steps that mean something. */
   .step {
-    display: flex; align-items: center; gap: 11px; padding: 8px 11px;
-    border: 1px solid var(--line); border-radius: 9px; margin-bottom: 7px;
-    background: var(--bg-2); cursor: pointer; transition: border-color .12s, background .12s;
+    margin-bottom: var(--s-2); cursor: pointer;
+    transition: border-color var(--m-fast), background var(--m-fast);
   }
   .step:hover { border-color: var(--accent); background: var(--hover-soft); }
   .step.here { border-color: var(--accent); }
-  .step .n { font-family: var(--mono); color: var(--fg-faint); font-size: 12px; width: 20px; }
-  .step .ti { flex: 1; font-weight: 600; font-size: 14px; }
-  .step .at { font-family: var(--mono); font-size: 12px; color: var(--fg-dim); }
-  .step .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-faint); }
+  .step .n { font-family: var(--mono); color: var(--fg-faint); font-size: var(--t-xs); width: 20px; }
+  .step .ti { flex: 1; font-weight: 600; font-size: var(--t-sm); }
+  .step .at { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-dim); }
+  .step .tag { font-size: var(--t-xs); padding: 1px var(--s-2); border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--fg-faint); }
   /* The three steps that mean something get the same treatment - a coloured
      edge and a matching tag - so they read as one family: where you set off,
      what you had to touch on the way, and where you arrived. */
@@ -844,36 +898,36 @@
   /* ---------- spectator view ---------- */
 
   #spec-bar {
-    display: flex; align-items: center; gap: 11px; padding: 9px 16px;
+    display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-5);
     background: var(--bg-2); border-bottom: 1px solid var(--line); flex: none;
   }
   #spec-who { width: 190px; flex: none; }
 
-  .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-  .seg button { border: none; border-radius: 0; background: transparent; padding: 6px 13px; font-size: 13px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r-box); overflow: hidden; }
+  .seg button { border: none; border-radius: 0; background: transparent; padding: var(--s-2) var(--s-4); font-size: var(--t-sm); }
   .seg button.on { background: var(--accent-solid); color: var(--on-accent); font-weight: 600; }
 
-  #spec-body { flex: 1; overflow: hidden; padding: 12px; }
+  #spec-body { flex: 1; overflow: hidden; padding: var(--s-4); }
   #spec-body.tiles {
-    display: grid; gap: 12px; overflow-y: auto;
+    display: grid; gap: var(--s-4); overflow-y: auto;
     grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
     grid-auto-rows: minmax(260px, 1fr);
   }
   #spec-body.one { display: block; }
 
+  /* A Card whose contents run flush - a header strip, then the article - so
+     it keeps the Card's shape and surface and gives up its padding. */
   .spec-tile {
-    display: flex; flex-direction: column; min-height: 0;
-    background: var(--bg-2); border: 1px solid var(--line);
-    border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden;
   }
   #spec-body.one .spec-tile { height: 100%; }
   .spec-head {
-    display: flex; align-items: center; gap: 8px; padding: 7px 11px;
-    background: var(--bg-3); border-bottom: 1px solid var(--line); flex: none; font-size: 13px;
+    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-4);
+    background: var(--bg-3); border-bottom: 1px solid var(--line); flex: none; font-size: var(--t-sm);
   }
   .spec-head .nm { font-weight: 600; white-space: nowrap; }
   .spec-head .meta {
-    margin-left: auto; color: var(--fg-dim); font-size: 11.5px;
+    margin-left: auto; color: var(--fg-dim); font-size: var(--t-xs);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -888,7 +942,7 @@
   #spec-body.one .spec-view .wiki .infobox { width: 280px; }
   .spec-view h1.sp-title { font-size: 17px; margin: 0 0 9px; font-weight: 700; }
   #spec-body.one .spec-view h1.sp-title { font-size: 24px; }
-  .spec-empty { color: var(--fg-faint); font-style: italic; padding: 26px; text-align: center; font-size: 13px; }
+  .spec-empty { color: var(--fg-faint); font-style: italic; padding: var(--s-7); text-align: center; font-size: var(--t-sm); }
   .spec-fade {
     position: absolute; left: 0; right: 0; bottom: 0; height: 34px; pointer-events: none;
     background: linear-gradient(transparent, var(--bg-2));
@@ -909,52 +963,55 @@
     #side {
       position: fixed; top: 0; right: 0; bottom: 0; z-index: 80;
       width: min(330px, 86vw); border-left: 1px solid var(--line);
-      transform: translateX(101%); transition: transform .22s ease;
-      box-shadow: -14px 0 44px rgba(0, 0, 0, .55);
+      transform: translateX(101%); transition: transform var(--m-base) var(--e-out);
+      /* Sideways, because the drawer slides in from the side. */
+      box-shadow: -14px 0 44px var(--shadow);
     }
     #side.open { transform: translateX(0); }
     #scrim {
       display: block; position: fixed; inset: 0; z-index: 70;
-      background: rgba(6, 10, 15, .6); backdrop-filter: blur(2px);
+      background: var(--scrim); backdrop-filter: blur(2px);
     }
     #btn-menu, #btn-toc:not([hidden]) {
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 17px; line-height: 1; padding: 6px 10px; flex: none;
+      font-size: var(--t-lg); line-height: 1; padding: var(--s-2) var(--s-3); flex: none;
     }
 
     /* No room for a column beside the article, so contents slides in too -
        from the left, so the race stays fair on a phone. */
+    /* The shadow falls sideways because the drawer slides in from the side;
+       its colour is the theme's, so it stays clean on the light themes. */
     #toc-panel {
       position: fixed; top: 0; left: 0; bottom: 0; z-index: 80;
       width: min(290px, 82vw); border-right: 1px solid var(--line);
-      transform: translateX(-101%); transition: transform .22s ease;
-      box-shadow: 14px 0 44px rgba(0, 0, 0, .55); padding-top: 18px;
+      transform: translateX(-101%); transition: transform var(--m-base) var(--e-out);
+      box-shadow: 14px 0 44px var(--shadow); padding-top: var(--s-6);
     }
     #toc-panel.open { transform: translateX(0); }
 
-    #topbar { gap: 6px; padding: 7px 6px; min-height: 46px; }
+    #topbar { gap: var(--s-2); padding: var(--s-2); min-height: 46px; }
     .brandname { display: none; }
     #roomtag { display: none; }
-    #goal { font-size: 12.5px; gap: 6px; }
-    .chip { max-width: 34vw; padding: 3px 9px; }
-    .cp { padding: 2px 8px; }
-    #hud { gap: 10px; }
-    .stat .v { font-size: 16px; }
-    .stat .k { font-size: 9px; letter-spacing: .6px; }
+    #goal { gap: var(--s-2); }
+    .chip { max-width: 34vw; padding: var(--s-1) var(--s-3); }
+    .cp { padding: var(--s-1) var(--s-3); }
+    #hud { gap: var(--s-3); }
+    .stat .v { font-size: var(--t-md); }
+    .stat .k { letter-spacing: .06em; }
     #btn-new { display: none; }          /* the lobby has its own, larger one */
     #theme { padding: 1px; }
     #theme .knob { top: 1px; left: 1px; width: 19px; height: 19px; }
     #theme[data-at="1"] .knob { transform: translateX(19px); }
     #theme[data-at="2"] .knob { transform: translateX(38px); }
-    #theme button { width: 19px; height: 19px; font-size: 10.5px; }
-    #btn-back, #btn-giveup, #btn-peek { padding: 6px 7px; font-size: 12.5px; }
+    #theme button { width: 19px; height: 19px; font-size: var(--t-xs); }
+    #btn-back, #btn-giveup, #btn-peek { padding: var(--s-2); font-size: var(--t-sm); }
     /* Icon only - the label is what the tooltip and the prompt are for. */
     #btn-peek .lbl { display: none; }
 
     /* Everyone else's progress: full width, one line, no horizontal cost. */
     #miniplayers {
-      display: flex; gap: 6px; align-items: center;
-      padding: 5px 10px; background: var(--bg-2);
+      display: flex; gap: var(--s-2); align-items: center;
+      padding: var(--s-2) var(--s-3); background: var(--bg-2);
       border-bottom: 1px solid var(--line-soft);
       overflow-x: auto; scrollbar-width: none; white-space: nowrap;
     }
@@ -970,16 +1027,16 @@
     }
     .wiki .reflist, .wiki .references { columns: 1; }
 
-    .lobby-inner { padding: 22px 14px 40px; }
+    .lobby-inner { padding: var(--s-6) var(--s-5) var(--s-8); }
     .lobby-cols { grid-template-columns: 1fr; }
     .lobby-actions { flex-direction: column; }
     .lobby-actions button { width: 100%; }
 
     #hub-bar { flex-wrap: wrap; }
-    #results-pane, #myrun-pane, #replay-pane { padding: 16px 14px 50px; }
+    #results-pane, #myrun-pane, #replay-pane { padding: var(--s-5) var(--s-5) var(--s-8); }
     #spec-body.tiles { grid-template-columns: 1fr; }
     .two { grid-template-columns: 1fr; }
-    .card { padding: 20px 16px; }
+    .panel { padding: var(--s-6) var(--s-5); }
     .awards { grid-template-columns: 1fr; }
   }
 
@@ -988,118 +1045,83 @@
   #goal::-webkit-scrollbar { display: none; }
   #goal > * { flex: none; }
   .cpcount {
-    font-family: var(--mono); font-size: 11px; color: var(--fg-faint);
-    padding: 0 2px;
+    font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint);
+    padding: 0 var(--s-1);
   }
   .cpcount.done { color: var(--good); }
 
   /* only appears when you're standing on the target still owing a stop */
   #cpwarn {
-    padding: 9px 16px; background: var(--warn-bg); border-bottom: 1px solid var(--warn-line);
-    color: var(--warn-fg); font-size: 13px; font-weight: 600;
+    padding: var(--s-3) var(--s-5); background: var(--warn-bg); border-bottom: 1px solid var(--warn-line);
+    color: var(--warn-fg); font-size: var(--t-sm); font-weight: 600;
   }
   #cpwarn .sub { font-weight: 400; color: var(--warn-fg); }
 
-  .cp {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 11px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--bg-3); color: var(--fg-dim);
-  }
-  .cp .mark { font-size: 11px; }
+  /* A Pill, quieter than the goal chips until it is made. */
+  .cp { color: var(--fg-dim); }
+  .cp .mark { font-size: var(--t-xs); }
   .cp.hit { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   .cp.goal { border-style: dashed; }
   .cp.goal.hit { border-style: solid; }
 
-  /* checkpoint chips in the configurator */
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 22px; align-items: center; }
-  .chip.pick { display: inline-flex; align-items: center; gap: 6px; max-width: none; }
-  .chip.pick button {
-    border: none; background: none; color: var(--fg-faint); padding: 0 0 0 2px;
-    font-size: 15px; line-height: 1; cursor: pointer;
-  }
-  .chip.pick button:hover { color: var(--bad); background: none; }
   .seg.wide { width: 100%; }
   .seg.wide button { flex: 1; }
 
-  /* routes view */
-  .rp-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
-  .rp-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .rp-tools input[type=range] { flex: 1; max-width: 260px; accent-color: var(--accent); }
-  .tiny-btn { padding: 4px 11px; font-size: 12px; }
-  .leg.pick.latched { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
-
   /* instant label for a timeline point, rather than the browser's slow one */
   #rp-chart { position: relative; }
-  .rp-tip {
-    position: absolute; z-index: 5; transform: translateX(-50%);
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 6px;
-    padding: 3px 9px; font-size: 12px; white-space: nowrap; pointer-events: none;
-    box-shadow: 0 6px 18px rgba(0,0,0,.45);
-  }
+  /* A Tip: the shape, surface and lift come from .tip. */
+  .rp-tip { position: absolute; z-index: 5; transform: translateX(-50%); white-space: nowrap; }
   .tl-hit { cursor: pointer; }
   .tl-dot { cursor: pointer; }
   #rp-chart [data-art] { transition: opacity .1s; }
-  .rp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12.5px; }
-  .leg { display: inline-flex; align-items: center; gap: 6px; }
-  .leg .sw { width: 16px; height: 3px; border-radius: 2px; }
-  .leg .sw.dash {
-    background: none;
-    border-top: 3px dashed var(--fg-faint);
-  }
-  .leg .sub { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; }
-  .leg.pick { cursor: pointer; transition: opacity .12s; }
-  .leg.pick.faded { opacity: .3; }
   /* ---- picking a name: asked once, answered in one tap ---- */
   #namepick {
     position: fixed; inset: 0; z-index: 150; background: var(--scrim);
-    display: flex; align-items: center; justify-content: center; padding: 16px;
+    display: flex; align-items: center; justify-content: center; padding: var(--s-5);
   }
   #namepick[hidden] { display: none; }
+  /* A Panel: the shape, surface and shadow come from .panel. What is its own
+     is the narrower width and the stack of lines with even gaps between. */
   .np-card {
-    width: min(420px, 100%); background: var(--raised); border: 1px solid var(--line);
-    border-radius: 14px; padding: 24px; box-shadow: 0 24px 60px var(--shadow);
-    display: flex; flex-direction: column; gap: 12px;
-    animation: np-in .22s cubic-bezier(.2, 1.2, .4, 1) both;
+    width: min(420px, 100%);
+    display: flex; flex-direction: column; gap: var(--s-4);
+    animation: np-in var(--m-base) var(--e-out) both;
   }
-  .np-card h2 { margin: 0; font-size: 21px; letter-spacing: -.3px; }
+  .np-card h2 { margin: 0; }
   .np-card p { margin: 0; }
-  .np-sub { color: var(--fg-dim); font-size: 14px; line-height: 1.45; }
-  .np-error {
-    color: var(--bad-fg); background: var(--bad-bg); border: 1px solid var(--bad-line);
-    border-radius: 8px; padding: 8px 11px; font-size: 13.5px;
-  }
+  /* Balanced, so the last line of the explanation never ends on one word. */
+  .np-sub { color: var(--fg-dim); font-size: var(--t-md); line-height: 1.45; text-wrap: pretty; }
   .np-error[hidden] { display: none; }
-  .np-note {
-    color: var(--fg); background: var(--info-bg); border: 1px solid var(--info-line);
-    border-radius: 8px; padding: 8px 11px; font-size: 13.5px; line-height: 1.45;
-  }
+  .np-note { line-height: 1.45; }
   .np-note[hidden] { display: none; }
-  .np-row { display: flex; gap: 8px; }
-  .np-row input { flex: 1; min-width: 0; font-size: 17px; padding: 11px 13px; }
+  .np-row { display: flex; gap: var(--s-3); }
+  .np-row input { flex: 1; min-width: 0; font-size: var(--t-lg); padding: var(--s-4); }
   .np-roll {
-    flex: none; width: 50px; font-size: 22px; line-height: 1; padding: 0;
+    flex: none; width: 50px; font-size: var(--t-xl); line-height: 1; padding: 0;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .np-roll.rolling span { display: inline-block; animation: np-spin .6s linear infinite; }
-  .np-hint { color: var(--fg-faint); font-size: 12.5px; }
-  .np-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .np-roll.rolling span { display: inline-block; animation: np-spin var(--m-slow) linear infinite; }
+  .np-hint { color: var(--fg-faint); font-size: var(--t-xs); }
+  .np-actions { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-1); }
   .np-actions button { width: 100%; }
-  .np-guest-note { color: var(--fg-faint); font-size: 12px; text-align: center; line-height: 1.4; }
+  .np-guest-note { color: var(--fg-faint); font-size: var(--t-xs); text-align: center; line-height: 1.4; }
   @keyframes np-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
   @keyframes np-spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) {
     .np-card, .np-roll.rolling span { animation: none; }
   }
-  #guest-note { margin-top: 8px; font-size: 12px; color: var(--fg-dim); line-height: 1.4; }
+  #guest-note { margin-top: var(--s-3); line-height: 1.4; }
   #guest-note[hidden] { display: none; }
-  #name-twin { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--warn-fg); }
+  #name-twin { margin-top: var(--s-3); line-height: 1.4; }
   #name-twin[hidden] { display: none; }
   #name-twin a { color: var(--accent); }
   #guest-note a { color: var(--accent); }
-  #btn-rollname { flex: none; padding: 6px 9px; font-size: 15px; line-height: 1; }
+  #btn-rollname { flex: none; padding: var(--s-2) var(--s-3); font-size: var(--t-md); line-height: 1; }
 
   /* ---- the big moments: a checkpoint, the finish ----
-     Deliberately loud and arcade-like - it's a celebration, not a notice. A
+     Deliberately loud and arcade-like - it's a celebration, not a notice, and
+     so it is the design language's carve-out: its sizes, glows and colours are
+     its own and are not snapped onto the scale. A
      checkpoint lets clicks straight through so the race doesn't stall; the
      finish holds the screen for a moment and can be tapped away. */
   #fanfare {
@@ -1177,10 +1199,9 @@
 
   /* ---- routes: the race as a map ---- */
   #replay-pane.wide { max-width: 1240px; }
-  .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+  .rm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-bottom: var(--s-4); }
   .rm-bar .seg { max-width: 100%; overflow-x: auto; }
   .rm-bar .seg button { white-space: nowrap; }
-  .rp-legend .leg.still { cursor: default; }
   /* The diagram's own names for colours, mapped onto the theme so all three
      appearances draw it properly. */
   .rm-screen {
@@ -1189,7 +1210,7 @@
     --dg-shared: var(--fg-faint); --dg-text: var(--fg); --dg-ink: var(--fg-dim); --dg-faint: var(--fg-faint);
     --dg-accent: var(--accent); --dg-good: var(--good); --dg-good-bg: var(--good-bg); --dg-warn: var(--warn);
     --dg-station: var(--bg); --dg-station-line: var(--fg);
-    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--dg-bg);
+    border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; background: var(--dg-bg);
   }
   /* A pale page washes the diagram's greys out: on the light themes its lines,
      unvisited dots and shared-page ties all take a darker set. */
@@ -1210,27 +1231,27 @@
   .rm-map text { font-family: var(--mono); }
   .rm-map .rm-lbl text { fill: var(--dg-ink); paint-order: stroke; stroke: var(--dg-bg); stroke-width: 3.5px; stroke-linejoin: round; }
   .rm-map:not(.rm-labels) .rm-lbl { display: none; }
-  .rm-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; }
+  .rm-tools { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; align-items: center; gap: var(--s-2); }
   .rm-tools button {
-    min-width: 34px; height: 34px; padding: 0 10px; border-radius: 8px;
-    border: 1px solid var(--dg-line); background: var(--dg-glass); color: var(--dg-text); font-size: 15px; line-height: 1;
+    min-width: 34px; height: 34px; padding: 0 var(--s-3); border-radius: var(--r-box);
+    border: 1px solid var(--dg-line); background: var(--dg-glass); color: var(--dg-text); font-size: var(--t-md); line-height: 1;
   }
   .rm-tools button[data-act="done"] { background: var(--accent-solid); border-color: var(--accent-line); color: var(--on-accent); font-weight: 600; }
-  .rm-zoom { font: 12px var(--mono); color: var(--dg-faint); min-width: 44px; text-align: right; }
+  .rm-zoom { font: var(--t-xs) var(--mono); color: var(--dg-faint); min-width: 44px; text-align: right; }
   .rm-hint {
     position: absolute; left: 10px; bottom: 10px; z-index: 2; pointer-events: none; max-width: calc(100% - 20px);
-    font-size: 12px; color: var(--dg-faint); background: var(--dg-glass);
-    border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px; transition: color .25s, border-color .25s;
+    font-size: var(--t-xs); color: var(--dg-faint); background: var(--dg-glass);
+    border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-1) var(--s-3); transition: color var(--m-base), border-color var(--m-base);
   }
   .rm-hint.nudge { color: var(--dg-text); border-color: var(--dg-accent); }
   .rm-info {
     position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
     max-width: min(380px, calc(100% - 200px)); background: var(--dg-glass);
-    border: 1px solid var(--dg-line); border-radius: 8px; padding: 7px 11px;
-    color: var(--dg-text); font-size: 13.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 2px;
+    border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-2) var(--s-4);
+    color: var(--dg-text); font-size: var(--t-sm); line-height: 1.4; display: flex; flex-direction: column; gap: var(--s-1);
   }
   .rm-info[hidden] { display: none; }
-  .rm-info span { color: var(--dg-ink); font-size: 12px; }
+  .rm-info span { color: var(--dg-ink); font-size: var(--t-xs); }
   .rm-multi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); }
   .rm-multi .rm-map { height: clamp(300px, 42vh, 440px); }
   .rm-multi .rm-info { top: 48px; }
@@ -1238,18 +1259,18 @@
   .rm-multi .rm-map:not(:first-child) .rm-tools > :not([data-act="done"]) { display: none; }
   .rm-pname {
     position: absolute; left: 10px; top: 10px; z-index: 2; pointer-events: none;
-    display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--dg-text);
-    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 7px; padding: 3px 9px;
+    display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-sm); font-weight: 600; color: var(--dg-text);
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
   }
-  .rm-pname .c { font: 11.5px var(--mono); color: var(--dg-faint); font-weight: 400; }
-  .rm-caption { margin-top: 6px; }
+  .rm-pname .c { font: var(--t-xs) var(--mono); color: var(--dg-faint); font-weight: 400; }
+  .rm-caption { margin-top: var(--s-2); }
 
   /* ---- replay: one clock for the timeline and every map ---- */
   .rp-frame { position: relative; }
   .rp-ctl {
     position: absolute; left: 10px; top: 10px; z-index: 4;
-    display: flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px;
-    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: 999px;
+    display: flex; align-items: center; gap: var(--s-3); padding: var(--s-1) var(--s-5) var(--s-1) var(--s-1);
+    background: var(--dg-glass); border: 1px solid var(--dg-line); border-radius: var(--r-pill);
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
   .rp-ctl .rp-pp {
@@ -1260,8 +1281,8 @@
   .rp-ctl .rp-pp:hover:not(:disabled) { background: var(--accent-hover); }
   .rp-ctl .rp-pp.stop, .rp-ctl .rp-pp.stop:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
   .rp-ctl .rp-pp svg { width: 15px; height: 15px; display: block; fill: currentColor; }
-  .rp-clock { font: 600 16px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--dg-text); min-width: 3.4em; }
-  .rp-clock.still { color: var(--dg-faint); font-weight: 500; }
+  .rp-clock { font: 600 var(--t-md)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--dg-text); min-width: 3.4em; }
+  .rp-clock.still { color: var(--dg-faint); font-weight: 400; }
   .rp-tl { padding: 62px 14px 8px; }
   .rp-frame .rm-map .rm-info { top: 60px; }
   .rp-frame .rm-multi .rm-map .rm-info { top: 48px; }
@@ -1286,33 +1307,33 @@
   @keyframes rm-ping { from { transform: scale(.5); opacity: .95; } to { transform: scale(2.8); opacity: 0; } }
 
   /* Where everyone is at this moment of the replay. */
-  .rp-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-top: 12px; }
+  .rp-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--s-3); margin-top: var(--s-4); }
   .rp-place {
     position: relative; text-align: left; min-width: 0;
-    display: flex; flex-direction: column; gap: 3px;
-    padding: 8px 11px 9px 15px; border-radius: 8px;
+    display: flex; flex-direction: column; gap: var(--s-1);
+    padding: var(--s-3) var(--s-4) var(--s-3) var(--s-5); border-radius: var(--r-box);
     border: 1px solid var(--line); background: var(--bg-2); color: var(--fg);
-    font-size: 13px; line-height: 1.3; transition: opacity .2s, border-color .2s, background .12s;
+    font-size: var(--t-sm); line-height: 1.3; transition: opacity var(--m-base), border-color var(--m-base), background var(--m-fast);
   }
   .rp-place::before {
     content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c);
   }
   .rp-place:hover:not(:disabled) { background: var(--hover-soft); }
-  .rp-place .top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .rp-place .top { display: flex; align-items: baseline; gap: var(--s-3); min-width: 0; }
   .rp-place .nm { font-weight: 600; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .rp-place .cl { font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-faint); flex: none; }
-  .rp-place .at { color: var(--fg-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rp-place .cl { font: var(--t-xs) var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-faint); flex: none; }
+  .rp-place .at { color: var(--fg-dim); font-size: var(--t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rp-place.done { border-color: var(--good-line); }
   .rp-place.done .at { color: var(--good-fg); }
   .rp-place[aria-pressed="true"], .rp-place[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
   .rp-places.focused .rp-place[aria-pressed="false"] { opacity: .5; }
   .rp-places.focused .rp-place[aria-pressed="false"]:hover { opacity: .8; }
-  .rp-note { margin-top: 10px; }
+  .rp-note { margin-top: var(--s-3); }
   @media (prefers-reduced-motion: reduce) {
     .rm-ping { display: none; }
     .rm-map .rm-world > path, .rm-map .rm-world > rect, .rm-map .rm-marks, .rp-place { transition: none; }
   }
-  @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: 17px; } }
+  @media (pointer: coarse) { .rm-tools button { min-width: 42px; height: 42px; font-size: var(--t-lg); } }
   @media (prefers-reduced-motion: reduce) { .rm-hint { transition: none; } }
   /* After the rules above, or they would win: one panel per row on a phone. */
   @media (max-width: 760px) {
@@ -1326,21 +1347,19 @@
     .rp-frame .rm-multi .rm-map:first-child .rm-info { top: 100px; }
     .rp-tl { padding: 60px 6px 6px; }
     #rp-type { width: 100%; }
-    #rp-type button { flex: 1; padding: 6px 4px; font-size: 12.5px; }
-    .rp-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-    .rp-place { padding: 7px 9px 8px 14px; }
+    #rp-type button { flex: 1; padding: var(--s-2) var(--s-1); font-size: var(--t-sm); }
+    .rp-places { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+    .rp-place { padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5); }
   }
 
-  /* compact per-player pill for the mobile strip */
+  /* A Pill, compact: a phone has one thin strip for everybody. */
   .mp {
-    display: inline-flex; align-items: center; gap: 5px; flex: none;
-    font-size: 11.5px; padding: 2px 8px 2px 6px; border-radius: 999px;
-    background: var(--bg-3); border: 1px solid var(--line); color: var(--fg-dim);
-    max-width: 42vw;
+    flex: none; font-size: var(--t-xs); padding: var(--s-1) var(--s-3) var(--s-1) var(--s-2);
+    color: var(--fg-dim); max-width: 42vw;
   }
   .mp .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .mp .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .mp .n { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); }
+  .mp .n { font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-faint); }
   .mp.done { border-color: var(--good-line); background: var(--good-bg); color: var(--good-fg); }
   .mp.near { border-color: var(--bad); background: var(--bad-bg); color: var(--bad-fg); font-weight: 700; }
   .mp.out { opacity: .45; }
@@ -1348,7 +1367,7 @@
   #lostbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 90;
     background: var(--warn); color: var(--bg); text-align: center;
-    font-size: 12.5px; font-weight: 600; padding: 4px;
+    font-size: var(--t-sm); font-weight: 600; padding: var(--s-1);
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -1377,7 +1396,7 @@
       <div class="stat"><div class="v" id="hud-clicks">—</div><div class="k">clicks</div></div>
     </div>
 
-    <div class="row">
+    <div class="hstack">
       <div id="theme" role="radiogroup" aria-label="Appearance">
         <span class="knob"></span>
         <button type="button" data-theme="light" role="radio" title="Light">☀</button>
@@ -1404,34 +1423,34 @@
   </div>
 
   <div id="vote-scrim" hidden>
-    <div id="vote-card">
+    <div id="vote-card" class="panel">
       <h3>Put the target page on screen?</h3>
       <div class="why">Nobody has to race blind. If <b>everyone still racing</b>
         agrees, the target opens in a window you can read whenever you like for
         the rest of the race — you can study it, then close it and carry on.
         You still can't click through from it.</div>
       <div id="vote-tally"></div>
-      <div class="row">
+      <div class="hstack">
         <button id="vote-yes" class="primary" style="flex:1">I agree</button>
         <button id="vote-no" class="danger" style="flex:1">Keep it hidden</button>
       </div>
-      <button id="vote-close" class="ghost" style="width:100%;margin-top:8px">Decide later</button>
+      <button id="vote-close" class="ghost" style="width:100%;margin-top:var(--s-3)">Decide later</button>
     </div>
   </div>
 
   <div id="namepick" role="dialog" aria-modal="true" aria-labelledby="np-title" hidden>
-    <div class="np-card">
+    <div class="panel np-card">
       <h2 id="np-title">What should we call you?</h2>
       <p class="np-sub">It's how you show up in races and on the scoreboard. Saved in this browser —
         no account, nothing to remember.</p>
-      <p class="np-error" id="np-error" role="alert" hidden></p>
+      <p class="note bad at-field np-error" id="np-error" role="alert" hidden></p>
       <div class="np-row">
         <input type="text" id="np-name" maxlength="24" autocomplete="nickname" spellcheck="false"
                placeholder="Your name" aria-label="Your name">
         <button type="button" class="np-roll" id="np-roll" title="Suggest another name"
                 aria-label="Suggest another name"><span>🎲</span></button>
       </div>
-      <p class="np-note" id="np-note" role="status" hidden></p>
+      <p class="note info at-field np-note" id="np-note" role="status" hidden></p>
       <p class="np-hint">A first name and a random Czech Wikipedia article — or type your own.</p>
       <div class="np-actions">
         <button type="button" id="np-play" class="primary big">Play</button>
@@ -1458,27 +1477,27 @@
         </div>
 
         <div class="lobby-cols">
-          <div class="lobby-card">
+          <div class="card lobby-card">
             <h3>In the lobby <span id="lobby-count" class="muted"></span></h3>
             <div id="lobby-players"></div>
-            <button id="lobby-ready" class="primary" style="width:100%;margin-top:12px">
+            <button id="lobby-ready" class="primary" style="width:100%;margin-top:var(--s-4)">
               Mark me ready
             </button>
           </div>
 
-          <div class="lobby-card">
+          <div class="card lobby-card">
             <h3>Standings</h3>
             <div id="lobby-board"><div class="empty">No races yet.</div></div>
-            <div id="lobby-last" class="tiny muted" style="margin-top:10px"></div>
+            <div id="lobby-last" class="tiny muted" style="margin-top:var(--s-3)"></div>
           </div>
         </div>
 
-        <div class="lobby-card" id="share-card" style="margin-top:16px" hidden>
+        <div class="card lobby-card" id="share-card" style="margin-top:var(--s-4)" hidden>
           <h3>Invite people</h3>
-          <p class="tiny muted" style="margin:0 0 10px" id="share-note">
+          <p class="tiny muted" style="margin:0 0 var(--s-3)" id="share-note">
             Anyone on this network can play from this link — nothing to install.
           </p>
-          <div class="row">
+          <div class="hstack">
             <input type="text" id="share-url" readonly>
             <button id="share-copy" class="ghost">Copy</button>
           </div>
@@ -1537,32 +1556,32 @@
   <div id="scrim" hidden></div>
 
   <div id="side">
-    <div class="panel">
+    <div class="side-sec">
       <h3>You</h3>
-      <div class="row">
+      <div class="hstack">
         <input type="text" id="myname" maxlength="24" placeholder="your name">
         <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
       </div>
-      <div id="name-twin" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
+      <div id="name-twin" class="note warn at-field" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
         of you can race under it. <a href="#" id="name-twin-pick">Pick another name</a></div>
-      <div id="guest-note" hidden>Playing as a guest — this name isn't saved and won't count in the
+      <div id="guest-note" class="note info at-field" hidden>Playing as a guest — this name isn't saved and won't count in the
         standings. <a href="#" id="guest-keep">Keep this name</a></div>
     </div>
 
-    <div class="panel">
+    <div class="side-sec">
       <h3>Racers <span id="peercount" class="muted"></span></h3>
       <div id="rules"></div>
       <div id="racers"><div class="empty">Looking for players on the LAN…</div></div>
-      <button id="btn-ready" style="width:100%;margin-top:11px">Mark me ready</button>
+      <button id="btn-ready" style="width:100%;margin-top:var(--s-4)">Mark me ready</button>
     </div>
 
-    <div class="panel">
-      <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:2px 7px;font-size:11px">clear</button></h3>
+    <div class="side-sec">
+      <h3>Standings <button id="btn-reset" class="ghost tiny" style="padding:var(--s-1) var(--s-2)">clear</button></h3>
       <div id="board"><div class="empty">No races finished yet.</div></div>
     </div>
 
-    <div class="panel">
+    <div class="side-sec">
       <h3>Play-by-play</h3>
       <div id="ticker"></div>
       <div id="feed"><div class="empty">Nothing yet.</div></div>
@@ -2294,8 +2313,8 @@ function renderGoalBar(race) {
   const visited = new Set(S.path.map(norm));
   const done = stops.filter(c => visited.has(norm(c))).length;
 
-  let html = '<span class="chip lang">' + esc((race.lang || "en").toUpperCase()) + "</span>" +
-             '<span class="chip"' + (race.lost ? ' title="your random start — everyone has a different one"' : "") + ">" +
+  let html = '<span class="pill chip lang">' + esc((race.lang || "en").toUpperCase()) + "</span>" +
+             '<span class="pill chip"' + (race.lost ? ' title="your random start — everyone has a different one"' : "") + ">" +
              (race.lost ? "🧭 " : "") + esc(startLabel(race, S.path[0] || S.startPage)) + "</span>";
 
   if (stops.length) {
@@ -2303,7 +2322,7 @@ function renderGoalBar(race) {
     const slots = raceSlots(race);
     html += stops.map((c, i) => {
       const hit = visited.has(norm(c));
-      return '<span class="cp' + (hit ? " hit" : "") + '" title="checkpoint">' +
+      return '<span class="pill cp' + (hit ? " hit" : "") + '" title="checkpoint">' +
         '<span class="mark">' + (hit ? "✓" : "○") + "</span>" + esc(c) +
         (slots[i] ? '<span class="cpn">' + slotName(slots[i], stops.length) + "</span>" : "") + "</span>";
     }).join("");
@@ -2312,7 +2331,7 @@ function renderGoalBar(race) {
   }
 
   html += '<span class="arrow">→</span>' +
-          '<span class="chip target">' + esc(race.target) + "</span>";
+          '<span class="pill chip target">' + esc(race.target) + "</span>";
   bar.innerHTML = html;
   renderCheckpointWarning(race, stops, visited);
 }
@@ -2418,7 +2437,7 @@ function renderRules(race) {
   const slots = raceSlots(race), stops = raceCheckpoints(race);
   stops.forEach((c, i) => bits.push("via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
   if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
-  setHTML(host, bits.map(b => '<span class="rule">' + esc(b) + "</span>").join(""));
+  setHTML(host, bits.map(b => '<span class="pill rule">' + esc(b) + "</span>").join(""));
 }
 
 /* Entering a race has three flavours: a fresh start, picking up a run we
@@ -2527,7 +2546,7 @@ function countdown(race, startPage) {
       // A page can't close the browser's find bar, so the only moment to deal
       // with one that's already open is before anybody starts reading.
       (race.allow_find === false
-        ? '<div class="cd-warn">Find is off this race — if your find bar is ' +
+        ? '<div class="note warn cd-warn">Find is off this race — if your find bar is ' +
           "open, press <b>Esc</b> now to close it</div>"
         : "") +
       "</div>";
@@ -3012,13 +3031,13 @@ function renderResults(snap) {
   html += '<div class="hub-sec"><h4>Finishing order — ' +
     (raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins") + "</h4>";
   html += fin.map((r, i) =>
-    '<div class="result-row"><span class="medal">' + (medals[i] || (i + 1) + ".") + "</span>" +
+    '<div class="row in-card result-row"><span class="medal">' + (medals[i] || (i + 1) + ".") + "</span>" +
     '<span class="rn" style="color:' + colorFor(r.name) + '">' + esc(r.name) + "</span>" +
     '<span class="rs">' + fmtTime(r.elapsed) + " · " + r.clicks + "c</span></div>" +
     ((r.path || []).length ? '<div class="path-line">' + r.path.map(esc).join(" › ") + "</div>" : "")
   ).join("");
   html += out.map(r =>
-    '<div class="result-row"><span class="medal">—</span>' +
+    '<div class="row in-card result-row"><span class="medal">—</span>' +
     '<span class="rn muted">' + esc(r.name) + '</span><span class="rs">gave up</span></div>').join("");
   if (!all.length) html += '<div class="empty">Nobody has finished yet.</div>';
   html += "</div>";
@@ -3027,14 +3046,14 @@ function renderResults(snap) {
   if (awards.length) {
     html += '<div class="hub-sec"><h4>Honours</h4><div class="awards">' +
       awards.map(a =>
-        '<div class="award"><span class="ic">' + a.ic + "</span><div>" +
+        '<div class="card award"><span class="ic">' + a.ic + "</span><div>" +
         '<div class="t">' + esc(a.t) + '</div><div class="v">' + esc(a.v) + "</div>" +
         '<div class="d">' + esc(a.d) + "</div></div></div>").join("") +
       "</div></div>";
   }
 
   html += '<div class="hub-sec"><h4>The best route</h4>' +
-    '<div class="fact" id="shortest-fact">Working out the shortest possible route…</div></div>';
+    '<div class="card fact" id="shortest-fact">Working out the shortest possible route…</div></div>';
 
   host.innerHTML = html;
   // Lost, everyone had a different distance to cover: the best route that
@@ -3096,9 +3115,7 @@ function renderMyRun() {
     " · " + fmtTime(S.finalElapsed != null ? S.finalElapsed : elapsed()) +
     " · " + S.path.length + " pages</p>";
 
-  html += '<div class="hub-sec"><h4>Where you went — click any step to re-read it';
-  if (stops.size) html += ' · checkpoints outlined in green';
-  html += "</h4>";
+  html += '<div class="hub-sec"><h4>Where you went <span class="muted">— click any step to re-read it</span></h4>';
   html += S.path.map((t, i) => {
     const at = times[i] != null ? fmtTime(times[i]) : "";
     const isGoal = norm(t) === target;
@@ -3106,7 +3123,7 @@ function renderMyRun() {
     // Arrival outranks a stop, which outranks setting off, when one page
     // happens to be more than one of them.
     const kind = isGoal ? " target" : isStop ? " checkpoint" : i === 0 ? " start" : "";
-    return '<div class="step' + kind + '" data-i="' + i + '">' +
+    return '<div class="row step' + kind + '" data-i="' + i + '">' +
       '<span class="n">' + (i + 1) + "</span>" +
       '<span class="ti">' + esc(t) + "</span>" +
       (i === 0 ? '<span class="tag begin">start</span>' : "") +
@@ -3117,7 +3134,7 @@ function renderMyRun() {
   html += "</div>";
 
   html += '<div class="hub-sec"><h4>Reader</h4>' +
-    '<div id="myrun-reader" class="fact">Pick a step above to read it again.</div></div>';
+    '<div id="myrun-reader" class="card fact">Pick a step above to read it again.</div></div>';
 
   host.innerHTML = html;
 
@@ -3133,7 +3150,7 @@ function renderMyRun() {
         const html2 = await cachedArticle(title, S.lang);
         renderInert(reader, title, html2);
       } catch (e) {
-        reader.className = "fact";
+        reader.className = "card fact";
         reader.textContent = "Couldn't reload " + title;
       }
     };
@@ -3487,7 +3504,7 @@ function drawPlaces(t, active) {
 
 /* The timeline as a view of the replay. */
 function timelineStage(host) {
-  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"><div class="rp-tl-svg"></div><div class="rp-tip" hidden></div></div></div>';
+  host.innerHTML = '<div class="rp-tl"><div id="rp-chart"><div class="rp-tl-svg"></div><div class="tip rp-tip" hidden></div></div></div>';
   const chart = $("rp-chart"), svgHost = chart.firstChild, tip = chart.lastChild;
   // What the pointer is on, kept across redraws so a replay running
   // underneath doesn't throw the highlight away.
@@ -3777,7 +3794,7 @@ function renderLobby(snap) {
     .concat(peers.map(p => ({ name: p.name, color: p.color, ready: !!p.ready, me: false })));
 
   setHTML($("lobby-players"), rows.map(r =>
-    '<div class="lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
+    '<div class="row in-card lp"><span class="swatch" style="height:16px;width:6px;background:' + r.color + '"></span>' +
     '<span class="nm">' + esc(r.name) + "</span>" +
     (r.me ? '<span class="you">you</span>' : "") +
     '<span class="state' + (r.ready ? " rdy" : "") + '">' +
@@ -3843,7 +3860,7 @@ function renderSpectate(snap) {
   const blocked = !snap.race
     ? "No race is running."
     : (!spectateAllowed(snap)
-        ? "This race hides opponent positions.<br>Spectating opens once everyone has finished."
+        ? "This race hides opponent positions.<br>You can watch once everyone has finished."
         : null);
   if (blocked) {
     body.className = "";
@@ -3895,7 +3912,7 @@ function renderSpectate(snap) {
     body.innerHTML = "";
     for (const p of shown) {
       const tile = document.createElement("div");
-      tile.className = "spec-tile";
+      tile.className = "card spec-tile";
       tile.innerHTML =
         '<div class="spec-head">' +
         '<span class="swatch" style="height:14px;width:6px;background:' + p.color + '"></span>' +
@@ -5357,7 +5374,7 @@ function attachTypeahead(input, list, getLang) {
     list.hidden = false;
     // Inside a dialog that scrolls, a list hanging off the bottom is a list
     // nobody can read, so drop it upwards when there's no room below.
-    const box = input.closest(".card") || document.documentElement;
+    const box = input.closest(".panel") || document.documentElement;
     const room = box.getBoundingClientRect().bottom - input.getBoundingClientRect().bottom;
     list.classList.toggle("up", room < Math.min(list.scrollHeight + 12, 130));
   };
@@ -5559,14 +5576,14 @@ function openModePicker() {
   ov.className = "overlay";
   ov.id = "mode-overlay";
   ov.innerHTML =
-    '<div class="card wide"><h2>New race</h2>' +
+    '<div class="panel wide"><h2>New race</h2>' +
     '<p class="lede">Three games, and the setup that goes with each.</p>' +
     '<div class="modes">' + MODES.map(m =>
       '<button class="mode" data-mode="' + m.id + '">' + modePreview(m.id) +
       '<span class="mtx"><span class="mt">' + esc(m.name) + '</span><p class="md">' + esc(m.blurb) +
       "</p></span></button>").join("") +
     "</div>" +
-    '<div class="actions" style="margin-top:18px"><button class="ghost" id="m-cancel">Cancel</button></div></div>';
+    '<div class="actions"><button class="ghost" id="m-cancel">Cancel</button></div></div>';
   $("stage").appendChild(ov);
   const close = () => ov.remove();
   ov.querySelector("#m-cancel").onclick = close;
@@ -5588,8 +5605,8 @@ function openConfigurator(kind) {
   ov.className = "overlay";
   ov.id = "config-overlay";
   ov.innerHTML =
-    '<div class="card wide">' +
-    '<div class="card-head">' +
+    '<div class="panel wide">' +
+    '<div class="panel-head">' +
     '<button class="back-btn" id="c-back-mode" aria-label="Back to the game modes" title="Back to the game modes">' +
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5 5 8l5.5 5.5"/></svg></button>' +
     "<h2>" + esc(MODES.find(m => m.id === mode).name) + " race</h2></div>" +
@@ -5609,7 +5626,7 @@ function openConfigurator(kind) {
       '<div class="ta-list" id="c-target-list" hidden></div></div></div>' +
     "</div>" +
 
-    '<div class="row" style="margin-bottom:16px">' +
+    '<div class="hstack" style="margin-bottom:var(--s-4)">' +
       '<button id="c-easy" style="flex:2">🎲 ' + (mode === "lost" ? "Random target" : "Random pair") + "</button>" +
       '<button id="c-hard" style="flex:1" title="Anything at all — often brutal">🌪️ Obscure</button>' +
       '<button id="c-swap" title="Swap start and target">⇄</button>' +
@@ -5640,28 +5657,28 @@ function openConfigurator(kind) {
     "<span>⚙ Game settings</span>" +
     '<span class="fold-sum" id="c-settings-sum"></span><span class="caret">▼</span></button>' +
     '<div class="fold-body" id="c-settings" hidden>' +
-    '<div class="seg wide" id="c-preset" style="margin-bottom:10px">' +
+    '<div class="seg wide" id="c-preset" style="margin-bottom:var(--s-3)">' +
     PRESETS.map(([id, label]) => '<button data-preset="' + id + '">' + label + "</button>").join("") +
     "</div>" +
       '<div class="toggle" id="c-positions"><div class="track"></div>' +
       "<span>Show where opponents are</span></div>" +
-      '<div class="toggle" id="c-back" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-back" style="margin-top:var(--s-3)"><div class="track"></div>' +
       "<span>Allow the Back button</span></div>" +
-      '<div class="toggle" id="c-find" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-find" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Allow find on page <span class="muted tiny">(Ctrl+F — blocks the ' +
       'shortcut, not the browser menu)</span></span></div>' +
-      '<div class="toggle" id="c-peek" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-peek" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Let players vote to reveal the target <span class="muted tiny">' +
       '(everyone still racing has to agree)</span></span></div>' +
-      '<div class="toggle" id="c-hubs" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-hubs" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
-      '<div class="toggle" id="c-tables" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-tables" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Allow the tables of links at the foot of an article ' +
       '<span class="muted tiny">(they put half the encyclopedia one click away)' +
       "</span></span></div>" +
-      '<div class="toggle" id="c-handicap" style="margin-top:8px"><div class="track"></div>' +
+      '<div class="toggle" id="c-handicap" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Handicap the session leaders</span></div>' +
-      '<div class="two" style="margin-top:14px">' +
+      '<div class="two" style="margin-top:var(--s-5)">' +
         '<div><label class="sub-label" title="A real help — and arguably a cheat">Table of contents</label>' +
         '<div id="c-toc"></div></div>' +
         '<div><label class="sub-label" for="c-limit">Time limit</label>' +
@@ -5678,7 +5695,7 @@ function openConfigurator(kind) {
     '<button class="ghost" id="c-cancel">Cancel</button>' +
     '<button class="primary" id="c-go">Start race</button>' +
     "</div>" +
-    '<div id="c-anyway" class="tiny" style="text-align:center;margin-top:9px" hidden></div>' +
+    '<div id="c-anyway" class="tiny" style="text-align:center;margin-top:var(--s-3)" hidden></div>' +
     "</div>";
   $("stage").appendChild(ov);
 
@@ -5932,7 +5949,7 @@ function renderConfigReady(snap) {
 
   setHTML(host, peers.length
     ? peers.map(p =>
-        '<div class="ready-row"><span class="tick' + (p.ready ? " on" : "") + '">' +
+        '<div class="row in-card ready-row"><span class="tick' + (p.ready ? " on" : "") + '">' +
         (p.ready ? "✓" : "○") + "</span>" + esc(p.name) +
         '<span class="sub">' + (p.ready ? "ready" : "not ready yet") + "</span></div>").join("")
     : '<div class="empty">Nobody else here yet — you can still race solo.</div>');
@@ -6037,7 +6054,7 @@ function renderRacers(snap) {
   }
 
   if (rows.length === 1 && !race) {
-    host.innerHTML = '<div class="racer me"><div class="swatch" style="background:' + snap.me.color + '"></div>' +
+    host.innerHTML = '<div class="row in-card racer me"><div class="swatch" style="background:' + snap.me.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(snap.me.name) + ' (you)</div>' +
       '<div class="at">waiting for others…</div></div></div>';
     return;
@@ -6068,7 +6085,7 @@ function renderRacers(snap) {
     // stays visible either way.
     const showCp = stops && r.active && !r.finished && !r.gave_up;
 
-    return '<div class="racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
+    return '<div class="row in-card racer' + (r.me ? " me" : "") + (r.finished ? " done" : "") +
       (r.gave_up ? " gone" : "") + (near ? " near" : "") + '">' +
       '<div class="swatch" style="background:' + r.color + '"></div>' +
       '<div class="who"><div class="nm">' + esc(r.name) +
@@ -6095,7 +6112,7 @@ function renderMiniPlayers(rows, reveal) {
                  S.nearSet && S.nearSet.has(norm(r.article));
     const cls = r.finished ? "done" : r.gave_up ? "out" : near ? "near" : "";
     const tail = r.finished ? "&#127937;" : r.gave_up ? "&mdash;" : r.clicks;
-    return '<span class="mp ' + cls + '" title="' +
+    return '<span class="pill mp ' + cls + '" title="' +
       esc(r.name + (reveal && r.article ? " — " + r.article : "")) + '">' +
       '<span class="d" style="background:' + r.color + '"></span>' +
       '<span class="nm">' + esc(r.name) + "</span>" +
@@ -6332,7 +6349,7 @@ function renderVote(snap) {
         const label = r.vote === "yes" ? "agreed"
                     : r.vote === "no" ? "wants it hidden" : "hasn't said";
         const mark = r.vote === "yes" ? "✓" : r.vote === "no" ? "✗" : "…";
-        return '<div class="vote-row ' + cls + '"><span class="st">' + mark + "</span>" +
+        return '<div class="row in-card vote-row ' + cls + '"><span class="st">' + mark + "</span>" +
                '<span class="nm">' + esc(r.name) + "</span>" +
                '<span class="st">' + label + "</span></div>";
       }).join("")
@@ -6591,7 +6608,7 @@ function showOffline(reason) {
   ov.id = "offline-overlay";
   const needsCode = reason === "code";
   ov.innerHTML =
-    '<div class="card">' +
+    '<div class="panel">' +
     '<div style="text-align:center;font-size:40px;line-height:1">' +
     (needsCode ? "&#128274;" : "&#128268;") + "</div>" +
     '<h2 style="text-align:center">' +

@@ -180,3 +180,47 @@ Wikipedia's own colours and type because the reading is meant to look like the
 real thing; and the route maps and timeline, which are data drawings whose
 geometry means something about the race rather than about visual rhythm. The
 chrome around a drawing is ordinary interface and does follow the standard.
+
+## Bringing the game onto the design language
+
+Done one screen at a time, each its own commit with a before-and-after the
+owner looked at: shared pieces first, then the lobby, mode picker, race setup,
+name picker, racing chrome, side panel, peek sheet and vote card, hub results,
+Watching and the replay. Every patch script is kept in `.claude/tools/` as the
+record of what moved. What it settled:
+
+- **The shared pieces go first, as their own step.** The base button, fields,
+  small print, standings table and dialog are on every screen; whichever
+  screen got to them first would have silently changed all the others.
+- **Three class names were taken, and were renamed out of the way** rather
+  than prefixing the standard's pieces: the dialog was `.card` (it is a Panel,
+  now `.panel`), the side panel's sections were `.panel` (now `.side-sec`), and
+  a flex helper was `.row` (now `.hstack`). A class called `.card` that is
+  really a dialog would have misled someone either way.
+- **A Control is the element and inherits its size.** The standard first gave
+  buttons a fixed 13px, but the game's buttons have always inherited; forcing
+  one size would have shrunk every button in the game.
+- **A Row inside a Card is a hairline, not a box** (`.row.in-card`), which is
+  how every list of players was already drawn. All of them now match.
+- **A toast is a Note that floats, not a Tip**: it carries a sentence and
+  points at nothing. A Tip always points at something under it.
+- **The spring is for something that travels and lands** - the theme knob, a
+  player arriving on your page, a checkpoint, the finish - not "arrivals" in
+  general, and never a dialog simply appearing. The one place the game already
+  used the curve was the theme knob.
+- **A log is fine print.** The play-by-play was first snapped up to body size,
+  which made an insignificant log look like a feature.
+- **Every backdrop is `--scrim`.** The one behind race setup hard-coded the
+  dark theme's colour at 93% and turned the light theme near-black.
+- **Honours and the best-route box are Cards**, though the standard first
+  listed them as centred Notes.
+- **A size stays where it earns it.** The finishing order stays at 15px, a size
+  up from other lists, because it is what the results screen is for; it had
+  inherited that size, and the Row base class nearly shrank it by accident.
+- **The carve-outs grew from one to four**: the article, the maps and
+  timeline, illustrations (the miniature setup screens in the mode picker),
+  and the big moments (the countdown and the splashes). The interface around
+  any of them, and a message shown with them, still follows the standard.
+
+Rejected: prefixing the base classes (`ui-card` and so on). Nothing could ever
+collide, but the misleading `.card` dialog would have stayed forever.

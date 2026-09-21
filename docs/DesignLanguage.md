@@ -19,8 +19,8 @@ repeated here.
 New work is built on the tokens from the start — that part is not negotiable,
 and it is why the token layer landed before anything else.
 
-The game itself is brought over **one screen at a time, deliberately**, each
-screen its own issue, its own commit and its own before-and-after. An earlier
+The game itself was brought over **one screen at a time, deliberately**, each
+screen its own commit and its own before-and-after. An earlier
 draft of this file said the retrofit would happen by attrition, each feature
 snapping whatever it happened to touch. That was wrong, and the reason is worth
 keeping: a half-converted interface has *more* inconsistency than an
@@ -29,9 +29,13 @@ is right, the old panel or the new one?" becomes a live question on every
 screen. Attrition ends in a mixed game indefinitely; a campaign ends in a
 coherent one.
 
-The screens, as the file actually divides: lobby, mode picker, race setup, name
-picker, racing chrome, side panel, peek sheet and vote card, hub results, hub
-replay chrome.
+That is done. The pieces every screen shares went first, then the screens as
+the file divides them: lobby, mode picker, race setup, name picker, racing
+chrome, side panel, peek sheet and vote card, hub results and My run,
+Watching, and the replay's chrome. The patch script for each is kept in
+`.claude/tools/` as the record of what moved, and `decisions.md` has what the
+work settled along the way. Anything built from here is built on the standard
+from the start.
 
 Two consequences worth being explicit about:
 
@@ -49,10 +53,15 @@ their siblings) — and the light and Wikipedia themes swap values rather than
 hunting hex codes. Everything below is an attempt to give type, space, radius
 and motion the same treatment.
 
-Two standing rules that the file currently half-follows:
+Standing rules that the file used to half-follow:
 
 - Shadows use `var(--shadow)`, never a literal `rgba`. Three places hard-code
   `rgba(0, 0, 0, .5)` today and go muddy on the light themes.
+- **Every backdrop behind a Panel is `var(--scrim)`**, whatever the Panel is.
+  The one behind the race setup used to hard-code the dark theme's colour at
+  93%, so on the light theme it turned the whole screen near-black while the
+  name picker and peek sheet used a soft grey — three dimmings for one idea.
+  A blur on top is fine; a different colour is not.
 - Player colours come from `raceColors` and nowhere else, with `ink()` swapping
   in the `LIGHT_INK` twins on light themes, so the timeline, the maps and the
   boxes always agree on who is who.
@@ -68,7 +77,7 @@ collapsing them is most of what this scale does.
 | Token | Size | What it is for |
 |---|---|---|
 | `--t-xs` | 11px | fine print: legends, pips, meta, captions |
-| `--t-sm` | 13px | the workhorse: body, buttons, rows, chips |
+| `--t-sm` | 13px | the workhorse: body, rows, pills, notes — Controls inherit instead |
 | `--t-md` | 15px | emphasis: card headings, lead-ins |
 | `--t-lg` | 17px | section headings |
 | `--t-xl` | 22px | display |
@@ -133,9 +142,12 @@ Three durations and two easings.
 | `--e-out` | ease | everything |
 | `--e-spring` | cubic-bezier(.4, 1.3, .5, 1) | arrivals only |
 
-`--e-spring` is for a checkpoint splash or the finish — something that has
-arrived. It is never for a hover. It appears once in the file today and should
-stay rare.
+`--e-spring` is for something that **travels and lands**: the theme switch's
+knob reaching its slot, someone arriving on your page, a checkpoint, the
+finish. It is never for a hover, and never for a dialog simply appearing — a
+fade with a lift says that. An earlier draft said the spring was for arrivals
+only, but the one place the game already used it was the theme knob, which is
+exactly the movement it suits.
 
 Everything obeys `prefers-reduced-motion`.
 
@@ -156,15 +168,37 @@ Every surface in the game is one of these. **A new piece of UI is one of the
 seven, or you have found an eighth — and an eighth goes in this file before it
 goes in `ui.html`.**
 
-| Piece | What it is | Radius | Padding |
-|---|---|---|---|
-| **Pill** | a standalone token you read, not a surface things sit on | `--r-pill` | `--s-1 --s-4` |
-| **Control** | something you operate | `--r-box` | `--s-2 --s-4` |
-| **Row** | one repeated line in a list | `--r-box` | `--s-3 --s-4` |
-| **Note** | a tinted message saying how things stand | `--r-box` | `--s-3 --s-4` |
-| **Tip** | something floating that points at what is under it | `--r-box` | `--s-1 --s-3`, `--el-lift` |
-| **Card** | a grouped thing among its siblings | `--r-card` | `--s-5`, or `--s-6` roomy |
-| **Panel** | the container the rest sits inside | `--r-panel` | `--s-6`, or `--s-7` for a dialog |
+| Piece | In the markup | What it is | Radius | Padding |
+|---|---|---|---|---|
+| **Pill** | `.pill` | a standalone token you read, not a surface things sit on | `--r-pill` | `--s-1 --s-4` |
+| **Control** | `button`, `input`, `select` | something you operate | `--r-box` | `--s-2 --s-4` |
+| **Row** | `.row`, or `.row.in-card` | one repeated line in a list | `--r-box` | `--s-3 --s-4` |
+| **Note** | `.note` + `.good` `.warn` `.bad` `.info` | a tinted message saying how things stand | `--r-box` | `--s-3 --s-4` |
+| **Tip** | `.tip` | something floating that points at what is under it | `--r-box` | `--s-1 --s-3`, `--el-lift` |
+| **Card** | `.card` | a grouped thing among its siblings | `--r-card` | `--s-5`, or `--s-6` roomy |
+| **Panel** | `.panel` | the container the rest sits inside | `--r-panel` | `--s-7` |
+
+A **Control** is the element itself — a plain `button`, text field or `select`
+is already one, with no class. Its text takes the size of wherever it sits:
+fifteen pixels on an open screen, less in the side panel. An earlier draft of
+this file gave Controls a fixed `--t-sm`, but the game has always let buttons
+inherit, and forcing one size on every button would have been a restyle rather
+than a snap. `.primary`, `.ghost`, `.danger` and `.big` are its variants.
+
+A **Card you can press** — a game mode, a choice among a few big options — is
+a `button` that keeps the Card's shape: `--r-card`, sitting among its siblings.
+It behaves like a Control, with a hover and a focus, but it reads as a Card
+because it is one of a group. It is not an eighth piece.
+
+A **Row inside a Card** drops its own box and is divided from the next by a
+hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
+in a card in this game — the lobby's players, the standings, the racers — was
+already drawn that way before there was a standard to say so.
+
+A **log** — the play-by-play — is not a list of Rows. It is fine print:
+`--t-xs` lines at `--s-1`, divided by hairlines, glanced at and never read.
+Spacing it like Rows, or setting it at the body size, makes an insignificant
+log look like a feature and competes with the racers above it.
 
 **Row and Note are the same shape**, and differ in what they are for: a Row is
 one of many and neutral — a checkpoint in the list, a player in the ready list,
@@ -175,7 +209,18 @@ So that the difference is visible and not only a matter of colour, **a Note is
 centred**, with one carve-out: a Note that belongs to one control stays
 left-aligned at that control's edge, because centring it detaches it from the
 field it is about. The name picker's error and hint are the left-aligned case;
-the race warning, the awards and the facts are the centred case.
+the race warning in the countdown is the centred case.
+
+The honours after a race and the best-route box are **Cards**, not Notes,
+though an earlier draft of this file listed them as centred Notes: the honours
+are a grid of siblings, each an icon, a label and a name, and the best-route
+box is a neutral box of content rather than a message about how things stand.
+
+The **toast** is a Note that floats. It carries a sentence and points at
+nothing, which is what separates it from a Tip, which always points at
+something under it. So it takes the Note's padding and, like everything that
+floats, `--el-lift`, and sits centred at the bottom until it times out. An
+earlier draft called the toast a Tip.
 
 A **left stripe** (`inset 3px 0 0 <colour>`) marks a Row as significant — a
 start, a checkpoint, a target. It belongs to Rows, so Notes do not use it.
@@ -192,11 +237,19 @@ The base class sits alongside the namespaced one:
 
 ```html
 <div class="card lobby-card">
+<div class="row in-card lp">
 ```
 
 `.card` carries the radius, padding and surface; `.lobby-card` carries only
-what is genuinely particular to the lobby. This needs no rename sweep and no
-build step, and an area nobody has converted keeps working untouched.
+what is genuinely particular to the lobby. The lobby is built exactly this way,
+and is the example to copy.
+
+Three of these names used to mean something else in `ui.html`, and were renamed
+out of the way before the base classes went in: the dialog was `.card` (it is a
+Panel, and is now `.panel`), the side panel's sections were `.panel` (now
+`.side-sec`), and a flex layout helper was `.row` (now `.hstack`). `.hstack`
+is a helper for laying things out in a line, not one of the seven — it has no
+surface of its own.
 
 ## Words
 
@@ -219,6 +272,10 @@ that already ship, not invented.
    checkpoints".
 6. **Sentence case, and no shouting.** Full stops where a sentence ends;
    labels and buttons do not get one.
+   A hint written inside an uppercase label is a sentence, not part of the
+   label, so it must not inherit the capitals: race setup's "(optional — stops
+   on the way…)" used to come out in bold capitals, shouting a whole sentence.
+
 7. **The server's message and the browser's say the same thing.** The browser
    check exists only to be faster. If the two ever disagree, a player is being
    told two different stories about one rule.
@@ -237,6 +294,20 @@ about the race rather than something about visual rhythm. Forcing `--s-3` into
 a lane height would break a picture to satisfy a rule that was never about
 pictures.
 
+**Illustrations.** The miniature behind each card in the mode picker is a
+shrunken picture of that mode's setup screen, faded to a fifth of its strength.
+Its four-pixel bars and nine-pixel labels are drawn at picture scale; snapping
+them to the type scale would make the miniature less of a miniature. The same
+goes for any picture of the game drawn inside the game.
+
+**The big moments.** The countdown before a race and the splashes for a
+checkpoint and the finish are deliberately loud and arcade-like: a celebration,
+not a notice. The pulsing number, the goal line over it, the rays, glows and
+coloured edges of a splash are drawn at their own sizes and in their own
+colours, and are not snapped onto the scale.
+
 The chrome *around* a drawing — the replay controls, the player boxes, the view
-switcher, the info panel — is ordinary interface and does follow this file. The
-line is the drawing surface itself.
+switcher, the info panel, the mode card an illustration sits in — is ordinary
+interface and does follow this file. So does a message shown with a big
+moment: the warning on the countdown that find is off for the race is a Note.
+The line is the drawing surface itself.

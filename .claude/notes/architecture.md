@@ -37,7 +37,8 @@ Roughly in order down the file:
 
 | Area | Anchor |
 |---|---|
-| Theme tokens, then every component's CSS | `:root {`, `body[data-theme="light"]` |
+| Theme and design tokens, then every component's CSS | `:root {`, `body[data-theme="light"]` |
+| The seven pieces' base classes (see `docs/DesignLanguage.md`) | `---------- the seven pieces` |
 | Wikipedia access (all calls go browser → Wikipedia) | `async function wiki(`, `const POOL = [` |
 | Racing: navigating, clicks, checkpoints, winning | `async function navigate(`, `async function win(` |
 | What counts as a link, and who is one click away | `function linkIsPlayable`, `async function isOneAway`, `async function linkIsOnScreen` |

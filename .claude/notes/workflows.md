@@ -111,3 +111,33 @@ what the trailer in the commit message is for.
 Only when asked. PowerShell here-strings mangle a message containing double
 quotes, so write the message to a file and `git commit -F`. Pushing to `main`
 starts the image build; `gh run watch` follows it.
+
+## Comparing before and after
+
+The browser pane is shared with the owner, so a change to how something looks
+is best shown as two live copies side by side rather than described:
+
+- Run the working tree on 8477, and the last commit on 8478 from an export:
+  `git archive HEAD wikirace.py ui.html | tar -x -C <dir>`. The server reads
+  `ui.html` from disk on every request, so re-exporting refreshes "before"
+  and saving the working file refreshes "after", with no restart.
+- Give both copies the same data: run the same drive script against each, and
+  keep the fake players alive with a loop that polls `/api/state` for their
+  sids every few seconds. Without it they time out and "leave", and the two
+  lobbies stop matching.
+- Open each in its own tab, set `document.title` to BEFORE and AFTER, and set
+  the same fixed viewport on both.
+
+Traps:
+
+- A tab that has been reloaded and one that has not can show different state
+  for the same race (the goal bar after a reload, issue #19). Reload both
+  before believing a difference.
+- Messages the game re-hides on every update (the name-clash and guest notes)
+  can be pinned visible for a comparison with a temporary style in the page -
+  never in the source.
+- A screenshot taken straight after a theme switch or a toast catches it
+  half-faded. Read the computed style instead, or wait.
+- When the pane is hidden, screenshots fail; read values out of the page.
+- A patch script that stops on an anchor writes nothing. Check `git status`
+  before trusting anything a chained command printed after it.
