@@ -906,6 +906,7 @@ class PeerNet:
                 "allow_find": incoming.get("allow_find", True),
                 "time_limit": incoming.get("time_limit", 0),
                 "ban_hubs": incoming.get("ban_hubs", False),
+                "allow_tables": incoming.get("allow_tables", False),
                 "checkpoints": list(race_checkpoints(incoming)),
                 "checkpoint_slots": list(checkpoint_slots(incoming)),
                 "mode": incoming.get("mode", "time"),
@@ -1639,6 +1640,11 @@ def make_handler(state, net, hub):
                 "allow_find": bool(body.get("allow_find", True)),
                 "time_limit": int(limit) if limit else 0,
                 "ban_hubs": bool(body.get("ban_hubs", False)),
+                # The tables of related links at the foot of an article are
+                # hidden unless the race allows them. They link half the
+                # encyclopedia to the other half, so whether they are there
+                # decides what "one click away" even means.
+                "allow_tables": bool(body.get("allow_tables", False)),
                 "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])
                                 if isinstance(c, str) and c.strip()][:6],
                 # Which of those stops have to come at a particular point.

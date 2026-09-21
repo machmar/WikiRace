@@ -784,9 +784,25 @@
   .wiki code, .wiki pre { font-family: var(--mono); font-size: 13px; background: var(--bg-2); border-radius: 4px; padding: 1px 5px; }
   .wiki hr { border: none; border-top: 1px solid var(--line); margin: 20px 0; }
   /* clutter that only slows the race down */
-  .wiki .navbox, .wiki .mw-editsection, .wiki .metadata, .wiki .ambox,
+  .wiki .mw-editsection, .wiki .metadata, .wiki .ambox,
   .wiki .sistersitebox, .wiki .mbox-small, .wiki .noprint, .wiki .mw-jump-link,
-  .wiki .vertical-navbox, .wiki .catlinks, .wiki #toc, .wiki .toc { display: none !important; }
+  .wiki .catlinks, .wiki #toc, .wiki .toc { display: none !important; }
+  /* The tables of related links at the foot of an article are a rule of the
+     race rather than clutter, so the race decides whether they are there. */
+  body:not([data-tables="on"]) .wiki .navbox,
+  body:not([data-tables="on"]) .wiki .vertical-navbox { display: none !important; }
+  /* Wikipedia's own styles for these never arrive - their URLs point back at
+     this server - so a table the race allows needs enough shape from us to
+     read as one table instead of a thousand bullets. */
+  .wiki .navbox { margin: 0 0 16px; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .wiki .navbox table { border-collapse: collapse; width: 100%; }
+  .wiki .navbox th, .wiki .navbox td { padding: 5px 9px; text-align: left; vertical-align: top; }
+  .wiki .navbox .navbox-title { background: var(--bg-3); text-align: center; font-weight: 700; }
+  .wiki .navbox .navbox-group { background: var(--bg-2); white-space: nowrap; font-weight: 600; }
+  .wiki .navbox .navbox-abovebelow { background: var(--bg-2); text-align: center; }
+  .wiki .navbox ul { margin: 0; padding: 0; list-style: none; }
+  .wiki .navbox li { display: inline; margin: 0; }
+  .wiki .navbox li:not(:last-child)::after { content: " · "; color: var(--fg-faint); }
 
   /* ---------- lobby ---------- */
 
@@ -1951,9 +1967,17 @@ const HUB_ARTICLES = [
   "Soviet Union",
 ];
 
+/* The article a Wikipedia link points at, named the way a page is named.
+   Three places ask this question, and a title with a %-escape in it is
+   nobody's idea of a good time to have three answers. */
+function pageFromHref(href) {
+  const raw = (href || "").slice(6).split("#")[0].replace(/_/g, " ");
+  try { return decodeURIComponent(raw); } catch (e) { return raw; }
+}
+
 function linkIsPlayable(href) {
   if (!href || !href.startsWith("/wiki/")) return false;
-  const page = decodeURIComponent(href.slice(6)).split("#")[0];
+  const page = pageFromHref(href);
   if (S.bannedSet && S.bannedSet.has(norm(page))) return false;
   // Main namespace only, the standard wikiracing rule. Titles legitimately
   // contain colons ("Star Wars: A New Hope"), so only a real namespace counts.
@@ -1975,7 +1999,7 @@ function showArticle(title, html) {
     const href = a.getAttribute("href") || "";
     if (href.startsWith("#")) return;                 // in-page footnote, free to use
     if (linkIsPlayable(href)) {
-      a.dataset.page = decodeURIComponent(href.slice(6)).split("#")[0].replace(/_/g, " ");
+      a.dataset.page = pageFromHref(href);
     } else {
       a.classList.add("dead");
       a.removeAttribute("href");
@@ -2048,6 +2072,13 @@ const TOC_LABELS = ["Off", "Main sections only", "Sections and subsections", "Ev
 function raceToc(race) {
   const d = race && race.toc;
   return Math.max(0, Math.min(3, parseInt(d, 10) || 0));
+}
+
+/* Whether this race shows the tables of related links at the foot of an
+   article. Off by default: they put half the encyclopedia one click from the
+   other half, which is a different game. */
+function allowTables(race) {
+  return !!(race && race.allow_tables);
 }
 
 /* A contents list for the page you're on, cut to whatever depth the race
@@ -2176,6 +2207,10 @@ async function showGoal(race) {
   S.race = race;
   S.lang = race.lang || "en";
 
+  // Every view of an article - racing, spectating, the revealed target - is
+  // styled from one place, so one flag on the body settles all of them.
+  document.body.dataset.tables = allowTables(race) ? "on" : "off";
+
   renderGoalBar(race);
   renderRules(race);
 
@@ -2213,7 +2248,13 @@ async function bannedSet(lang) {
 }
 
 /* One filtered API call answers "does this page link straight to the target?".
-   Knowing somebody is one click away is the best tension in the game. */
+   Knowing somebody is one click away is the best tension in the game.
+
+   The API counts every link in the wikitext, including the ones in the tables
+   of related links and the rest of the furniture the article hides, so a yes
+   is only half an answer: a link nobody can see is not a click away. The rare
+   yes is checked against the page as this race actually draws it. A page we
+   couldn't read is one we say nothing about, rather than shouting on a guess. */
 async function isOneAway(article, target, lang) {
   const key = norm(article);
   if (S.proximity && S.proximity.has(key)) return S.proximity.get(key);
@@ -2221,13 +2262,42 @@ async function isOneAway(article, target, lang) {
     try {
       const d = await wiki({ action: "query", titles: article, prop: "links",
                              pltitles: target, pllimit: "max" }, lang, 8000);
-      const near = Object.values(d?.query?.pages || {}).some(p => (p.links || []).length);
+      const linked = Object.values(d?.query?.pages || {}).some(p => (p.links || []).length);
+      const near = linked && await linkIsOnScreen(article, target, lang);
       if (near && S.nearSet) S.nearSet.add(key);
       return near;
     } catch (e) { return false; }
   })();
   if (S.proximity) S.proximity.set(key, job);
   return job;
+}
+
+/* Lays the article out the way the race lays it out, off the side of the
+   screen where nobody sees it, and asks whether a link to the target has a
+   box on the page. Asking the page beats keeping a second list of what is
+   hidden, because a second list is a list that can disagree with the first. */
+async function linkIsOnScreen(article, target, lang) {
+  const { html } = await fetchArticle(article, lang);
+  // An inert document first: nothing here is for reading, so there is no
+  // sense pulling down a hundred pictures to find out about one link.
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("img, picture, source, video, audio, link").forEach(el => el.remove());
+
+  const probe = document.createElement("div");
+  probe.className = "wiki";
+  probe.style.cssText = "position:fixed; top:0; left:-10000px; width:900px; height:1px; overflow:hidden";
+  probe.append(...doc.body.childNodes);
+  document.body.appendChild(probe);
+  try {
+    const want = norm(target);
+    return [...probe.querySelectorAll('a[href^="/wiki/"]')].some(a => {
+      const href = a.getAttribute("href");
+      return norm(pageFromHref(href)) === want && linkIsPlayable(href) &&
+             a.getClientRects().length > 0;
+    });
+  } finally {
+    probe.remove();
+  }
 }
 
 /* The whole route lives on one line: where you started, every stop you owe,
@@ -2292,6 +2362,7 @@ function raceKind(race) {
   if (race.lost) return "Lost";
   const plain = race.show_positions !== false && race.allow_back !== false && race.allow_find !== false &&
                 race.allow_peek !== false && !race.ban_hubs && !race.time_limit && !(race.toc || 0) &&
+                !allowTables(race) &&
                 raceMode(race) !== "clicks" && !raceCheckpoints(race).length &&
                 !Object.keys(race.handicaps || {}).length;
   return plain ? "Classic" : "Advanced";
@@ -2361,6 +2432,7 @@ function renderRules(race) {
   bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
   if (race.lost) bits.push("lost: everyone starts somewhere different");
   if (race.ban_hubs) bits.push("no hub pages");
+  if (allowTables(race)) bits.push("link tables allowed");
   if (raceToc(race)) bits.push("contents: " + TOC_LABELS[raceToc(race)].toLowerCase());
   const slots = raceSlots(race), stops = raceCheckpoints(race);
   stops.forEach((c, i) => bits.push("via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
@@ -5211,6 +5283,7 @@ const cfg = {
   ban_hubs: false, handicap: false, checkpoints: [], checkpoint_slots: [], mode: "time", toc: 0, lost: false,
   allow_find: true,
   allow_peek: true,
+  allow_tables: false,
 };
 
 /* A dropdown that behaves itself.
@@ -5462,13 +5535,14 @@ function renderCheckpointChips(ov) {
    Every mode shows these settings; the presets are just a quick way in. */
 const PRESETS = [
   ["easy", "Easy", { show_positions: true, allow_back: true, allow_find: true, allow_peek: true,
-                     ban_hubs: false, handicap: false, toc: 3, time_limit: 0 }],
+                     ban_hubs: false, handicap: false, allow_tables: true, toc: 3, time_limit: 0 }],
   ["normal", "Normal", { show_positions: true, allow_back: false, allow_find: false, allow_peek: true,
-                         ban_hubs: false, handicap: false, toc: 1, time_limit: 0 }],
+                         ban_hubs: false, handicap: false, allow_tables: false, toc: 1, time_limit: 0 }],
   ["hard", "Hard", { show_positions: false, allow_back: false, allow_find: false, allow_peek: false,
-                     ban_hubs: true, handicap: false, toc: 0, time_limit: 600 }],
+                     ban_hubs: true, handicap: false, allow_tables: false, toc: 0, time_limit: 600 }],
 ];
-const PRESET_KEYS = ["show_positions", "allow_back", "allow_find", "allow_peek", "ban_hubs", "handicap", "toc", "time_limit"];
+const PRESET_KEYS = ["show_positions", "allow_back", "allow_find", "allow_peek", "ban_hubs", "handicap",
+                     "allow_tables", "toc", "time_limit"];
 
 const MODES = [
   { id: "classic", name: "Classic",
@@ -5598,6 +5672,10 @@ function openConfigurator(kind) {
       '(everyone still racing has to agree)</span></span></div>' +
       '<div class="toggle" id="c-hubs" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
+      '<div class="toggle" id="c-tables" style="margin-top:var(--s-3)"><div class="track"></div>' +
+      '<span>Allow the tables of links at the foot of an article ' +
+      '<span class="muted tiny">(they put half the encyclopedia one click away)' +
+      "</span></span></div>" +
       '<div class="toggle" id="c-handicap" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Handicap the session leaders</span></div>' +
       '<div class="two" style="margin-top:var(--s-5)">' +
@@ -5684,6 +5762,7 @@ function openConfigurator(kind) {
   bindToggle("#c-find", "allow_find");
   bindToggle("#c-peek", "allow_peek");
   bindToggle("#c-hubs", "ban_hubs");
+  bindToggle("#c-tables", "allow_tables");
   bindToggle("#c-handicap", "handicap");
 
   q("#c-swap").style.display = mode === "lost" ? "none" : "";
@@ -5693,7 +5772,8 @@ function openConfigurator(kind) {
   // whichever you touch, the other follows.
   const syncSettings = () => {
     for (const [id, key] of [["#c-positions", "show_positions"], ["#c-back", "allow_back"], ["#c-find", "allow_find"],
-                             ["#c-peek", "allow_peek"], ["#c-hubs", "ban_hubs"], ["#c-handicap", "handicap"]]) {
+                             ["#c-peek", "allow_peek"], ["#c-hubs", "ban_hubs"],
+                             ["#c-tables", "allow_tables"], ["#c-handicap", "handicap"]]) {
       q(id).classList.toggle("on", !!cfg[key]);
     }
     tocDD.value = cfg.toc || 0;
@@ -5714,6 +5794,7 @@ function openConfigurator(kind) {
     if (cfg.allow_find === false) notes.push("no find");
     if (cfg.allow_peek === false) notes.push("no reveal vote");
     if (cfg.ban_hubs) notes.push("no hubs");
+    if (cfg.allow_tables) notes.push("link tables");
     if (cfg.handicap) notes.push("handicaps");
     if (cfg.toc) notes.push(TOC_LABELS[cfg.toc].toLowerCase());
     if (cfg.time_limit) notes.push(Math.round(cfg.time_limit / 60) + " min");
@@ -5839,6 +5920,7 @@ function openConfigurator(kind) {
         allow_peek: cfg.allow_peek,
         time_limit: cfg.time_limit,
         ban_hubs: cfg.ban_hubs,
+        allow_tables: cfg.allow_tables,
         handicap: cfg.handicap,
         checkpoints: cfg.checkpoints,
         checkpoint_slots: cfg.checkpoint_slots,
@@ -6378,7 +6460,7 @@ $("lobby-rematch").onclick = async () => {
     kind: last.kind || (last.lost ? "lost" : undefined),
     show_positions: cfg.show_positions, allow_back: cfg.allow_back,
     allow_find: cfg.allow_find, allow_peek: cfg.allow_peek,
-    time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs,
+    time_limit: cfg.time_limit, ban_hubs: cfg.ban_hubs, allow_tables: cfg.allow_tables,
     handicap: cfg.handicap, checkpoints: cfg.checkpoints, checkpoint_slots: cfg.checkpoint_slots,
     mode: cfg.mode,
     toc: cfg.toc,
