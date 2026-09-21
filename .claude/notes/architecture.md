@@ -24,8 +24,8 @@ carry on if another drops.
 A race is a dict, and its rules are part of it: `start`, `target`, `lost`,
 `starts`, `kind`, `checkpoints`, `checkpoint_slots`, `mode` (time/clicks),
 `toc`, `time_limit`, `ban_hubs`, `allow_back`, `allow_find`, `allow_peek`,
-`show_positions`, `handicaps`, `peek`. Older races may lack newer fields, so
-read them through the helpers rather than directly.
+`allow_tables`, `show_positions`, `handicaps`, `peek`. Older races may lack
+newer fields, so read them through the helpers rather than directly.
 
 Players are identified by **name**, not by device: the same name on a phone and
 a laptop is one player, and results, standings and handicaps are keyed by the
@@ -40,6 +40,7 @@ Roughly in order down the file:
 | Theme tokens, then every component's CSS | `:root {`, `body[data-theme="light"]` |
 | Wikipedia access (all calls go browser → Wikipedia) | `async function wiki(`, `const POOL = [` |
 | Racing: navigating, clicks, checkpoints, winning | `async function navigate(`, `async function win(` |
+| What counts as a link, and who is one click away | `function linkIsPlayable`, `async function isOneAway`, `async function linkIsOnScreen` |
 | Game modes and the setup dialog | `const MODES = [`, `function openModePicker`, `function openConfigurator` |
 | Settings menu, presets, the fold | `const PRESETS = [`, `const syncSettings` |
 | Checkpoints: the list, pinning, shuffle | `function renderCheckpointChips`, `function shuffleCheckpoints` |
@@ -62,10 +63,11 @@ setup screen asks for, not just its defaults:
   server hands each player one of their own, kept on their run so a reload
   lands back on it.
 
-The **Game settings** menu (opponents, back, find, reveal vote, hub ban,
-handicap, contents, time limit) is the same in every mode, folded behind a
-button with Easy/Normal/Hard presets. The race carries its `kind`, and races
-from before modes existed work theirs out from their rules (`raceKind`).
+The **Game settings** menu (opponents, back, find, reveal vote, hub ban, the
+tables of links at the foot of an article, handicap, contents, time limit) is
+the same in every mode, folded behind a button with Easy/Normal/Hard presets.
+The race carries its `kind`, and races from before modes existed work theirs
+out from their rules (`raceKind`).
 
 ### Checkpoints
 

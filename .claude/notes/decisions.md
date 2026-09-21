@@ -46,6 +46,31 @@ where everyone started.
 Rejected: each browser rolling its own start. Two players would sometimes get
 the same page, and a refresh would move you somewhere new.
 
+## One click away means a link you could click
+
+The shout, and the badge beside a racer, come from the links API, which counts
+every link in the article's wikitext. The game hides a lot of an article — the
+tables of related links at the foot of it, category lists, maintenance boxes —
+so the API said "one away" about links nobody could see. On a page like
+*Finger*, whose navigation table lists every other finger and the hand and the
+arm, that was most of the time.
+
+The rare yes from the API is now checked by laying the article out the way the
+race lays it out, off the side of the screen, and asking whether a link to the
+target has a box on the page. Asking the page beats keeping a second list of
+what is hidden, because a second list is a list that can disagree with the
+stylesheet; it also picks up the rest of the hidden furniture for free.
+
+The cost is one article fetch, and it is only ever paid on the yes, which is
+rare and cached per article for the race. Rejected: doing the visibility check
+on every report, which would fetch an article per player per click; and
+`action=parse&prop=links`, which is the same wikitext-level answer as the
+links API and would have needed the same correcting.
+
+Whether the tables are there at all is a rule of the race (`allow_tables`,
+off by default), so it is in Game settings with everything else people argue
+about, and Easy turns it on.
+
 ## Starts come from a curated pool, not Special:Random
 
 Wikipedia's random endpoint mostly returns stubs, and a page nothing links to
