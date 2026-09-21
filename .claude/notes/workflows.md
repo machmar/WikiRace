@@ -93,6 +93,12 @@ without anyone remembering. `.claude/settings.json` adds a hook that refuses
 unless the machine account is what is being used - a backstop for a machine
 where the env var is missing.
 
+The same hook refuses `gh issue create` with no `--label` (or `-l`) on it, so
+every issue Claude files has at least one label. `gh label list` shows what
+there is: bug, enhancement, documentation, accessibility and question are the
+ones in use. The hook only looks at `gh` where a command starts, so a note or a
+commit message that merely mentions the command goes through.
+
 To act as the owner on purpose - creating a repository under their account,
 inviting a collaborator - clear it for that one command:
 

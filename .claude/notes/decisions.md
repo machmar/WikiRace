@@ -224,3 +224,15 @@ record of what moved. What it settled:
 
 Rejected: prefixing the base classes (`ui-card` and so on). Nothing could ever
 collide, but the misleading `.card` dialog would have stayed forever.
+
+## Every issue gets a label, checked by the hook
+
+An unlabelled issue is lost when the backlog is sorted, so filing one needs at
+least one label. The check lives in `.claude/tools/guard-gh.ps1`, the hook that
+already stands in front of `gh issue create`, because that is how issues get
+filed here.
+
+Rejected: enforcing it on GitHub. GitHub has no way to refuse an unlabelled
+issue. Issue forms can pre-fill a label, but `gh issue create` skips them, and a
+workflow can only react after the issue exists - by labelling it itself, which
+defeats the point, or by nagging.
