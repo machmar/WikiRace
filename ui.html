@@ -2454,7 +2454,9 @@ async function enterRace(race, myRun) {
     S.finalElapsed = mine.elapsed || 0;
     S.stepTimes = (mine.times || []).slice();
     $("btn-giveup").hidden = true;
-    renderCrumbs(); updateHud();
+    // showGoal drew the goal bar before the path was back, and nothing else
+    // redraws it once the race is over for you.
+    renderCrumbs(); updateHud(); renderGoalBar(race);
     openHub("results");
     return;
   }
