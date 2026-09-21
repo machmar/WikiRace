@@ -249,6 +249,10 @@ that already ship, not invented.
    checkpoints".
 6. **Sentence case, and no shouting.** Full stops where a sentence ends;
    labels and buttons do not get one.
+   A hint written inside an uppercase label is a sentence, not part of the
+   label, so it must not inherit the capitals: race setup's "(optional — stops
+   on the way…)" used to come out in bold capitals, shouting a whole sentence.
+
 7. **The server's message and the browser's say the same thing.** The browser
    check exists only to be faster. If the two ever disagree, a player is being
    told two different stories about one rule.
