@@ -205,7 +205,12 @@ So that the difference is visible and not only a matter of colour, **a Note is
 centred**, with one carve-out: a Note that belongs to one control stays
 left-aligned at that control's edge, because centring it detaches it from the
 field it is about. The name picker's error and hint are the left-aligned case;
-the race warning, the awards and the facts are the centred case.
+the race warning in the countdown is the centred case.
+
+The honours after a race and the best-route box are **Cards**, not Notes,
+though an earlier draft of this file listed them as centred Notes: the honours
+are a grid of siblings, each an icon, a label and a name, and the best-route
+box is a neutral box of content rather than a message about how things stand.
 
 The **toast** is a Note that floats. It carries a sentence and points at
 nothing, which is what separates it from a Tip, which always points at
