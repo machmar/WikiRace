@@ -4,15 +4,32 @@ persistence across restarts, and the scoreboard wipe."""
 import json
 import os
 import shutil
+import socket
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.error
 import urllib.request
 
-GAME = "/c/Users/marec/Desktop/WikiRace/wikirace.py"
-SCRATCH = "/c/Users/marec/AppData/Local/Temp/claude/C--Users-marec-Desktop-AlchemistVST/cdb28a64-2388-4477-b63d-6ba8d0294f6f/scratchpad"
-PORT = 8478
+HERE = os.path.dirname(os.path.abspath(__file__))
+GAME = os.path.join(HERE, "..", "..", "wikirace.py")
+# A fresh folder per run, so one run's data can never leak into the next.
+SCRATCH = tempfile.mkdtemp(prefix="wikirace-store-")
+
+
+def free_port():
+    # Let the OS choose, so a copy already running on 8477 or 8478 is never
+    # mistaken for the server this test started.
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+PORT = free_port()
 BASE = "http://127.0.0.1:%d" % PORT
 fails = []
 
@@ -24,6 +41,17 @@ def check(label, ok, detail=""):
 
 
 def start(data):
+    # Something answering before we launch is not ours; testing it would
+    # report on somebody else's data.
+    try:
+        urllib.request.urlopen(BASE + "/healthz", timeout=1)
+        taken = True
+    except urllib.error.HTTPError:
+        taken = True
+    except OSError:
+        taken = False
+    if taken:
+        raise RuntimeError("port %d is already in use; stop whatever is on it" % PORT)
     env = dict(os.environ, WIKIRACE_NO_BROWSER="1", PYTHONUNBUFFERED="1")
     p = subprocess.Popen([sys.executable, GAME, "--host", "--port", str(PORT), "--room", "storetest",
                           "--no-discovery", "--data-dir", data],
@@ -71,7 +99,10 @@ def rows(data):
 
 # ---------------------------------------------------------------- 1. real legacy file
 print("\n1. importing the history the old version wrote")
+# A history file saved by the last version before SQLite, kept as it was written.
 real = os.path.join(SCRATCH, "gdata")
+os.makedirs(real)
+shutil.copy(os.path.join(HERE, "fixtures", "legacy_history.json"), os.path.join(real, "wikirace_history.json"))
 legacy = json.load(open(os.path.join(real, "wikirace_history.json"), encoding="utf-8"))["races"]
 p = start(real)
 state = get("/api/state")
@@ -135,5 +166,6 @@ check("and the archive matches after a restart", after == 1 and rows(big) == 1, 
 check("the kept race is the one in progress", get("/api/race?id=" + r2["race"]["race_id"]).get("start") == "Bread")
 stop(p)
 
+shutil.rmtree(SCRATCH, ignore_errors=True)
 print("\n%s" % ("all checks passed" if not fails else "FAILURES: %s" % fails))
 sys.exit(1 if fails else 0)
