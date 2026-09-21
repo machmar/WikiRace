@@ -236,3 +236,22 @@ Rejected: enforcing it on GitHub. GitHub has no way to refuse an unlabelled
 issue. Issue forms can pre-fill a label, but `gh issue create` skips them, and a
 workflow can only react after the issue exists - by labelling it itself, which
 defeats the point, or by nagging.
+
+## The self-starting tests carry what they need
+
+`test_store.py` and `test_names.py` used to name a scratch folder from an old
+session of a different project. `test_store.py` read its legacy history from
+that folder, so it only ran on one machine until the folder was cleaned (issue
+#20). Now each run finds the game from where the script is, makes its own temp
+folder, and imports a legacy history file checked in under
+`.claude/tools/fixtures/`. That file is the one the old version actually wrote,
+copied as it was. A file made up to match would only show that the importer
+reads what we think the old format was.
+
+Each of the two tests takes a port the OS chooses rather than a fixed one. On
+the old fixed 8478 they collided with the throwaway "before" copy that
+`workflows.md` suggests, and quietly tested that copy instead. They also refuse
+to start if anything answers on their port first.
+
+Rejected: an environment variable to override the port or the folder. Nothing
+needs one, and it would be one more thing that could point at the wrong place.
