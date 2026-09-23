@@ -190,6 +190,13 @@ a `button` that keeps the Card's shape: `--r-card`, sitting among its siblings.
 It behaves like a Control, with a hover and a focus, but it reads as a Card
 because it is one of a group. It is not an eighth piece.
 
+**A Tip you can press** is the same move one piece down: a `button` that
+keeps the Tip's shape and its caret, so that the sentence telling you
+something is happening is also the way to deal with it. The game has exactly
+one, the reveal popup, and because it carries a sentence rather than a label
+it takes the **Note's** padding and tint; everything else about it is a Tip.
+A Tip with nothing to act on stays unpressable, which is still the default.
+
 A **Row inside a Card** drops its own box and is divided from the next by a
 hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
 in a card in this game — the lobby's players, the standings, the racers — was

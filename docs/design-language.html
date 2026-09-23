@@ -208,6 +208,26 @@
     border-radius: var(--r-box); padding: var(--s-1) var(--s-3);
     font-size: var(--t-sm); box-shadow: var(--el-lift); white-space: nowrap;
   }
+  /* A Tip you can press: the shape and the caret of a Tip, the padding and
+     tint of a Note, because it carries a sentence rather than a label. */
+  button.tip {
+    display: block; text-align: left; white-space: normal; cursor: pointer;
+    width: min(310px, 100%); position: relative; line-height: 1.45;
+    padding: var(--s-3) var(--s-4); background: var(--warn-bg); border-color: var(--warn-line);
+  }
+  button.tip:hover { border-color: var(--warn-fg); }
+  button.tip b { color: var(--warn-fg); }
+  button.tip::before {
+    content: ""; position: absolute; top: calc(var(--s-3) / -2); right: var(--s-6);
+    width: var(--s-3); height: var(--s-3); background: var(--warn-bg);
+    border-left: 1px solid var(--warn-line); border-top: 1px solid var(--warn-line);
+    transform: rotate(45deg);
+  }
+  button.tip .sub {
+    display: flex; gap: var(--s-3); font-size: var(--t-xs);
+    color: var(--fg-dim); margin-top: var(--s-2);
+  }
+  button.tip .act { margin-left: auto; color: var(--warn-fg); font-weight: 600; }
 
   .card {
     background: var(--bg-2); border: 1px solid var(--line);
@@ -503,9 +523,15 @@
   <h3>Tip &mdash; floating, and pointing at what is under it</h3>
   <div class="demo">
     <div class="line"><span class="tip">Bee &mdash; 11 clicks</span><span class="tip">01:42</span></div>
+    <div class="line" style="margin-top: var(--s-6)">
+      <button type="button" class="tip">
+        <div><b>Ben</b> wants the target page opened.</div>
+        <div class="sub"><span>1 of 4 agreed</span><span class="act">Have your say &rarr;</span></div>
+      </button>
+    </div>
   </div>
   <div class="when">
-    <div><h4>Rules</h4><ul><li><code>pointer-events: none</code> unless it contains a Control.</li><li>It fades over <code>--m-base</code>. It does not slide, spring or scale.</li><li>Padding is tighter than a Note's on purpose, because a Tip is read in a glance.</li></ul></div>
+    <div><h4>Rules</h4><ul><li><code>pointer-events: none</code> unless it contains a Control, or is one.</li><li>A Tip you can press is a <code>button</code> keeping the Tip's shape, the way a pressable Card is. Carrying a sentence, it takes the Note's padding and tint.</li><li>It fades over <code>--m-base</code>. It does not slide, spring or scale.</li><li>Padding is tighter than a Note's on purpose, because a Tip is read in a glance.</li></ul></div>
     <div><h4>Not when</h4><ul><li>It stays put and belongs to the layout — that is a Note.</li><li>It carries a sentence and points at nothing, like the toast — that is a Note that floats.</li><li>It has taken over the screen — that is a Panel.</li></ul></div>
   </div>
 

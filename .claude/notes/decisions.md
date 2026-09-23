@@ -255,3 +255,44 @@ to start if anything answers on their port first.
 
 Rejected: an environment variable to override the port or the folder. Nothing
 needs one, and it would be one more thing that could point at the wrong place.
+
+## The reveal vote says itself out loud, and the button stays as it was
+
+The vote to open the target has always carried its tally on the reveal button,
+but the button is in the chrome and the game is played in the article, so an
+ask could pass a whole table by: the only other sign was a line of `--t-xs`
+fine print in the play-by-play, which on a phone is behind the drawer
+(issue #18).
+
+What it got is one thing: a Tip hanging off the reveal button, saying who
+asked and how the tally stands, gone after twenty seconds. Pressing it opens
+the vote card rather than casting a vote - being told a vote is open is not
+being asked to rush it - and on the grant the same Tip turns green and opens
+the target page, which is the job the old toast could not do because a toast
+takes no clicks.
+
+The button itself was left exactly as it was. Four things were drawn and
+turned down with it: pips on the button for each racer's answer, a fourth
+colour for "you have answered and they have not", the vote marks repeated in
+the racer list, and a rewritten vote card naming the asker. A tally that stays
+at 3/4 when the fourth says no is fine, and everything those added was
+something the Tip now says in a sentence.
+
+Also turned down, and worth keeping turned down: opening the vote card by
+itself when somebody asks. The race clock does not stop, so a modal that
+steals the screen because another player clicked something costs everyone who
+did not ask for it real seconds, and it makes asking a weapon.
+
+Three rules the implementation turns on:
+
+- **It speaks to everybody, including people who have already answered.**
+  "Three of us are waiting on you" is news to the three as well. It will not
+  tell you about your own vote.
+- **It fires on a change in the tally, not on a snapshot.** Snapshots arrive
+  several times a second and mostly say the same thing, so each announcement
+  is keyed by the race and the set of names that have said yes.
+- **An ask made while you were still entering the race is news when you land.**
+  The baseline it compares against is left where it was while the countdown
+  has the screen, rather than moved on. Arriving at a vote already in progress
+  after a *reload* still stays quiet, because that is not news about anybody -
+  the button already says a vote is open.
