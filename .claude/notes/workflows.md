@@ -45,9 +45,12 @@ They print PASS/FAIL per check and exit non-zero on failure.
 
 The two that start their own server find `wikirace.py` from where the script
 sits, so they run from any checkout and any folder. Each run gets a fresh temp
-folder and a port the OS picks, so a copy you already have on 8477 or 8478
-doesn't get in the way. If something still answers on the chosen port they stop
-instead of testing it. `test_store.py` imports
+folder, and every start gets a port the OS picks, so a copy you already have on
+8477 or 8478 doesn't get in the way. The game takes the next port along when
+the one it was asked for is taken, and that includes one still cooling off after
+the server a test has just stopped (on Linux; Windows is more forgiving), so
+the tests talk to the port the game printed on its `UI ready at` line, never
+the one they asked for. `test_store.py` imports
 `.claude/tools/fixtures/legacy_history.json`, a history file written by the
 last version before SQLite. Keep it as it is: it only proves anything because
 the old code wrote it.
