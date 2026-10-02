@@ -197,6 +197,15 @@ one, the reveal popup, and because it carries a sentence rather than a label
 it takes the **Note's** padding and tint; everything else about it is a Tip.
 A Tip with nothing to act on stays unpressable, which is still the default.
 
+**A Pill you can press** is the same move again: a `button` that keeps the
+Pill's shape, because what you press is the fact the Pill names and pressing
+it tells you more about that fact. The game has one, the mode at the front of
+a race's name on Results and Replay (`.pill.race-kind`): pressing it opens a
+Tip with the rules the race was played under, and hovering it peeks. It is
+set at `--t-sm` weight 600, a hair tighter on the caret side, and it takes the
+Control's hover. A Pill that only reports something stays a `span`, which is
+still the default.
+
 A **Row inside a Card** drops its own box and is divided from the next by a
 hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
 in a card in this game — the lobby's players, the standings, the racers — was
