@@ -1673,7 +1673,6 @@
           <div class="card lobby-card">
             <h3>Standings</h3>
             <div id="lobby-board"><div class="empty">No races yet.</div></div>
-            <div id="lobby-last" class="tiny muted" style="margin-top:var(--s-3)"></div>
           </div>
         </div>
 
@@ -1692,7 +1691,6 @@
 
         <div class="lobby-actions">
           <button id="lobby-start" class="primary big">Set up a race</button>
-          <button id="lobby-rematch" class="big" hidden>Rematch</button>
         </div>
       </div>
     </div>
@@ -4562,24 +4560,7 @@ function renderLobby(snap) {
   }
 
   renderBoard(snap.leaderboard, $("lobby-board"));
-
-  // Offer a rematch of the most recent race, settings and all.
-  const last = lastFinishedRace(snap);
-  setFlag($("lobby-rematch"), "hidden", !last);
-  if (last) {
-    setText($("lobby-last"), "Last race: " + raceTitle(last));
-    setText($("lobby-rematch"), "Rematch: " + raceTitle(last));
-  } else {
-    setText($("lobby-last"), "");
-  }
   renderPast(snap);
-}
-
-function lastFinishedRace(snap) {
-  if (!snap || !snap.races_list) return null;
-  const done = snap.races_list.filter(r => r.finishers);
-  done.sort((a, b) => (b.created || 0) - (a.created || 0));
-  return done[0] || null;
 }
 
 function setSpecView(view) {
@@ -6016,7 +5997,7 @@ const RouteMap = (() => {
  * New-race dialog
  * ------------------------------------------------------------------ */
 
-/* Settings survive between races, so a rematch is one click. */
+/* Settings survive between races, so setting up the same race again is quick. */
 const cfg = {
   lang: "en", show_positions: true, allow_back: true, time_limit: 0,
   ban_hubs: false, handicap: false, checkpoints: [], checkpoint_slots: [], mode: "time", toc: 0, lost: false,
@@ -7361,19 +7342,6 @@ window.addEventListener("resize", () => {
 
 $("lobby-start").onclick = openModePicker;
 $("lobby-ready").onclick = () => post("/ready", { value: !(S.snap && S.snap.ready) });
-/* One click, and the same game again - its rules, not whatever was set up last. */
-$("lobby-rematch").onclick = async () => {
-  const row = lastFinishedRace(S.snap);
-  const last = row && await fetchRace(row.race_id);
-  if (!last) { toast("Couldn't load the last race — try again"); return; }
-  const rules = rulesOf(last);
-  // A lost rematch gets lost somewhere new.
-  const starts = last.lost ? await lostStarts(rules.lang, last.target, rules.checkpoints, rules.ban_hubs) : [];
-  if (last.lost && starts.length < 2) { toast("Couldn't reach Wikipedia"); return; }
-  await post("/start_race", Object.assign(rules, {
-    start: last.start, target: last.target, lost: !!last.lost, starts, kind: kindOf(last),
-  }));
-};
 
 // -- post-race hub --
 document.querySelectorAll("#hub-tabs button")

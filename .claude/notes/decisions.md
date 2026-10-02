@@ -394,7 +394,8 @@ What it settled:
 - **Rematch stays one click**, and now uses the race's own rules. It never
   appeared before: it looked for `results` in the snapshot's compact list,
   which carries a count. "Play this again" is the considered version, and
-  opens setup instead.
+  opens setup instead. (The lobby's Rematch button has since gone; see "The
+  lobby points at the history, not at the last race".)
 - **A Row you can press** went into the design standard: the whole line is
   the choice, so it is not a button inside a Row.
 
@@ -457,3 +458,22 @@ join them.
 - **Turned down: showing the marks only on hover**, with just the total
   always there. On Hard the marks line up into a column of "+20%"s, but they
   are faint, and a phone has no hover; the owner chose to keep them.
+
+## The lobby points at the history, not at the last race
+
+Since #12 the lobby's Earlier races card lists the newest race first, with its
+mode, winner and time, and "just now" while it is the one on. Two more things
+named that same race: a "Last race: …" line at the foot of Standings, and a
+Rematch button saying it a third time (issue #31). Both are gone. Standings
+ends with the standings, and a finished race is reached the one way, through
+its row in Earlier races.
+
+- **The Rematch button went with the line**, at the owner's call: the history
+  already handles it. What it costs is the one-click rematch. The way back is
+  now the race's row, its page, "Play this again" (setup filled in with the
+  race's rules, free to change), then Start - three presses, not one.
+- **Setup still remembers the last settings** (`cfg`), so Set up a race and
+  Start is the quick route when nothing is to change.
+- **Turned down: keeping the line but making it say something the history
+  doesn't**, such as what the last race paid each player. It is a feature of
+  its own and not what the repeat was about; it was not built.
