@@ -401,3 +401,59 @@ What it settled:
 Rejected with the designs above: paging the lobby's list in place (the first
 version of design 2) - a lobby that grows downward forever buries the buttons
 that start the next race.
+
+## Points follow how hard the race was
+
+Every race used to pay the same, so an Easy Classic win with the back button
+and find was worth a Hard Lost win through three stops in order (issue #13).
+Now every rule that made a race harder adds **20%** to everything that race
+pays: no going back, no find, link tables hidden, contents off, hubs banned,
+the target never revealable, positions hidden, a time limit of ten minutes or
+less, a lost start, each checkpoint, and a pinned order (once, and only with
+two or more stops). Place points and the bonus are scaled together and rounded
+once. Easy Classic is x1, Normal Classic x1.6, Hard Classic x2.6, and Hard Lost
+through three stops in order x3.6; the most there can be is x4.2.
+
+- **Equal weights, deliberately.** No going back is harder than hidden
+  positions, but "+30% for this, +10% for that" is the formula nobody at the
+  table can follow. "Count the hard things, a fifth more each" can be counted
+  on fingers.
+- **By the rule, not by what happened.** A race where the vote was allowed
+  but nobody used it was as hard as one where it wasn't allowed, but it is
+  scored as the easier one. Scoring on what happened would make voting to
+  reveal cost everyone points - an interesting tension, but a second thing to
+  explain, and the multiplier would no longer be known when the race starts.
+- **An older race is read the way the rules list reads it.** A missing
+  `allow_tables` or `toc` means hidden or off there, so it counts as harder
+  here: the race is paid for the rules it says it was played under. Old
+  standings went up by that, never down.
+- **The handicap is not difficulty, and doesn't change points.** It holds
+  the leaders back so the session stays close; paying them extra for beating
+  it would undo what it is for, and it applies to one player, not the race.
+- **The fewest-clicks bonus needs somebody to beat.** It is still +3 to
+  whoever is best at the measure the race isn't scored on, the winner and
+  ties included, but finishing alone no longer collects it.
+- **Giving up, or running out of time, is still worth nothing.** Credit per
+  checkpoint was considered and dropped: it rewards banking a stop and then
+  quitting, and in a party game finishing is what scores.
+- **The server does the sums.** The browser only draws `scoring`, so the
+  rules Tip, the line under each finisher and the standings can't disagree.
+  A copy of the game on an older version would still disagree about the
+  standings until it is updated, because every copy rebuilds them itself.
+
+Race setup says it before the race starts (issue #33). Each setting carries a
+faint "+20%" at the end of its row while it is making the race harder, the
+checkpoints label carries theirs ("+60%" for two stops in order), and the Game
+settings header carries the total ("points +220%"), where it stays in sight
+with the settings folded away. Setup speaks in a sum of percentages because it
+is built up one rule at a time; Results speaks in the multiplier because it
+explains a sum. Both are the same number, and the rules Tip's "+20%" marks
+join them.
+
+- **Setup asks the server** (`/api/score_rules`) rather than repeating the
+  check, on every change, dropping any answer that comes back after a newer
+  question. Starting a race and asking what one would pay read the rules
+  through the same `rules_from`, so what setup promises is what is paid.
+- **Turned down: showing the marks only on hover**, with just the total
+  always there. On Hard the marks line up into a column of "+20%"s, but they
+  are faint, and a phone has no hover; the owner chose to keep them.

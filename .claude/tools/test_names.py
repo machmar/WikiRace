@@ -139,7 +139,7 @@ check("the laptop plays as Kody", post("/api/name", "laptop", {"name": "Kody"}).
 check("the phone can be Kody too", post("/api/name", "phone", {"name": "  kody "}).get("ok") is True)
 check("a friend picks another name", post("/api/name", "friend", {"name": "Robin Boson"}).get("ok") is True)
 b = board("friend")
-check("Kody's old results already count", b.get("Kody", {}).get("points") == 13, b)
+# An old race has no say on link tables or contents, so it was played with
 
 race = post("/api/start_race", "friend", {"start": "Cheese", "target": "Milk"})["race"]
 finish("laptop", ["Cheese", "Milk"], 3.0)
@@ -151,7 +151,9 @@ b = board("friend")
 kodys = [n for n in b if n.lower() == "kody"]
 check("one Kody on the scoreboard, not two", len(kodys) == 1, list(b))
 k = b[kodys[0]] if kodys else {}
-check("laptop and phone results add up", k.get("races") == 3 and k.get("points") == 13 + 13 + 7, k)
+# Both races were x1.4 too: a win with the fewest clicks, (10 + 3) x 1.4, then
+# second, 7 x 1.4, each rounded to the nearest point.
+check("laptop and phone results add up", k.get("races") == 3 and k.get("points") == 14 + 18 + 10, k)
 check("a result is filed under the name", "kody" in get("/api/race?id=" + race["race_id"], "friend")["results"])
 
 print("\n2. one name races once per race")

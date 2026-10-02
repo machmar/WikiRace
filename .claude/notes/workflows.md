@@ -37,12 +37,18 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_past_races.py` — the list behind the lobby and the Every race screen:
   the archive beyond the working set, winners by mode, the filters, and the race
   going on now. Starts its own, on a database it seeds.
+- `test_points.py` — what makes a race harder and what each place pays, issue
+  #13. Imports `wikirace.py` for the rules, then starts its own server to see
+  the standings and both places a browser reads a race from agree.
 - `test_cp_order.py` — checkpoint order rules. Needs a server on 8477 first.
 - `test_reveal_tip.py` — the reveal popup, issue #18. Needs a server on 8477
   first, and Playwright (`pip install playwright && playwright install
   chromium`), because it is the one thing here that has to be watched in a
   real browser. It stubs Wikipedia, so it runs with no internet; set
   `WIKIRACE_CHROME` if Playwright's own Chromium is not where it expects.
+- `test_points_ui.py` — Results and a race's page say what each player was
+  paid and why, the rules Tip marks what made the race harder, and race setup
+  marks it before the race starts. The same needs as `test_reveal_tip.py`.
 - `test_race_name.py` — a race's name and the rules under it, issue #11. The
   same needs as `test_reveal_tip.py`. It reads the rules after each press or
   hover only once the fade is over: visibility is part of the transition, so
