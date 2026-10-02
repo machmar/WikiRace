@@ -2,13 +2,14 @@
 """The name is the player: same name on any device is the same player."""
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
-import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,8 +28,9 @@ def free_port():
     return port
 
 
-PORT = free_port()
-BASE = "http://127.0.0.1:%d" % PORT
+# Set by start() to the port the game says it took, which is not always the one
+# it was asked for.
+BASE = None
 fails = []
 
 
@@ -38,38 +40,67 @@ def check(label, ok, detail=""):
         fails.append(label)
 
 
+READY = re.compile(r"UI ready at http://localhost:(\d+)/")
+
+
+class Game:
+    """A copy of the game this test started, and everything it has said."""
+
+    def __init__(self, data):
+        self.lines = []
+        self.port = None
+        self.said = threading.Event()
+        # A fresh port each time. The game won't share one with a server that
+        # has only just stopped, so asking for the old one would make it move
+        # on to the next and say so.
+        env = dict(os.environ, WIKIRACE_NO_BROWSER="1", PYTHONUNBUFFERED="1")
+        self.proc = subprocess.Popen([sys.executable, GAME, "--host", "--port", str(free_port()), "--room", "names",
+                                      "--no-discovery", "--data-dir", data],
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, text=True, encoding="utf-8")
+        # Drained for as long as it runs, so a chatty server can't fill the pipe.
+        self.reader = threading.Thread(target=self._drain, daemon=True)
+        self.reader.start()
+
+    def _drain(self):
+        for line in self.proc.stdout:
+            self.lines.append(line)
+            m = READY.search(line)
+            if m and self.port is None:
+                self.port = int(m.group(1))
+                self.said.set()
+        self.said.set()  # it ended without saying where; the waiter finds out
+
+    def stop(self):
+        self.proc.kill()
+        self.proc.wait()
+        self.reader.join(5)
+        return "".join(self.lines)
+
+
 def start(data):
-    # Something answering before we launch is not ours; testing it would
-    # report on somebody else's data.
-    try:
-        urllib.request.urlopen(BASE + "/healthz", timeout=1)
-        taken = True
-    except urllib.error.HTTPError:
-        taken = True
-    except OSError:
-        taken = False
-    if taken:
-        raise RuntimeError("port %d is already in use; stop whatever is on it" % PORT)
-    env = dict(os.environ, WIKIRACE_NO_BROWSER="1", PYTHONUNBUFFERED="1")
-    p = subprocess.Popen([sys.executable, GAME, "--host", "--port", str(PORT), "--room", "names",
-                          "--no-discovery", "--data-dir", data],
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, text=True, encoding="utf-8")
+    global BASE
+    game = Game(data)
+    # Talk to the port the game printed, never the one it was asked for: it
+    # moves on when that one is taken, and the same line covers a copy already
+    # running on it. Only our own child can hold the port it announces, so
+    # whatever answers there is the server this test started.
+    game.said.wait(12)
+    if game.port is None:
+        raise RuntimeError("server did not start: " + game.stop()[-1500:])
+    BASE = "http://127.0.0.1:%d" % game.port
     for _ in range(60):
         try:
             urllib.request.urlopen(BASE + "/healthz", timeout=1)
-            return p
+            return game
         except OSError:
-            if p.poll() is not None:
+            if game.proc.poll() is not None:
                 break
             time.sleep(0.2)
-    if p.poll() is None:
-        p.kill()
-    raise RuntimeError("server did not start: " + (p.communicate()[0] or "")[-1500:])
+    raise RuntimeError("server did not start: " + game.stop()[-1500:])
 
 
-def stop(p):
-    p.kill()
-    return p.communicate()[0]
+def stop(game):
+    return game.stop()
 
 
 def get(path, sid):

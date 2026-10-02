@@ -250,11 +250,32 @@ reads what we think the old format was.
 
 Each of the two tests takes a port the OS chooses rather than a fixed one. On
 the old fixed 8478 they collided with the throwaway "before" copy that
-`workflows.md` suggests, and quietly tested that copy instead. They also refuse
-to start if anything answers on their port first.
+`workflows.md` suggests, and quietly tested that copy instead.
+
+That was not the whole of it (issue #25). Both tests stop the server and start
+a second one on the same data folder, to prove the archive survives a restart,
+and on Linux the port the first one used is still in `TIME_WAIT`. The game is
+right to refuse it, because `pick_http_port` deliberately has no
+`SO_REUSEADDR`, so the second server moved to the next port and said so. The
+tests had picked one port at load and polled it for twelve seconds, then killed
+a healthy server. Now every start asks the OS for a fresh port, and `start()`
+reads the port out of the game's own `UI ready at` line and polls that. The
+second half is the one that matters: the test no longer assumes something about
+the game that is the game's to decide, and it also covers somebody running a
+copy on the port it was handed.
+
+The old check that refused to start if anything already answered on the
+requested port went with it. It looked at the port the game was *asked* for,
+which is exactly the one it may not take, and the new `start()` only ever
+talks to a port its own child announced, which nothing else can hold.
 
 Rejected: an environment variable to override the port or the folder. Nothing
 needs one, and it would be one more thing that could point at the wrong place.
+
+Rejected: fixing it in the game, with `SO_REUSEADDR` or a retry on the same
+port. The comment on `pick_http_port` is about Windows silently handing one
+player's requests to another copy, and that matters far more than a test being
+tidy.
 
 ## The reveal vote says itself out loud, and the button stays as it was
 
