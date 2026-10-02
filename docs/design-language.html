@@ -190,6 +190,10 @@
   }
   .row.in-card:last-child { border-bottom: none; }
   .row.in-card .nm { font-weight: 600; }
+  /* A Row you can press: the whole line is the choice. */
+  .row.press { cursor: pointer; }
+  .row.press:hover .nm, .row.press:focus-visible .nm { color: var(--accent); }
+  .row.press:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); border-radius: var(--r-box); }
 
   .note {
     border-radius: var(--r-box); padding: var(--s-3) var(--s-4);
@@ -496,9 +500,14 @@
       <div class="row in-card"><span class="nm">Kody</span><span class="num">ready</span></div>
       <div class="row in-card"><span class="nm">Kimmy</span><span class="num">not ready</span></div>
     </div>
+    <div class="card" style="max-width: 420px; margin-top: var(--s-6)">
+      <h4>Earlier races (32)</h4>
+      <div class="row in-card press" role="button" tabindex="0"><span class="nm">Chess &rarr; Neutron star</span><span class="num">Kody</span></div>
+      <div class="row in-card press" role="button" tabindex="0"><span class="nm">Prague &rarr; Apollo 11</span><span class="num">BuraG</span></div>
+    </div>
   </div>
   <div class="when">
-    <div><h4>Why</h4><ul><li>A box inside a box is heavy. Inside a Card, a Row drops its own box and is divided from the next by a hairline: <code>.row.in-card</code>.</li><li>Every list in a card in the game was already drawn this way.</li></ul></div>
+    <div><h4>Why</h4><ul><li>A box inside a box is heavy. Inside a Card, a Row drops its own box and is divided from the next by a hairline: <code>.row.in-card</code>.</li><li>Every list in a card in the game was already drawn this way.</li><li>A Row you can press is the whole line, with the accent on its name for hover and focus and a Control's focus ring. Still a Row, not an eighth piece.</li></ul></div>
     <div><h4>Not a log</h4><ul><li>The play-by-play is not a list of Rows. It is fine print: <code>--t-xs</code> lines at <code>--s-1</code>, glanced at and never read.</li></ul></div>
   </div>
 

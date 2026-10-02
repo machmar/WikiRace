@@ -24,13 +24,15 @@ anchor, which is the point:
 One-off fixes, the same way:
 
     fix_goalbar_reload.py   # issue #19: the goal bar after a reload
+    add_past_races.py       # issue #12: past races, the Every race screen, a race's page
 
 Test suites:
 
     python test_store.py             # history and SQLite (starts its own server)
     python test_names.py             # a name is a player  (starts its own server)
+    python test_past_races.py        # the past-races list (starts its own server)
 
-The two that start their own server pick a free port and a fresh temp folder,
+The ones that start their own server pick a free port and a fresh temp folder,
 so they run from anywhere. `fixtures/` holds the history file the pre-SQLite
 version wrote, which `test_store.py` imports.
     python test_cp_order.py          # checkpoint order    (needs 8477 running)

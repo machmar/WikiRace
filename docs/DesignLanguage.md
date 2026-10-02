@@ -197,6 +197,12 @@ one, the reveal popup, and because it carries a sentence rather than a label
 it takes the **Note's** padding and tint; everything else about it is a Tip.
 A Tip with nothing to act on stays unpressable, which is still the default.
 
+**A Row you can press** — a finished race in the lobby or on the Every race
+screen — is the whole line, not a button tucked into it: the line is what you
+are choosing. It keeps the Row's shape, takes a pointer, colours its name with
+the accent on hover and focus, and has the focus ring a Control has. It is a
+Row that does something, not an eighth piece.
+
 A **Row inside a Card** drops its own box and is divided from the next by a
 hairline instead: `.row.in-card`. A box inside a box is heavy, and every list
 in a card in this game — the lobby's players, the standings, the racers — was

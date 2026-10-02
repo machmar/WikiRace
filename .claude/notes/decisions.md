@@ -317,3 +317,48 @@ Three rules the implementation turns on:
   has the screen, rather than moved on. Arriving at a vote already in progress
   after a *reload* still stays quiet, because that is not news about anybody -
   the button already says a vote is open.
+
+## Finished races open on a page of their own, and the long list on a screen of its own
+
+The history was all in SQLite and none of it reachable unless it happened to be
+the active race (issue #12). Four ways to reach it were built as a working demo
+on a seeded history of three evenings, and the owner played each:
+
+1. **The hub, pointed backwards** - a lobby card, and clicking a race opens
+   the post-race screen on it. The cheapest, but the hub then means two
+   things, and only a line of small print says which race you are looking at.
+2. **A page per race** - chosen. Results, honours, best route, the replay and
+   a table of everyone's steps on one scrolling page, with an address. It
+   reads like a report, a race can be sent to someone, and the hub stays
+   about the race going on now.
+3. **A history browser** - a two-pane dialog with filters. Good for finding
+   last week's race, overkill for one evening.
+4. **Flip through** - arrows on the hub bar stepping race to race. Fun for
+   "the one before", hopeless for a race from yesterday without a list.
+
+The owner then asked for "Show older races" to open a dedicated screen
+rather than lengthen the lobby's list, which is the Every race screen: grouped
+by evening with a line about each, the podium and where you came on every
+row, and filters that live in the address.
+
+What it settled:
+
+- **The steps table is the answer to "who met whom".** The honours name one
+  pair; a column per player, a click per row, with shared pages in bold, shows
+  every meeting at once. A shared start doesn't count as one.
+- **The Every race screen loads everything that matches, up to 500, at once**
+  rather than a page at a time. Evening summaries ("Kody won 5") are only
+  true if the whole evening is there, and a LAN party's history is hundreds of
+  races, not millions. Past 500 it says it is showing the newest.
+- **The page borrows the hub's results and replay** rather than drawing
+  copies; see architecture.md.
+- **Rematch stays one click**, and now uses the race's own rules. It never
+  appeared before: it looked for `results` in the snapshot's compact list,
+  which carries a count. "Play this again" is the considered version, and
+  opens setup instead.
+- **A Row you can press** went into the design standard: the whole line is
+  the choice, so it is not a button inside a Row.
+
+Rejected with the designs above: paging the lobby's list in place (the first
+version of design 2) - a lobby that grows downward forever buries the buttons
+that start the next race.
