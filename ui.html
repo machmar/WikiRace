@@ -756,6 +756,14 @@
   .fold-btn .fold-sum { flex: 1; color: var(--fg-dim); font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fold-btn .caret { color: var(--fg-faint); font-size: var(--t-xs); transition: transform var(--m-base); }
   .fold-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  /* What race setup's rules add to the points: a setting carries its share
+     while it is making the race harder, and the header carries the total,
+     which stays in sight with the settings folded away. Faint, because it is
+     there for whoever looks rather than something to act on. */
+  .c-pct { font-family: var(--mono); font-size: var(--t-xs); font-weight: 400; color: var(--fg-faint);
+           text-transform: none; letter-spacing: normal; white-space: nowrap; }
+  .toggle .c-pct { margin-left: auto; }
+  .fold-btn .c-points { flex-shrink: 0; font-family: var(--mono); font-size: var(--t-xs); color: var(--fg-dim); white-space: nowrap; }
   .fold-body { margin-top: var(--s-4); }
   .fold-body[hidden] { display: none; }
   .field { margin-bottom: var(--s-4); }
@@ -6222,9 +6230,30 @@ function shuffleCheckpoints() {
   setCpPins(cfg.checkpoints.map(() => true));
 }
 
+/* What each setting adds to the points while it is making the race harder,
+   and the total on the settings header. The server says which rules count,
+   the same way it will when the race is scored, so setup can't promise points
+   the race won't pay. Asked again on every change; an answer that arrives
+   after a newer question has been asked is dropped. */
+let setupPointsAsked = 0;
+async function markSetupPoints(ov) {
+  const asked = ++setupPointsAsked;
+  const r = await post("/score_rules", cfg);
+  if (asked !== setupPointsAsked || !ov.isConnected) return;
+  const hard = r && r.ok ? r.hard : [], step = r && r.ok ? r.step : 0;
+  const count = key => hard.filter(k => k === key).length;
+  ov.querySelectorAll(".c-pct").forEach(el => {
+    const n = el.dataset.rule === "checkpoints" ? count("checkpoint") + count("order") : count(el.dataset.rule);
+    el.textContent = n ? "+" + n * step + "%" : "";
+  });
+  const total = ov.querySelector("#c-points");
+  if (total) total.textContent = hard.length ? "points +" + hard.length * step + "%" : "";
+}
+
 function renderCheckpointChips(ov) {
   const host = ov.querySelector("#c-chips");
   if (!host) return;
+  markSetupPoints(ov);
   tidySlots();
   const n = cfg.checkpoints.length;
   setFlag(ov.querySelector("#c-shuffle"), "hidden", n < 2);
@@ -6371,7 +6400,7 @@ function openConfigurator(kind) {
 
 
     '<div class="field race"><label>Checkpoints <span class="muted tiny">(optional — stops on the way; ' +
-    'pin the ones that have to be made in this order)</span></label>' +
+    'pin the ones that have to be made in this order)</span> <span class="c-pct" data-rule="checkpoints"></span></label>' +
     '<div class="cp-box">' +
     '<div id="c-chips"></div>' +
     '<div class="cp-row cp-add">' +
@@ -6386,33 +6415,34 @@ function openConfigurator(kind) {
     '<div class="field">' +
     '<button class="fold-btn" id="c-settings-btn" aria-expanded="false" aria-controls="c-settings">' +
     "<span>⚙ Game settings</span>" +
-    '<span class="fold-sum" id="c-settings-sum"></span><span class="caret">▼</span></button>' +
+    '<span class="fold-sum" id="c-settings-sum"></span><span class="c-points" id="c-points"></span>' +
+    '<span class="caret">▼</span></button>' +
     '<div class="fold-body" id="c-settings" hidden>' +
     '<div class="seg wide" id="c-preset" style="margin-bottom:var(--s-3)">' +
     PRESETS.map(([id, label]) => '<button data-preset="' + id + '">' + label + "</button>").join("") +
     "</div>" +
       '<div class="toggle" id="c-positions"><div class="track"></div>' +
-      "<span>Show where opponents are</span></div>" +
+      '<span>Show where opponents are</span><span class="c-pct" data-rule="hidden"></span></div>' +
       '<div class="toggle" id="c-back" style="margin-top:var(--s-3)"><div class="track"></div>' +
-      "<span>Allow the Back button</span></div>" +
+      '<span>Allow the Back button</span><span class="c-pct" data-rule="no_back"></span></div>' +
       '<div class="toggle" id="c-find" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Allow find on page <span class="muted tiny">(Ctrl+F — blocks the ' +
-      'shortcut, not the browser menu)</span></span></div>' +
+      'shortcut, not the browser menu)</span></span><span class="c-pct" data-rule="no_find"></span></div>' +
       '<div class="toggle" id="c-peek" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Let players vote to reveal the target <span class="muted tiny">' +
-      '(everyone still racing has to agree)</span></span></div>' +
+      '(everyone still racing has to agree)</span></span><span class="c-pct" data-rule="no_reveal"></span></div>' +
       '<div class="toggle" id="c-hubs" style="margin-top:var(--s-3)"><div class="track"></div>' +
-      '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span></div>' +
+      '<span>Ban hub pages <span class="muted tiny">(United States, WWII…)</span></span><span class="c-pct" data-rule="no_hubs"></span></div>' +
       '<div class="toggle" id="c-tables" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Allow the tables of links at the foot of an article ' +
       '<span class="muted tiny">(they put half the encyclopedia one click away)' +
-      "</span></span></div>" +
+      '</span></span><span class="c-pct" data-rule="no_tables"></span></div>' +
       '<div class="toggle" id="c-handicap" style="margin-top:var(--s-3)"><div class="track"></div>' +
       '<span>Handicap the session leaders</span></div>' +
       '<div class="two" style="margin-top:var(--s-5)">' +
-        '<div><label class="sub-label" title="A real help — and arguably a cheat">Table of contents</label>' +
+        '<div><label class="sub-label" title="A real help — and arguably a cheat">Table of contents <span class="c-pct" data-rule="no_contents"></span></label>' +
         '<div id="c-toc"></div></div>' +
-        '<div><label class="sub-label" for="c-limit">Time limit</label>' +
+        '<div><label class="sub-label" for="c-limit">Time limit <span class="c-pct" data-rule="time_limit"></span></label>' +
         '<div class="num"><input type="number" id="c-limit" min="0" max="180" step="1" ' +
         'inputmode="numeric" placeholder="none">' +
         '<span class="spin"><button type="button" data-step="1" aria-label="A minute more">▲</button>' +
@@ -6531,6 +6561,7 @@ function openConfigurator(kind) {
     if (cfg.time_limit) notes.push(Math.round(cfg.time_limit / 60) + " min");
     q("#c-settings-sum").textContent = named ? named + (notes.length ? " · " + notes.join(", ") : "")
                                              : notes.length ? notes.join(", ") : "everything allowed";
+    markSetupPoints(ov);
   };
   q("#c-settings-btn").onclick = () => {
     const open = q("#c-settings").hidden;

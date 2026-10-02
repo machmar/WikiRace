@@ -189,6 +189,23 @@ try:
     check("so does a past race", old.get("scoring", {}).get("multiplier") == 1.6, old.get("scoring"))
     check("and the reasons are named", sorted(old["scoring"]["hard"]) == ["no_back", "no_find", "no_tables"],
           old.get("scoring"))
+
+    print("\n4. race setup asks what a race would pay before it starts")
+
+    def draft(body):
+        try:
+            return post("/api/score_rules", "a", body)
+        except urllib.error.HTTPError as e:
+            return {"error": e.code}
+
+    d = draft(dict(NORMAL))
+    check("a normal draft counts three", sorted(d.get("hard", [])) == ["no_back", "no_find", "no_tables"] and d.get("step") == 20, d)
+    d = draft(dict(EASY, lost=True, checkpoints=["Energy", "  ", "Star"], checkpoint_slots=[1, 0, 2]))
+    check("a draft is read the way a race would be: blank stops dropped, lost and order counted",
+          sorted(d.get("hard", [])) == ["checkpoint", "checkpoint", "lost", "order"], d)
+    check("the same rules a started race would be scored on",
+          sorted(draft(dict(HARD)).get("hard", [])) == hard(dict(HARD)))
+    check("asking starts nothing", get("/api/state", "a")["race"]["race_id"] == race["race_id"])
 finally:
     proc.kill()
     proc.wait()

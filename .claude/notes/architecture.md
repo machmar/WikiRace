@@ -22,6 +22,7 @@ carry on if another drops.
 | History in SQLite, and the old JSON import | `class Store` |
 | Past races for the lobby and the Every race screen | `def past_races`, `def race_summary`, `"/api/races"` |
 | Points: what made a race harder, and what each finisher was paid | `def race_difficulty`, `def race_scoring` |
+| A race's rules read from a request, shared by starting one and pricing a draft | `def rules_from`, `def act_score_rules` |
 | Standings, rebuilt from the races every time | `def leaderboard` |
 
 A race is a dict, and its rules are part of it: `start`, `target`, `lost`,
@@ -55,6 +56,7 @@ Roughly in order down the file:
 | Game modes and the setup dialog | `const MODES = [`, `function openModePicker`, `function openConfigurator` |
 | A race's name, and the rules it was played under | `function raceRules`, `const raceTitle`, `function raceNameHTML` |
 | Settings menu, presets, the fold | `const PRESETS = [`, `const syncSettings` |
+| What setup's rules add to the points | `async function markSetupPoints` |
 | Checkpoints: the list, pinning, shuffle | `function renderCheckpointChips`, `function shuffleCheckpoints` |
 | Replay: one clock for every view | `const replay = {`, `function drawReplayView`, `function stepReplay` |
 | Timeline view (hover highlight, lanes) | `function timelineStage`, `function drawTimeline` |

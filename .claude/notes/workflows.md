@@ -47,8 +47,8 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
   real browser. It stubs Wikipedia, so it runs with no internet; set
   `WIKIRACE_CHROME` if Playwright's own Chromium is not where it expects.
 - `test_points_ui.py` — Results and a race's page say what each player was
-  paid and why, and the rules Tip marks what made the race harder. The same
-  needs as `test_reveal_tip.py`.
+  paid and why, the rules Tip marks what made the race harder, and race setup
+  marks it before the race starts. The same needs as `test_reveal_tip.py`.
 - `test_race_name.py` — a race's name and the rules under it, issue #11. The
   same needs as `test_reveal_tip.py`. It reads the rules after each press or
   hover only once the fade is over: visibility is part of the transition, so

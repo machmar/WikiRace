@@ -214,6 +214,44 @@ def checkpoints_out_of_order(race, path):
     return [stops[i] for i, want in enumerate(slots) if want and rank.get(i) != want]
 
 
+def rules_from(body):
+    """The rules of a race, read from the request that sets one up.
+
+    Starting a race and asking what one would pay both read them here, so the
+    points race setup shows are the points the race will be scored on."""
+    limit = body.get("time_limit")
+    return {
+        "lang": (body.get("lang") or "en").strip()[:12],
+        "show_positions": bool(body.get("show_positions", True)),
+        "allow_back": bool(body.get("allow_back", True)),
+        # Intercepts the find shortcut. The browser's own menu can still
+        # reach it, so this discourages rather than prevents.
+        "allow_find": bool(body.get("allow_find", True)),
+        "time_limit": int(limit) if limit else 0,
+        "ban_hubs": bool(body.get("ban_hubs", False)),
+        # The tables of related links at the foot of an article are hidden
+        # unless the race allows them. They link half the encyclopedia to the
+        # other half, so whether they are there decides what "one click away"
+        # even means.
+        "allow_tables": bool(body.get("allow_tables", False)),
+        "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])
+                        if isinstance(c, str) and c.strip()][:6],
+        # Which of those stops have to come at a particular point.
+        "checkpoint_slots": [x if isinstance(x, int) else 0
+                             for x in (body.get("checkpoint_slots") or [])][:6],
+        # What decides the winner: the clock, or the number of links.
+        "mode": "clicks" if body.get("mode") == "clicks" else "time",
+        # How deep a contents list players may see: 0 none, 1 sections, 2
+        # subsections, 3 everything. Off by default - being handed the shape
+        # of an article is a real advantage.
+        "toc": max(0, min(3, int(body.get("toc") or 0))),
+        # Whether players may vote to put the target page on screen to read.
+        # The vote has to be unanimous, so the rule is really just about
+        # whether the option exists at all.
+        "allow_peek": bool(body.get("allow_peek", True)),
+    }
+
+
 def race_difficulty(race):
     """What made this race harder than the easiest game, one entry per step.
 
@@ -1387,7 +1425,7 @@ class Hub:
             sub.poke()
 
 
-QUIET_ACTIONS = {"/api/scroll"}
+QUIET_ACTIONS = {"/api/scroll", "/api/score_rules"}
 
 GATE_PAGE = """<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1626,6 +1664,7 @@ def make_handler(state, net, hub):
                 "/api/peek_vote": self.act_peek_vote,
                 "/api/scroll": self.act_scroll,
                 "/api/reset_scores": self.act_reset,
+                "/api/score_rules": self.act_score_rules,
             }
             fn = handlers.get(path)
             if not fn:
@@ -1743,7 +1782,6 @@ def make_handler(state, net, hub):
                 start = ""
             elif not start or not target:
                 raise ValueError("need both a start and a target article")
-            limit = body.get("time_limit")
             race = {
                 "race_id": uuid.uuid4().hex[:12],
                 "start": start,
@@ -1759,34 +1797,7 @@ def make_handler(state, net, hub):
                 "results": {},
                 # Rules travel with the race so everyone plays the same game,
                 # rather than each client applying its own local preferences.
-                "lang": (body.get("lang") or "en").strip()[:12],
-                "show_positions": bool(body.get("show_positions", True)),
-                "allow_back": bool(body.get("allow_back", True)),
-                # Intercepts the find shortcut. The browser's own menu can
-                # still reach it, so this discourages rather than prevents.
-                "allow_find": bool(body.get("allow_find", True)),
-                "time_limit": int(limit) if limit else 0,
-                "ban_hubs": bool(body.get("ban_hubs", False)),
-                # The tables of related links at the foot of an article are
-                # hidden unless the race allows them. They link half the
-                # encyclopedia to the other half, so whether they are there
-                # decides what "one click away" even means.
-                "allow_tables": bool(body.get("allow_tables", False)),
-                "checkpoints": [c.strip() for c in (body.get("checkpoints") or [])
-                                if isinstance(c, str) and c.strip()][:6],
-                # Which of those stops have to come at a particular point.
-                "checkpoint_slots": [x if isinstance(x, int) else 0
-                                     for x in (body.get("checkpoint_slots") or [])][:6],
-                # What decides the winner: the clock, or the number of links.
-                "mode": "clicks" if body.get("mode") == "clicks" else "time",
-                # How deep a contents list players may see: 0 none, 1 sections,
-                # 2 subsections, 3 everything. Off by default - being handed the
-                # shape of an article is a real advantage.
-                "toc": max(0, min(3, int(body.get("toc") or 0))),
-                # Whether players may vote to put the target page on screen to
-                # read. The vote has to be unanimous, so the rule is really
-                # just about whether the option exists at all.
-                "allow_peek": bool(body.get("allow_peek", True)),
+                **rules_from(body),
                 # Set once everyone still racing has agreed, and never unset.
                 "peek": False,
                 "handicaps": {},
@@ -1861,6 +1872,12 @@ def make_handler(state, net, hub):
                 start = run["start"]
                 state.bump()
             return {"ok": True, "start": start}
+
+        def act_score_rules(self, body, me):
+            # Race setup asks as the rules change, so it can mark what makes
+            # the race harder before anyone starts it. Nothing is changed.
+            draft = dict(rules_from(body), lost=bool(body.get("lost")))
+            return {"ok": True, "hard": race_difficulty(draft), "step": HARD_RULE_PERCENT}
 
         def act_finish(self, body, me):
             return self._record_result(body, me, finished=True)

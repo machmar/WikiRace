@@ -27,6 +27,7 @@ One-off fixes, the same way:
     add_race_name.py        # issue #11: the mode in a race's name, and its rules
     add_past_races.py       # issue #12: past races, the Every race screen, a race's page
     add_race_points.py      # issue #13: what each player was paid, and why
+    add_setup_points.py     # issue #33: what a race will pay, in race setup
 
 Test suites:
 

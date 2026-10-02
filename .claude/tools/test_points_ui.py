@@ -176,6 +176,42 @@ with sync_playwright() as p:
     check("race page: same rows", seen["rows"], NORMAL_SEEN["rows"])
     check("race page: same reasons", seen["marked"], NORMAL_SEEN["marked"])
 
+    # Race setup: a setting says what it adds while it is making the race
+    # harder, and the settings header carries the total, folded or not.
+    SETUP = """() => ({
+      total: document.querySelector('#c-points').textContent,
+      marked: [...document.querySelectorAll('.c-pct')].filter(s => s.textContent)
+                .map(s => s.dataset.rule + ' ' + s.textContent),
+    })"""
+    WAIT = "want => document.querySelector('#c-points') && document.querySelector('#c-points').textContent === want"
+    pg.goto(BASE + "/")
+    pg.wait_for_selector("#results-pane .result-row", timeout=20000)
+    pg.evaluate("() => openConfigurator('advanced')")
+    pg.click("#c-settings-btn")
+    pg.click('[data-preset="easy"]')
+    pg.wait_for_function("() => document.querySelector('#c-points').textContent === ''", timeout=5000)
+    check("easy: nothing marked, no total", pg.evaluate(SETUP), {"total": "", "marked": []})
+    pg.evaluate("() => { cfg.checkpoints = ['Energy', 'Star']; cfg.checkpoint_slots = [1, 2];"
+                " renderCheckpointChips(document); }")
+    pg.click('[data-preset="normal"]')
+    pg.wait_for_function(WAIT, arg="points +120%", timeout=5000)
+    check("normal with two stops in order",
+          pg.evaluate(SETUP)["marked"],
+          ["checkpoints +60%", "no_back +20%", "no_find +20%", "no_tables +20%"])
+    pg.click("#c-back")
+    pg.wait_for_function(WAIT, arg="points +100%", timeout=5000)
+    check("allowing the back button takes its mark away", "no_back +20%" in pg.evaluate(SETUP)["marked"], False)
+    pg.click('[data-preset="hard"]')
+    pg.wait_for_function(WAIT, arg="points +220%", timeout=5000)
+    check("hard marks every setting but the handicap",
+          pg.evaluate(SETUP)["marked"],
+          ["checkpoints +60%", "hidden +20%", "no_back +20%", "no_find +20%", "no_reveal +20%",
+           "no_hubs +20%", "no_tables +20%", "no_contents +20%", "time_limit +20%"])
+    pg.click("#c-settings-btn")
+    check("folded away, the total still shows",
+          pg.evaluate("() => [document.querySelector('#c-settings').hidden,"
+                      " document.querySelector('#c-points').offsetWidth > 0]"), [True, True])
+
     check("no page errors", errs, [])
     b.close()
 ka.stop.set()

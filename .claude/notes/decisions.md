@@ -440,3 +440,20 @@ through three stops in order x3.6; the most there can be is x4.2.
   rules Tip, the line under each finisher and the standings can't disagree.
   A copy of the game on an older version would still disagree about the
   standings until it is updated, because every copy rebuilds them itself.
+
+Race setup says it before the race starts (issue #33). Each setting carries a
+faint "+20%" at the end of its row while it is making the race harder, the
+checkpoints label carries theirs ("+60%" for two stops in order), and the Game
+settings header carries the total ("points +220%"), where it stays in sight
+with the settings folded away. Setup speaks in a sum of percentages because it
+is built up one rule at a time; Results speaks in the multiplier because it
+explains a sum. Both are the same number, and the rules Tip's "+20%" marks
+join them.
+
+- **Setup asks the server** (`/api/score_rules`) rather than repeating the
+  check, on every change, dropping any answer that comes back after a newer
+  question. Starting a race and asking what one would pay read the rules
+  through the same `rules_from`, so what setup promises is what is paid.
+- **Turned down: showing the marks only on hover**, with just the total
+  always there. On Hard the marks line up into a column of "+20%"s, but they
+  are faint, and a phone has no hover; the owner chose to keep them.
