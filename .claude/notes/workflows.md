@@ -43,6 +43,10 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
   chromium`), because it is the one thing here that has to be watched in a
   real browser. It stubs Wikipedia, so it runs with no internet; set
   `WIKIRACE_CHROME` if Playwright's own Chromium is not where it expects.
+- `test_race_name.py` — a race's name and the rules under it, issue #11. The
+  same needs as `test_reveal_tip.py`. It reads the rules after each press or
+  hover only once the fade is over: visibility is part of the transition, so
+  reading it straight away catches the old state.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 

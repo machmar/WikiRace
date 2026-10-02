@@ -318,6 +318,45 @@ Three rules the implementation turns on:
   after a *reload* still stays quiet, because that is not news about anybody -
   the button already says a vote is open.
 
+## A race is named by its mode, and the mode opens its rules
+
+The Replay and Results only said `Chess → Neutron star`, so a week later there
+was no telling whether that was Classic, Advanced or Lost, or what the rules
+were (issue #11). A race is now named by its mode and its route wherever it is
+shown afterwards - `Classic · Chess → Neutron star`, or `Lost · → Pulsar`,
+since a lost race had no shared start to name - and on Results and Replay the
+mode is a Pill you can press, which opens a Tip listing every rule the race
+was played under: who wins, the limit, the language, the checkpoints and their
+order, hubs, what was allowed, and each handicap by name.
+
+Four designs were drawn side by side, with the game's own tokens, before any
+of it was built. Turned down:
+
+- **A fold under the name that brings back the rule strip.** Nothing floats,
+  but there is no peek, opening it pushes the replay down, and a race with
+  every rule on becomes a wall of pills that has no good way to name a
+  handicapped player.
+- **Showing only the rules that differ from the Normal preset**, with the rest
+  behind a chip. It answers the question without a tap, but "unusual" is a new
+  idea that has to stay in step with the presets, and what counts is a
+  judgement call every time a setting is added. It can still go beside the
+  chip later without undoing anything.
+- **A rules card on Results, shared with the finished-games list** (#12). It
+  has the most room, but the Replay has none, so it needed a chip there anyway,
+  and it would have settled part of #12's design early.
+
+Three rules the implementation turns on:
+
+- **One list of rules.** `raceRules` is what the strip beside the racers draws
+  from as well, so the two can never disagree. The strip's order changed with
+  it - grouped as the Tip groups them - and its wording did not.
+- **The open state lives outside the markup.** Results is redrawn on every
+  snapshot, so a Tip whose openness was only a class would snap shut under
+  whoever was reading it.
+- **Putting it away means away.** Pressing the chip again, or Escape, while
+  the pointer is still on it would leave the hover peek holding it open, so
+  the peek sits out until the pointer leaves.
+
 ## Finished races open on a page of their own, and the long list on a screen of its own
 
 The history was all in SQLite and none of it reachable unless it happened to be

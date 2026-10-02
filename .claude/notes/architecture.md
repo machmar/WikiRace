@@ -44,6 +44,7 @@ Roughly in order down the file:
 | Racing: navigating, clicks, checkpoints, winning | `async function navigate(`, `async function win(` |
 | What counts as a link, and who is one click away | `function linkIsPlayable`, `async function isOneAway`, `async function linkIsOnScreen` |
 | Game modes and the setup dialog | `const MODES = [`, `function openModePicker`, `function openConfigurator` |
+| A race's name, and the rules it was played under | `function raceRules`, `const raceTitle`, `function raceNameHTML` |
 | Settings menu, presets, the fold | `const PRESETS = [`, `const syncSettings` |
 | Checkpoints: the list, pinning, shuffle | `function renderCheckpointChips`, `function shuffleCheckpoints` |
 | Replay: one clock for every view | `const replay = {`, `function drawReplayView`, `function stepReplay` |
@@ -72,6 +73,12 @@ tables of links at the foot of an article, handicap, contents, time limit) is
 the same in every mode, folded behind a button with Easy/Normal/Hard presets.
 The race carries its `kind`, and races from before modes existed work theirs
 out from their rules (`raceKind`).
+
+A race is named by its mode and its route wherever it is shown afterwards
+(`raceTitle`): `Classic · Chess → Neutron star`, or `Lost · → Pulsar`. On
+Results and Replay the mode is a chip that opens the rules (`raceNameHTML`).
+Those rules and the strip beside the racers both come from `raceRules`, so a
+new rule is added there once and shows up in both.
 
 ### Checkpoints
 

@@ -153,6 +153,9 @@
   }
   .pill.on { background: var(--info-bg); border-color: var(--info-line); color: var(--accent); }
   .pill.done { background: var(--good-bg); border-color: var(--good-line); color: var(--good-fg); }
+  /* A Pill you can press: the mode in a race's name, which opens its rules. */
+  button.pill { font: inherit; font-size: var(--t-sm); font-weight: 600; cursor: pointer; }
+  button.pill .caret { font-size: var(--t-xs); color: var(--fg-faint); }
 
   .control {
     font-family: var(--sans); font-size: var(--t-sm); font-weight: 600;
@@ -456,11 +459,13 @@
       <span class="pill">No back button</span>
       <span class="pill on">Jazz (musical style)</span>
       <span class="pill done">Mississippi River</span>
+      <button type="button" class="pill">Advanced <span class="caret">&#9662;</span></button>
     </div>
   </div>
   <div class="when">
     <div><h4>Reach for it when</h4><ul><li>The thing is a single fact you scan rather than read.</li></ul></div>
     <div><h4>Not when</h4><ul><li>Something sits inside it beyond a word and a number — that is a Card.</li><li>You want it to fill its width. Pills never stretch.</li></ul></div>
+    <div><h4>Pressable</h4><ul><li>A Pill you can press is a <code>button</code> keeping the Pill's shape, the way a pressable Card or Tip is, and pressing it tells you more about the fact it names. The one in the game is the mode in a race's name, which opens a Tip with the rules the race was played under.</li></ul></div>
   </div>
 
   <h3>Control &mdash; something you operate</h3>

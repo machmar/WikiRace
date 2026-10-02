@@ -970,6 +970,50 @@
 
   .hub-h2 { font-size: var(--t-xl); margin: 0 0 var(--s-1); letter-spacing: -.02em; }
   .hub-sub { color: var(--fg-dim); font-size: var(--t-sm); margin: 0 0 var(--s-6); }
+
+  /* A race's name: its mode, then its route. The mode is a Pill you can
+     press, and what it opens is the rules the race was played under, so a
+     race a week old still says what game it was. */
+  .race-name { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); }
+  button.race-kind { padding: var(--s-1) var(--s-3) var(--s-1) var(--s-4); font-weight: 600; }
+  .race-kind .caret { font-size: var(--t-xs); color: var(--fg-faint); transition: transform var(--m-fast) var(--e-out); }
+  .race-name.open .race-kind { border-color: var(--accent); }
+  .race-name.open .race-kind .caret { transform: rotate(180deg); }
+  /* What it opens is a Tip: it floats, points at the chip, and holds nothing
+     to press, so it never takes a click meant for what is under it. It
+     carries a list rather than a label, so it takes the Note's padding, as
+     the reveal popup does. It hangs from the whole line rather than the
+     chip, so on a phone it can be as wide as the line is. */
+  .race-rules {
+    position: absolute; top: 100%; left: 0; z-index: 20;
+    width: min(320px, 100%); margin-top: var(--s-3);
+    display: grid; gap: var(--s-3); padding: var(--s-3) var(--s-4); line-height: 1.45;
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--m-base) var(--e-out), visibility var(--m-base);
+  }
+  .race-name.open .race-rules { opacity: 1; visibility: visible; }
+  /* Hover only peeks; a tap is what keeps it open, because a phone has no
+     hover to lose. Put away while the pointer is still on the chip, the peek
+     sits out until the pointer leaves, or putting it away would do nothing. */
+  @media (hover: hover) {
+    .race-name:not(.shut) .race-kind:hover ~ .race-rules { opacity: 1; visibility: visible; }
+  }
+  /* The caret is a square stood on its corner, taking the Tip's own border
+     and ground, and it sits over the mode's word. */
+  .race-rules::before {
+    content: ""; position: absolute; top: calc(var(--s-3) / -2); left: var(--s-6);
+    width: var(--s-3); height: var(--s-3); background: var(--bg-3);
+    border-left: 1px solid var(--line-strong); border-top: 1px solid var(--line-strong);
+    transform: rotate(45deg);
+  }
+  .race-rules .rr-h {
+    font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
+    color: var(--fg-faint); font-weight: 700; margin-bottom: var(--s-1);
+  }
+  .race-rules ul { list-style: none; margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .race-rules, .race-kind .caret { transition: none; }
+  }
   .hub-sec { margin-bottom: var(--s-7); }
   .hub-sec h4 {
     font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .1em;
@@ -2586,27 +2630,106 @@ function raceMode(race) {
   return race && race.mode === "clicks" ? "clicks" : "time";
 }
 
+/* The rules a race was played under, grouped the way a player asks about
+   them. `text` is the line under a race's name afterwards; `pills` is the
+   wording on the strip beside the racers during it, which is terser and
+   leaves out what nobody needs reminding of mid-race. One list, so the two
+   can never tell different stories about one race. */
+function raceRules(race) {
+  if (!race) return [];
+  const groups = [];
+  const add = (group, text, ...pills) => {
+    let g = groups.find(x => x.group === group);
+    if (!g) groups.push(g = { group, items: [] });
+    g.items.push({ text, pills: pills.filter(Boolean) });
+  };
+
+  const clicks = raceMode(race) === "clicks";
+  add("Who wins", clicks ? "Fewest clicks wins" : "Fastest time wins",
+      clicks ? "fewest clicks wins" : "fastest time wins");
+  if (race.time_limit) {
+    const min = Math.round(race.time_limit / 60);
+    add("Who wins", min + (min === 1 ? " minute" : " minutes") + " to finish", min + " min limit");
+  }
+
+  const lang = (LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1];
+  add("Route", "Language: " + lang, lang);
+  if (race.lost) add("Route", "Everyone started somewhere different", "lost: everyone starts somewhere different");
+  const stops = raceCheckpoints(race), slots = raceSlots(race);
+  if (stops.length) {
+    const list = stops.length > 1 ? stops.slice(0, -1).join(", ") + " and " + stops[stops.length - 1] : stops[0];
+    add("Route", "Via " + list,
+        ...stops.map((c, i) => "via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
+    const order = orderPhrase(stops, slots);
+    if (order) add("Route", order.charAt(0).toUpperCase() + order.slice(1));
+  }
+  if (race.ban_hubs) add("Route", "Hub pages off-limits", "no hub pages");
+
+  const hidden = race.show_positions === false, noBack = race.allow_back === false;
+  add("Allowed", hidden ? "Positions hidden" : "Everyone's position shown", hidden ? "positions hidden" : "positions shown");
+  add("Allowed", noBack ? "No going back" : "Back button allowed", noBack ? "no going back" : "back allowed");
+  add("Allowed", race.allow_find === false ? "No find on page" : "Find on page allowed",
+      race.allow_find === false && "no find on page");
+  if (race.peek) add("Allowed", "Target opened by a vote", "target revealed");
+  else if (race.allow_peek === false) add("Allowed", "Target hidden the whole race", "target stays hidden");
+  else add("Allowed", "Target could be opened by a vote");
+  add("Allowed", allowTables(race) ? "Tables of links shown" : "Tables of links hidden",
+      allowTables(race) && "link tables allowed");
+  const toc = raceToc(race);
+  add("Allowed", toc ? "Contents: " + TOC_LABELS[toc].toLowerCase() : "No contents list",
+      toc && "contents: " + TOC_LABELS[toc].toLowerCase());
+
+  // Handicaps are keyed by the normalised name; the name a player sees
+  // comes from their result, or from the standings if they sat it out.
+  const known = Object.values(race.results || {}).concat((S.snap && S.snap.leaderboard) || []);
+  Object.entries(race.handicaps || {}).sort((a, b) => b[1] - a[1]).forEach(([key, secs], i) => {
+    const who = (known.find(r => norm(r.name) === key) || { name: key }).name;
+    add("Handicaps", who + " started " + secs + (secs === 1 ? " second" : " seconds") + " behind",
+        i === 0 && "handicaps on");
+  });
+  return groups;
+}
+
 function renderRules(race) {
   const host = $("rules");
   if (!race) { setHTML(host, ""); return; }
-  const bits = [];
-  bits.push(raceKind(race));
-  bits.push((LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1]);
-  bits.push(race.show_positions === false ? "positions hidden" : "positions shown");
-  bits.push(race.allow_back === false ? "no going back" : "back allowed");
-  if (race.allow_find === false) bits.push("no find on page");
-  if (race.peek) bits.push("target revealed");
-  else if (race.allow_peek === false) bits.push("target stays hidden");
-  if (race.time_limit) bits.push(Math.round(race.time_limit / 60) + " min limit");
-  bits.push(raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins");
-  if (race.lost) bits.push("lost: everyone starts somewhere different");
-  if (race.ban_hubs) bits.push("no hub pages");
-  if (allowTables(race)) bits.push("link tables allowed");
-  if (raceToc(race)) bits.push("contents: " + TOC_LABELS[raceToc(race)].toLowerCase());
-  const slots = raceSlots(race), stops = raceCheckpoints(race);
-  stops.forEach((c, i) => bits.push("via " + c + (slots[i] ? " (" + slotName(slots[i], stops.length) + ")" : "")));
-  if (Object.keys(race.handicaps || {}).length) bits.push("handicaps on");
+  const bits = [raceKind(race)].concat(...raceRules(race).map(g => g.items.flatMap(it => it.pills)));
   setHTML(host, bits.map(b => '<span class="pill rule">' + esc(b) + "</span>").join(""));
+}
+
+/* A race's name, the way a player would say it: the mode, then the route.
+   A lost race had no shared start to name, so it is just where everyone
+   was going. */
+const raceRoute = (race) => race.lost ? "→ " + race.target : race.start + " → " + race.target;
+const raceTitle = (race) => raceKind(race) + " · " + raceRoute(race);
+
+/* Which race name has its rules open, by where it is drawn. Results is
+   redrawn on every snapshot, so the open state lives here rather than in
+   the markup, or the rules would snap shut under the reader. */
+let raceRulesOpen = "";
+
+/* The name with its mode as a Pill you can press, and the rules it opens. */
+function raceNameHTML(race, where) {
+  const open = raceRulesOpen === where, id = "race-rules-" + where;
+  return '<div class="hub-sub race-name' + (open ? " open" : "") + '" data-where="' + where + '">' +
+    '<button type="button" class="pill race-kind" aria-expanded="' + open + '" aria-controls="' + id + '">' +
+    esc(raceKind(race)) + ' <span class="caret" aria-hidden="true">▾</span></button>' +
+    '<span class="race-route">' + esc(raceRoute(race)) + "</span>" +
+    '<div class="tip race-rules" id="' + id + '" role="group" aria-label="The rules this race was played under">' +
+    raceRules(race).map(g => '<div><div class="rr-h">' + esc(g.group) + "</div><ul>" +
+      g.items.map(it => "<li>" + esc(it.text) + "</li>").join("") + "</ul></div>").join("") +
+    "</div></div>";
+}
+
+function setRaceRulesOpen(where) {
+  raceRulesOpen = where;
+  document.querySelectorAll(".race-name").forEach(el => {
+    const on = el.dataset.where === where;
+    const chip = el.querySelector(".race-kind");
+    if (!on && el.classList.contains("open") && chip.matches(":hover")) el.classList.add("shut");
+    el.classList.toggle("open", on);
+    chip.setAttribute("aria-expanded", String(on));
+  });
 }
 
 /* Entering a race has three flavours: a fresh start, picking up a run we
@@ -3195,9 +3318,7 @@ function renderResults(snap) {
 
   let html =
     '<h2 class="hub-h2">' + head + "</h2>" +
-    '<p class="hub-sub">' + esc(startLabel(race)) + " → " + esc(race.target) +
-    (raceCheckpoints(race).length ? " · via " + raceCheckpoints(race).map(esc).join(", ") : "") +
-    " · " + (raceMode(race) === "clicks" ? "fewest clicks" : "fastest time") + "</p>";
+    raceNameHTML(race, "results");
 
   html += '<div class="hub-sec"><h4>Finishing order — ' +
     (raceMode(race) === "clicks" ? "fewest clicks wins" : "fastest time wins") + "</h4>";
@@ -3445,7 +3566,7 @@ async function renderReplay(snap) {
     host.classList.add("wide");
     host.innerHTML =
       '<h2 class="hub-h2">Replay</h2>' +
-      '<p class="hub-sub">' + esc(startLabel(race)) + " → " + esc(race.target) + "</p>" +
+      raceNameHTML(race, "replay") +
       '<div class="rm-bar">' +
       '<div class="seg" id="rp-type" role="group" aria-label="View"></div>' +
       '<div class="seg" id="rp-mode" role="group" aria-label="Combined or separate"></div>' +
@@ -4018,8 +4139,6 @@ function byEvening(list) {
   return groups;
 }
 
-const pairText = s => esc(startLabel(s)) + " → " + esc(s.target);
-
 function raceMeta(s) {
   const bits = [raceKind(s), raceMode(s) === "clicks" ? "fewest clicks" : "fastest time"];
   if (raceCheckpoints(s).length) bits.push("via " + raceCheckpoints(s).join(", "));
@@ -4058,7 +4177,7 @@ function lobbyRow(s) {
   const live = S.snap && S.snap.race && S.snap.race.race_id === s.race_id;
   const w = s.winner;
   return '<div class="row in-card past-row" role="button" tabindex="0" data-race="' + s.race_id + '">' +
-    '<div class="past-main"><div class="past-pair">' + pairText(s) +
+    '<div class="past-main"><div class="past-pair">' + esc(raceRoute(s)) +
     (live ? ' <span class="past-new">· just now</span>' : "") + "</div>" +
     '<div class="past-meta">' + esc(raceMeta(s).concat(whenPlayed(s.created)).join(" · ")) + "</div></div>" +
     (w ? '<div class="past-win"><span style="color:' + colorFor(w.name) + ';font-weight:600">🥇 ' + esc(w.name) + "</span>" +
@@ -4180,7 +4299,7 @@ function raceListRow(s, me) {
   const you = place === 0 ? "you won" : place > 0 ? "you came " + ordinal(place + 1) : quit ? "you gave up" : "";
   return '<div class="row in-card past-row" role="button" tabindex="0" data-race="' + s.race_id + '">' +
     '<span class="rl-time">' + clockOf(s.created) + "</span>" +
-    '<div class="past-main"><div class="past-pair">' + pairText(s) + "</div>" +
+    '<div class="past-main"><div class="past-pair">' + esc(raceRoute(s)) + "</div>" +
     '<div class="past-meta">' + esc(raceMeta(s).join(" · ")) + "</div></div>" +
     '<div class="rl-podium">' + (podium || '<span class="past-none">nobody finished</span>') + "</div>" +
     '<span class="rl-you' + (place === 0 ? " won" : "") + '">' + you + "</span></div>";
@@ -4393,8 +4512,8 @@ function renderLobby(snap) {
   const last = lastFinishedRace(snap);
   setFlag($("lobby-rematch"), "hidden", !last);
   if (last) {
-    setText($("lobby-last"), "Last race: " + startLabel(last) + " → " + last.target);
-    setText($("lobby-rematch"), "Rematch: " + startLabel(last) + " → " + last.target);
+    setText($("lobby-last"), "Last race: " + raceTitle(last));
+    setText($("lobby-rematch"), "Rematch: " + raceTitle(last));
   } else {
     setText($("lobby-last"), "");
   }
@@ -7106,6 +7225,21 @@ document.addEventListener("keydown", (ev) => {
   if (!$("peek-scrim").hidden) { closePeek(); ev.preventDefault(); }
   else if (!$("vote-scrim").hidden) { closeVote(); ev.preventDefault(); }
   else if (!$("reveal-tip").hidden) { hideRevealTip(); ev.preventDefault(); }
+  else if (raceRulesOpen) { setRaceRulesOpen(""); ev.preventDefault(); }
+});
+
+/* The rules under a race's name: pressing the mode keeps them open, and
+   pressing it again or anywhere else puts them away. Hover only peeks, and
+   that is the stylesheet's job. */
+document.addEventListener("click", (ev) => {
+  const chip = ev.target.closest(".race-kind");
+  const where = chip ? chip.closest(".race-name").dataset.where : "";
+  const next = where && where !== raceRulesOpen ? where : "";
+  if (next !== raceRulesOpen) setRaceRulesOpen(next);
+});
+document.addEventListener("pointerout", (ev) => {
+  const chip = ev.target.closest && ev.target.closest(".race-kind");
+  if (chip && !chip.contains(ev.relatedTarget)) chip.closest(".race-name").classList.remove("shut");
 });
 
 /* Three ways to look at it: light throughout, dark throughout, or dark with
