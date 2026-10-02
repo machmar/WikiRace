@@ -199,7 +199,7 @@ everyone plays the same game rather than each machine applying its own settings.
 shows who's in. **Start race** unlocks once everyone's ready, and there's a
 *Start anyway* underneath for when someone wanders off.
 
-Settings persist between races, so a rematch is one click.
+Settings persist between races, so setting up the same race again is quick.
 
 ## Nobody knows the target
 

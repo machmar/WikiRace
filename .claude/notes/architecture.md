@@ -65,7 +65,7 @@ Roughly in order down the file:
 | Splashes for checkpoints and the finish | `function celebrateCheckpoint` |
 | Name picker and the name generator | `function openNamePicker`, `const NameGen` |
 | Past races: lobby list, Every race screen, a race's page | `const past = {`, `function openRaceList`, `function openRacePage` |
-| The same game again: Rematch and Play this again | `function rulesOf`, `function playAgain` |
+| The same game again: Play this again | `function rulesOf`, `function playAgain` |
 
 ### Game modes
 
@@ -139,5 +139,6 @@ fight the first. The steps table under them is the page's own
 (`drawSteps`).
 
 `rulesOf(race)` is the one place that turns a race back into setup's rules.
-Rematch posts them straight away (one click, as before); "Play this again"
-opens race setup filled in with them. A lost race keeps only its target.
+"Play this again", on a race's page, opens race setup filled in with them. A
+lost race keeps only its target. The lobby has no rematch of its own: the way
+back to a finished race is its row in Earlier races.
