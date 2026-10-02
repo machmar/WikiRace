@@ -21,6 +21,8 @@ carry on if another drops.
 | Peer gossip merge | `def _merge_race` |
 | History in SQLite, and the old JSON import | `class Store` |
 | Past races for the lobby and the Every race screen | `def past_races`, `def race_summary`, `"/api/races"` |
+| Points: what made a race harder, and what each finisher was paid | `def race_difficulty`, `def race_scoring` |
+| Standings, rebuilt from the races every time | `def leaderboard` |
 
 A race is a dict, and its rules are part of it: `start`, `target`, `lost`,
 `starts`, `kind`, `checkpoints`, `checkpoint_slots`, `mode` (time/clicks),
@@ -31,6 +33,13 @@ newer fields, so read them through the helpers rather than directly.
 Players are identified by **name**, not by device: the same name on a phone and
 a laptop is one player, and results, standings and handicaps are keyed by the
 normalised name. Guests are excluded from standings.
+
+A race's points are worked out from the race, never stored with it:
+`with_scoring` hands the browser a copy with a `scoring` field (what made it
+harder, the multiplier, and each finisher's place points, bonus and total) on
+the snapshot's race and on `/api/race`. The standings add up the same totals,
+so the sum a player is shown on Results is the sum in the standings. The
+browser draws `scoring` and never works it out itself.
 
 ## The browser, `ui.html`
 

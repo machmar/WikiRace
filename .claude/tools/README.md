@@ -26,15 +26,18 @@ One-off fixes, the same way:
     fix_goalbar_reload.py   # issue #19: the goal bar after a reload
     add_race_name.py        # issue #11: the mode in a race's name, and its rules
     add_past_races.py       # issue #12: past races, the Every race screen, a race's page
+    add_race_points.py      # issue #13: what each player was paid, and why
 
 Test suites:
 
     python test_store.py             # history and SQLite (starts its own server)
     python test_names.py             # a name is a player  (starts its own server)
     python test_past_races.py        # the past-races list (starts its own server)
+    python test_points.py            # points by how hard the race was (starts its own server)
 
 The ones that start their own server pick a free port and a fresh temp folder,
 so they run from anywhere. `fixtures/` holds the history file the pre-SQLite
 version wrote, which `test_store.py` imports.
     python test_cp_order.py          # checkpoint order    (needs 8477 running)
     python test_race_name.py         # a race's name and rules (needs 8477, Playwright)
+    python test_points_ui.py         # results say why, in the page (needs 8477, Playwright)

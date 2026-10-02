@@ -64,6 +64,12 @@ MAX_RACES_KEPT = 60
 POINTS_BY_RANK = [10, 7, 5, 3]
 POINTS_FINISH_OTHER = 2
 POINTS_FEWEST_CLICKS = 3
+# Every rule that made a race harder adds this much to everything it pays. One
+# step for every rule, big or small, so a table can count them on its fingers
+# instead of looking up a weight.
+HARD_RULE_PERCENT = 20
+# A limit this tight changes how people play; a looser one is a formality.
+TIGHT_TIME_LIMIT = 600
 
 LIVE_PATH_STEPS = 25        # recent trail sent live; the full path ships in the result
 HANDICAP_SECONDS = [10, 5]  # start delay for 1st and 2nd in the standings
@@ -206,6 +212,75 @@ def checkpoints_out_of_order(race, path):
                 made += 1
                 rank[i] = made
     return [stops[i] for i, want in enumerate(slots) if want and rank.get(i) != want]
+
+
+def race_difficulty(race):
+    """What made this race harder than the easiest game, one entry per step.
+
+    A missing field is read the way the rules list reads it, so an older race
+    is paid for the rules it says it was played under. Each checkpoint is a
+    step of its own. The handicap isn't here: it holds the leaders back
+    rather than making the race harder for everyone.
+    """
+    race = race or {}
+    try:
+        toc = int(race.get("toc") or 0)
+    except (TypeError, ValueError):
+        toc = 0
+    limit = race.get("time_limit") or 0
+    stops = race_checkpoints(race)
+    hard = [key for key, on in (
+        ("no_back", race.get("allow_back") is False),
+        ("no_find", race.get("allow_find") is False),
+        ("no_tables", not race.get("allow_tables")),
+        ("no_contents", toc <= 0),
+        ("no_hubs", bool(race.get("ban_hubs"))),
+        ("no_reveal", race.get("allow_peek") is False),
+        ("hidden", race.get("show_positions") is False),
+        ("time_limit", 0 < limit <= TIGHT_TIME_LIMIT),
+        ("lost", bool(race.get("lost"))),
+    ) if on]
+    hard += ["checkpoint"] * len(stops)
+    # Pinning a lone stop changes nothing: it is always the one in between.
+    if len(stops) > 1 and any(checkpoint_slots(race)):
+        hard.append("order")
+    return hard
+
+
+def race_scoring(race):
+    """What each finisher was paid for this race, and why.
+
+    Place points and the bonus are scaled by how hard the race was and rounded
+    once, so the sum a player is shown is the sum the standings add up. The
+    browser draws this; it never redoes it.
+    """
+    hard = race_difficulty(race)
+    percent = 100 + HARD_RULE_PERCENT * len(hard)
+    finishers = rank_finishers(race)
+    # The bonus rewards whichever measure the race isn't scored on, so the
+    # losing style of play is still worth something. It needs somebody to
+    # beat: finishing alone isn't the fewest clicks of anything.
+    best_of = "elapsed" if race.get("mode") == "clicks" else "clicks"
+    best = min(r.get(best_of, 9e9) for r in finishers) if len(finishers) > 1 else None
+    players = {}
+    for i, r in enumerate(finishers):
+        # Guests still take their place in the finishing order - beating a
+        # guest is still beating somebody - they just don't collect points.
+        if r.get("guest"):
+            continue
+        place = POINTS_BY_RANK[i] if i < len(POINTS_BY_RANK) else POINTS_FINISH_OTHER
+        bonus = POINTS_FEWEST_CLICKS if best is not None and r.get(best_of) == best else 0
+        players[r.get("name", "?")] = {"place": i + 1, "place_points": place, "bonus": bonus,
+                                       "points": ((place + bonus) * percent + 50) // 100}
+    return {"hard": hard, "step": HARD_RULE_PERCENT, "multiplier": percent / 100, "players": players}
+
+
+def with_scoring(race):
+    """A copy of the race to hand a browser, with its points worked out.
+
+    A copy, because the race itself is gossiped and stored, and the sums are
+    derived from it rather than part of it."""
+    return dict(race, scoring=race_scoring(race)) if race else race
 
 
 # --------------------------------------------------------------------------
@@ -454,14 +529,7 @@ class GameState:
             if not results:
                 continue
             finishers = rank_finishers(race)
-            # The bonus rewards whichever measure the race isn't scored on,
-            # so the losing style of play is still worth something.
-            if race.get("mode") == "clicks":
-                bonus_key, bonus_best = "elapsed", min(
-                    (r.get("elapsed", 9e9) for r in finishers), default=None)
-            else:
-                bonus_key, bonus_best = "clicks", min(
-                    (r.get("clicks", 999) for r in finishers), default=None)
+            paid = race_scoring(race)["players"]
 
             created = race.get("created", 0)
             for r in results.values():
@@ -469,17 +537,13 @@ class GameState:
                 if e:
                     e["races"] += 1
 
-            # Guests still take their place in the finishing order - beating a
-            # guest is still beating somebody - they just don't collect points.
             for i, r in enumerate(finishers):
                 e = slot(r, created)
                 if not e:
                     continue
                 e["finished"] += 1
                 e["clicks"] += r.get("clicks", 0)
-                e["points"] += POINTS_BY_RANK[i] if i < len(POINTS_BY_RANK) else POINTS_FINISH_OTHER
-                if bonus_best is not None and r.get(bonus_key) == bonus_best:
-                    e["points"] += POINTS_FEWEST_CLICKS
+                e["points"] += paid.get(r.get("name", "?"), {}).get("points", 0)
                 if i == 0:
                     e["wins"] += 1
                 el = r.get("elapsed")
@@ -620,7 +684,7 @@ class GameState:
                 "me": {"id": me.id, "name": me.name, "color": me.color,
                        "guest": me.guest, "named": me.named},
                 "peers": live,
-                "race": race,
+                "race": with_scoring(race),
                 "my_run": me.run,
                 "leaderboard": self.leaderboard(),
                 "events": self.events[-14:],
@@ -1509,7 +1573,7 @@ def make_handler(state, net, hub):
                 # Older than the working set: it's still in the archive.
                 if race is None and STORE is not None and rid:
                     race = STORE.get(rid)
-                self._json(race if race else {"error": "no such race"})
+                self._json(with_scoring(race) if race else {"error": "no such race"})
             elif path == "/api/races":
                 # Past races for the lobby and the Every race screen. The
                 # archive has every race; the working set has the newest, and

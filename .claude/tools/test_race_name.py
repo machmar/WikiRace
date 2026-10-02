@@ -95,7 +95,8 @@ def name(pg, where):
                expanded: chip.getAttribute('aria-expanded'),
                rules: [...tip.querySelectorAll(':scope > div')].map(g =>
                  g.querySelector('.rr-h').textContent + ': ' +
-                 [...g.querySelectorAll('li')].map(li => li.textContent).join(' | ')),
+                 [...g.querySelectorAll('li')].map(li => li.firstChild.textContent +
+                   (li.querySelector('.rr-pct') ? ' [' + li.querySelector('.rr-pct').textContent + ']' : '')).join(' | ')),
                right: Math.round(r.right), width: innerWidth };
     }""", where)
 
@@ -121,18 +122,22 @@ post("/start_race", "sidAsta", {
     "show_positions": False, "allow_peek": False, "toc": 0, "handicap": True})
 post("/give_up", ME, {"path": [], "times": [], "elapsed": 5, "clicks": 0})
 
+# What made it harder is marked with what it added to the points (issue #13).
 ADVANCED = [
-    "Who wins: Fewest clicks wins | 10 minutes to finish",
-    "Route: Language: English | Via Energy and Star | Energy 1st, the rest anywhere | Hub pages off-limits",
-    "Allowed: Positions hidden | No going back | No find on page | Target hidden the whole race"
-    " | Tables of links hidden | No contents list",
+    "Who wins: Fewest clicks wins | 10 minutes to finish [+20%]",
+    "Route: Language: English | Via Energy and Star [+40%] | Energy 1st, the rest anywhere [+20%]"
+    " | Hub pages off-limits [+20%]",
+    "Allowed: Positions hidden [+20%] | No going back [+20%] | No find on page [+20%]"
+    " | Target hidden the whole race [+20%] | Tables of links hidden [+20%] | No contents list [+20%]",
 ]
+POINTS = "Points: Worth ×3.2: each rule marked +20% made it harder"
 
 
 def handicapped(rules):
     """The handicaps depend on the standings, which other tests on the same
-    game add to, so only ask that Asta's is there and said as a sentence."""
-    last = rules[-1] if rules else ""
+    game add to, so only ask that Asta's is there and said as a sentence.
+    They come just before the points, which always close the list."""
+    last = rules[-2] if len(rules) > 1 else ""
     return last.startswith("Handicaps: ") and "Asta started " in last and " seconds behind" in last
 
 with sync_playwright() as p:
@@ -152,13 +157,14 @@ with sync_playwright() as p:
     check("results: the mode is the chip", n["kind"], "Advanced")
     check("results: then the route", n["route"], "Chess → Neutron star")
     check("results: rules put away at rest", (n["shown"], n["expanded"]), (False, "false"))
-    check("results: every rule, grouped", n["rules"][:-1], ADVANCED)
+    check("results: every rule, grouped", n["rules"][:-2], ADVANCED)
     check("results: handicaps by name", handicapped(n["rules"]), True)
+    check("results: and what it was worth", n["rules"][-1], POINTS)
     check("the racing strip draws from the same list",
           pg.evaluate("() => [...document.querySelectorAll('#rules .rule')].map(x => x.textContent)"),
           ["Advanced", "fewest clicks wins", "10 min limit", "English", "via Energy (1st)", "via Star",
            "no hub pages", "positions hidden", "no going back", "no find on page", "target stays hidden",
-           "handicaps on"])
+           "handicaps on", "points ×3.2"])
 
     pg.click('.race-name[data-where="results"] .race-kind')
     pg.wait_for_timeout(SETTLE)
@@ -199,7 +205,8 @@ with sync_playwright() as p:
     pg.click('.race-name[data-where="replay"] .race-kind')
     pg.wait_for_timeout(SETTLE)
     n = name(pg, "replay")
-    check("replay: same rules", (n["shown"], n["rules"][:-1], handicapped(n["rules"])), (True, ADVANCED, True))
+    check("replay: same rules", (n["shown"], n["rules"][:-2], handicapped(n["rules"]), n["rules"][-1]),
+          (True, ADVANCED, True, POINTS))
 
     # A phone: the rules hang from the whole line, so they stay on the screen.
     pg.set_viewport_size({"width": 380, "height": 800})
