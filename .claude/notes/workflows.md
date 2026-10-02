@@ -34,6 +34,9 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 
 - `test_store.py` — history, SQLite, the JSON migration. Starts its own server.
 - `test_names.py` — a name is a player; one name races once. Starts its own.
+- `test_past_races.py` — the list behind the lobby and the Every race screen:
+  the archive beyond the working set, winners by mode, the filters, and the race
+  going on now. Starts its own, on a database it seeds.
 - `test_cp_order.py` — checkpoint order rules. Needs a server on 8477 first.
 - `test_reveal_tip.py` — the reveal popup, issue #18. Needs a server on 8477
   first, and Playwright (`pip install playwright && playwright install
@@ -47,7 +50,7 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 
-The two that start their own server find `wikirace.py` from where the script
+The ones that start their own server find `wikirace.py` from where the script
 sits, so they run from any checkout and any folder. Each run gets a fresh temp
 folder, and every start gets a port the OS picks, so a copy you already have on
 8477 or 8478 doesn't get in the way. The game takes the next port along when

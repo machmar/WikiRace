@@ -20,6 +20,7 @@ carry on if another drops.
 | Snapshot the browser polls/streams | `"my_run": me.run` |
 | Peer gossip merge | `def _merge_race` |
 | History in SQLite, and the old JSON import | `class Store` |
+| Past races for the lobby and the Every race screen | `def past_races`, `def race_summary`, `"/api/races"` |
 
 A race is a dict, and its rules are part of it: `start`, `target`, `lost`,
 `starts`, `kind`, `checkpoints`, `checkpoint_slots`, `mode` (time/clicks),
@@ -52,6 +53,8 @@ Roughly in order down the file:
 | Player colours, light-theme twins | `function colorFor`, `const LIGHT_INK` |
 | Splashes for checkpoints and the finish | `function celebrateCheckpoint` |
 | Name picker and the name generator | `function openNamePicker`, `const NameGen` |
+| Past races: lobby list, Every race screen, a race's page | `const past = {`, `function openRaceList`, `function openRacePage` |
+| The same game again: Rematch and Play this again | `function rulesOf`, `function playAgain` |
 
 ### Game modes
 
@@ -98,3 +101,32 @@ lane has no steps at all: every view has to cope with that, and the box says
 The maps don't assume one start page: `m.startKeys` is a set, so lost races
 fan out from several. Colours come from `raceColors` so the timeline, the maps
 and the boxes agree, and `ink()` swaps in darker twins on the light themes.
+
+### Past races
+
+Every race anyone has a result in is reachable from the lobby (issue #12).
+The lobby shows the newest eight; "Show older races" opens the **Every race**
+screen, grouped by evening and filtered by game, player and a page that was a
+start, target or stop. A race opens on **a page of its own**.
+
+Both are stages beside lobby, race and hub (`racelist`, `racepage`), and both
+have an address: `#races?kind=…&player=…&find=…` and `#race=<id>`. A link
+opened from cold waits for the first snapshot (`past.pending`,
+`routePending`): if a race is on and you're in it, the race wins and the link
+is dropped. Leaving either screen for any other stage clears the address.
+
+The list comes from `/api/races`, which reads the whole archive plus the
+working set (the working set wins for a race in both) and sends a summary per
+race - the finishing order as names, never paths. The full record is the
+existing `/api/race?id=` when one is opened.
+
+A race's page draws nothing of its own for results and replay: it **moves
+the hub's `#results-pane` and `#replay-pane` into itself** and renders them
+with a snapshot whose `race` is the old one, and `setStage` moves them home
+(`restorePanes`). Both are built around fixed ids, so a second copy would
+fight the first. The steps table under them is the page's own
+(`drawSteps`).
+
+`rulesOf(race)` is the one place that turns a race back into setup's rules.
+Rematch posts them straight away (one click, as before); "Play this again"
+opens race setup filled in with them. A lost race keeps only its target.

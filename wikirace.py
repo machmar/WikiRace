@@ -107,6 +107,51 @@ def rank_finishers(race):
     return sorted(finishers, key=lambda r: (r.get("elapsed", 9e9), r.get("clicks", 999)))
 
 
+def race_summary(race):
+    """One line of a list of past races: enough to draw it, nothing more.
+
+    The full record, with every path, is a second fetch from /api/race when
+    somebody actually opens it."""
+    fin = rank_finishers(race)
+    results = (race.get("results") or {}).values()
+    return {
+        "race_id": race.get("race_id"), "created": race.get("created", 0),
+        "kind": race.get("kind"), "lost": bool(race.get("lost")),
+        "start": race.get("start"), "target": race.get("target"),
+        "mode": race.get("mode", "time"), "lang": race.get("lang", "en"),
+        "checkpoints": race.get("checkpoints") or [],
+        "players": [r.get("name") for r in results],
+        # Names only: enough for a podium and for "you came third".
+        "order": [r.get("name") for r in fin],
+        "quit": [r.get("name") for r in results if not r.get("finished")],
+        "winner": {"name": fin[0].get("name"), "elapsed": fin[0].get("elapsed"),
+                   "clicks": fin[0].get("clicks")} if fin else None,
+    }
+
+
+def past_races(races, player="", kind="", find=""):
+    """Races somebody has a result in, newest first, narrowed the way the
+    Every race screen asks: by who played, which game, and a page that was
+    the start, the target or a stop."""
+    who, find = norm_name(player), norm_name(find)
+    out = []
+    for r in races:
+        if not r.get("results"):
+            continue
+        if who and who not in r["results"]:
+            continue
+        # Races from before modes existed have no kind; work it out the way
+        # the browser does for the two that matter here.
+        if kind and (r.get("kind") or ("lost" if r.get("lost") else "advanced")) != kind:
+            continue
+        if find and not any(find in norm_name(t) for t in
+                            [r.get("start"), r.get("target")] + list(r.get("checkpoints") or [])):
+            continue
+        out.append(r)
+    out.sort(key=lambda r: r.get("created", 0), reverse=True)
+    return out
+
+
 def race_checkpoints(race):
     """Checkpoints as a list, tolerating the older single-checkpoint field."""
     if not race:
@@ -1465,6 +1510,24 @@ def make_handler(state, net, hub):
                 if race is None and STORE is not None and rid:
                     race = STORE.get(rid)
                 self._json(race if race else {"error": "no such race"})
+            elif path == "/api/races":
+                # Past races for the lobby and the Every race screen. The
+                # archive has every race; the working set has the newest, and
+                # wins for any race in both, because it may have moved on.
+                from urllib.parse import parse_qs, urlparse
+                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+                try:
+                    limit = max(1, min(500, int(q.get("limit") or 20)))
+                except ValueError:
+                    limit = 20
+                races = {r["race_id"]: r for r in (STORE.everything() if STORE is not None else [])}
+                # Summarised under the lock: a live race's results change as
+                # people finish.
+                with state.lock:
+                    races.update(state.races)
+                    rows = past_races(races.values(), q.get("player", ""), q.get("kind", ""), q.get("find", ""))
+                    page = [race_summary(r) for r in rows[:limit]]
+                self._json({"races": page, "total": len(rows)})
             elif path == "/api/history":
                 # Every race ever played, for backups and for drawing old races elsewhere.
                 self._json({"races": STORE.everything() if STORE is not None else []})
