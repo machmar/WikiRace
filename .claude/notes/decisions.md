@@ -620,3 +620,27 @@ CLAUDE.md and the traps are in `workflows.md`.
   8477–8479 are still shared by all of them.
 - **`.claude/worktrees/` is in `.gitignore`.** It had only been hidden by one
   machine's `.git/info/exclude`.
+
+## Give up goes when a win does, and after the game has accepted it
+
+A run ends in the page three ways, and `giveUp()` and `outOfTime()` each put
+the Give up button away while `win()` did not (issue #47), so it sat in the top
+bar over Results until a reload, which goes through the branch of `enterRace()`
+that hides it. `S.done` is set in exactly four places, those three and that
+branch, so `win()` was the only gap.
+
+- **It goes after the game's answer, not with `S.done`.** `win()` sets `S.done`
+  first and then asks the game, and a refusal (a name clash, a missed
+  checkpoint the page didn't catch) sets it back and returns you to the race.
+  Hiding the button with `S.done` would leave a player in a race with nothing to
+  give up with. `giveUp()` and `outOfTime()` also hide it after their post.
+- **Turned down: drawing the button from state.** `btn-peek` is shown by a
+  function of `S.running` and `S.done`, which cannot go stale, while Give up is
+  switched by hand in five places, which is how one was missed. Moving it to
+  state is the tidier shape, but it touches every branch of `enterRace()` and
+  is more than a bug that one line closes. If a sixth place ever needs to
+  switch it, do that then.
+- **Not covered: a refused win keeping the button.** `test_giveup_button.py`
+  checks the four endings; making the game refuse a win from the page needs a
+  name clash or a checkpoint race the page's own check lets through, and that
+  was more setup than the one line it would guard.
