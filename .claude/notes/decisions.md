@@ -464,6 +464,45 @@ join them.
   always there. On Hard the marks line up into a column of "+20%"s, but they
   are faint, and a phone has no hover; the owner chose to keep them.
 
+## Points follow how many players you beat
+
+The place points were 10 / 7 / 5 / 3, then 2, whatever the size of the field, so
+winning against one other player paid what winning against seven did (issue
+#34). It only shows when a few people race while the rest are away from the
+table, but then it paid a duel as much as a full house. The owner's view was
+that paying more for beating more players is good, so a finisher is now paid
+**2 for finishing and 2 for every player they beat**: 4 for winning against one
+other player, 10 against four, 16 against seven, and 2 for a race on your own.
+The fewest-clicks bonus and the difficulty multiplier are as they were, and
+everything is still rounded once.
+
+- **Beating includes the players who gave up or ran out of time**, and guests
+  behind you. They started the race and you finished it; and a guest has always
+  taken a place without taking points, so beating one is still beating somebody.
+  A guest ahead of you is not beaten. Turned down: counting only players who
+  finished, which stops someone padding a field by joining and quitting but
+  makes the winner of a race everyone else abandoned worth only 2.
+- **There is no ceiling.** Turned down: cutting today's list from the top for a
+  small field (a duel starts lower down it and a field of five or more pays as it
+  always did). It keeps whole numbers and leaves a full table alone, but beating
+  seven would pay what beating four does, and the owner wanted more.
+  Turned down: leaving it as it was, and counting a race for the standings only
+  once it has two players who aren't guests.
+- **A full table moves a little.** Five players pay 10 / 8 / 6 / 4 / 2 where it
+  was 10 / 7 / 5 / 3 / 2. Standings are rebuilt from the last 60 races, so races
+  with three players or fewer are worth less than they were and larger ones are
+  worth more, the way #13 moved them.
+- **The points are provisional while a race is on.** Results are recorded when
+  someone finishes or gives up, so a player still on the course has not been
+  beaten yet. A winner's total grows as the others come in and is settled when
+  the last one is. Counting everyone still racing would pay for beating players
+  who might yet win.
+- **The fewest-clicks bonus now outweighs the gap between neighbouring places.**
+  A place is worth 2 more than the one below it, and the bonus is 3, so second
+  place with the fewest clicks outscores a first place without it by one point
+  (5 against 4 in a duel, 11 against 10 in a field of five). Before, they tied.
+  Left as it was because the bonus is a different question (#41).
+
 ## The lobby points at the history, not at the last race
 
 Since #12 the lobby's Earlier races card lists the newest race first, with its

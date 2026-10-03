@@ -61,8 +61,12 @@ DIGEST_INTERVAL = 5.0         # seconds between history digest broadcasts
 # Every race ever played stays in the database; this is only the working set.
 MAX_RACES_KEPT = 60
 
-POINTS_BY_RANK = [10, 7, 5, 3]
-POINTS_FINISH_OTHER = 2
+# Finishing pays, and so does every player a finisher beat: winning against one
+# rival is worth 4, against seven 16. A fixed list of prizes paid the same for
+# beating one player as seven, which only shows when a few people race while
+# the rest are away from the table (issue #34).
+POINTS_FOR_FINISHING = 2
+POINTS_PER_PLAYER_BEATEN = 2
 POINTS_FEWEST_CLICKS = 3
 # Every rule that made a race harder adds this much to everything it pays. One
 # step for every rule, big or small, so a table can count them on its fingers
@@ -291,10 +295,16 @@ def race_scoring(race):
     Place points and the bonus are scaled by how hard the race was and rounded
     once, so the sum a player is shown is the sum the standings add up. The
     browser draws this; it never redoes it.
+
+    A race only knows who has finished or given up, so while it is still going
+    a finisher has beaten only those who are already out; the sum settles as
+    the rest come in.
     """
     hard = race_difficulty(race)
     percent = 100 + HARD_RULE_PERCENT * len(hard)
     finishers = rank_finishers(race)
+    # Whoever started and didn't finish was beaten by everyone who did.
+    out = len(race.get("results") or {}) - len(finishers)
     # The bonus rewards whichever measure the race isn't scored on, so the
     # losing style of play is still worth something. It needs somebody to
     # beat: finishing alone isn't the fewest clicks of anything.
@@ -306,10 +316,11 @@ def race_scoring(race):
         # guest is still beating somebody - they just don't collect points.
         if r.get("guest"):
             continue
-        place = POINTS_BY_RANK[i] if i < len(POINTS_BY_RANK) else POINTS_FINISH_OTHER
+        beaten = len(finishers) - 1 - i + out
+        place = POINTS_FOR_FINISHING + POINTS_PER_PLAYER_BEATEN * beaten
         bonus = POINTS_FEWEST_CLICKS if best is not None and r.get(best_of) == best else 0
-        players[r.get("name", "?")] = {"place": i + 1, "place_points": place, "bonus": bonus,
-                                       "points": ((place + bonus) * percent + 50) // 100}
+        players[r.get("name", "?")] = {"place": i + 1, "place_points": place, "beaten": beaten,
+                                       "bonus": bonus, "points": ((place + bonus) * percent + 50) // 100}
     return {"hard": hard, "step": HARD_RULE_PERCENT, "multiplier": percent / 100, "players": players}
 
 

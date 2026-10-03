@@ -291,10 +291,16 @@ anything with `sudo`. Pass `-y` to skip the prompt for unattended installs.
 
 | | |
 |---|---|
-| 1st / 2nd / 3rd / 4th | 10 / 7 / 5 / 3 points |
-| Anyone else who finishes | 2 points |
+| Finishing | 2 points |
+| Every player you beat | +2 points each |
 | Fewest clicks in the race | +3 bonus (shared on ties) |
 | Gave up | 0 |
+
+You beat everyone who finished behind you and everyone who gave up or ran out
+of time, guests included (a guest takes their place but isn't paid). So winning
+against one other player pays 4, against four pays 10, and against seven pays
+16; a race on your own pays 2. A player still on the course hasn't been beaten
+yet, so a finisher's points settle as the others come in.
 
 Standings count the most recent 60 races and are rebuilt from the shared race
 history, so every player's scoreboard agrees without anyone owning it. Older
