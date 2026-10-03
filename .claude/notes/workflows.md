@@ -98,6 +98,12 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
   its cap; and, at the narrowest panel, issue #38: a Lost race's pills each on
   one line, and a pill that cannot be wraps in even lines with a one-line
   pill's corner. The same needs as `test_reveal_tip.py`.
+- `test_giveup_button.py` — the Give up button is gone once a run is over,
+  however it ended, issue #47. The page plays four races itself: it finishes
+  one by clicking the target's link, gives up in another, runs out the clock
+  (a 3-second limit; the clock starts at GO) in a third, and reloads after the
+  finish. Posting to the API would skip the page's own handling of an ending,
+  which is what is on trial. The same needs as `test_reveal_tip.py`.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 

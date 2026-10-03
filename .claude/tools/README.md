@@ -30,6 +30,7 @@ One-off fixes, the same way:
     add_setup_points.py     # issue #33: what a race will pay, in race setup
     add_side_resize.py      # issue #35: a side panel you can resize, and a rules strip that scrolls
     fix_rules_peek_redraw.py  # issue #37: the rules under a race's name came back open by themselves
+    fix_giveup_after_finish.py  # issue #47: Give up stayed in the top bar after you finished
 
 Test suites:
 
@@ -45,3 +46,4 @@ version wrote, which `test_store.py` imports.
     python test_race_name.py         # a race's name and rules (needs 8477, Playwright)
     python test_points_ui.py         # results say why, in the page (needs 8477, Playwright)
     python test_side_panel.py        # the side panel's width and rules strip (needs 8477, Playwright)
+    python test_giveup_button.py     # Give up goes when a run is over (needs 8477, Playwright)

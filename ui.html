@@ -2991,6 +2991,10 @@ async function win() {
         : "That didn't count — " + (res.error || "try again"));
     return;
   }
+  // The run is over, so there is nothing left to give up; giveUp() and
+  // outOfTime() put it away too. It waits for the game to accept the win,
+  // because a refusal above puts you back in the race, and you still need it.
+  $("btn-giveup").hidden = true;
   openHub("results");
   celebrateFinish(secs);
 }
