@@ -153,8 +153,8 @@ check("one Kody on the scoreboard, not two", len(kodys) == 1, list(b))
 k = b[kodys[0]] if kodys else {}
 # Every race was x1.4, each sum rounded to the nearest point: the old race,
 # finished alone, 2 x 1.4; a win over one player with the fewest clicks,
-# (4 + 3) x 1.4; then second, with nobody left to beat, 2 x 1.4.
-check("laptop and phone results add up", k.get("races") == 3 and k.get("points") == 3 + 10 + 3, k)
+# (4 + 2) x 1.4; then second, with nobody left to beat, 2 x 1.4.
+check("laptop and phone results add up", k.get("races") == 3 and k.get("points") == 3 + 8 + 3, k)
 check("a result is filed under the name", "kody" in get("/api/race?id=" + race["race_id"], "friend")["results"])
 
 print("\n2. one name races once per race")

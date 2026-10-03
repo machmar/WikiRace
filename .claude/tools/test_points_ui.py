@@ -115,7 +115,7 @@ NORMAL_SEEN = {
     "heading": "Finishing order — fastest time wins · points ×1.6 for 3 things that made it harder",
     "rows": [["Asta", "13", "8 for 1st (beat 3), ×1.6"],
              ["Cleo", "–", "A guest takes the place, not the points"],
-             ["Ben", "11", "4 for 3rd (beat 1) + 3 for fewest clicks, ×1.6"],
+             ["Ben", "10", "4 for 3rd (beat 1) + 2 for fewest clicks, ×1.6"],
              ["machmar", "0", None]],
     "marked": ["No going back +20%", "No find on page +20%", "Tables of links hidden +20%"],
     "points": "Points: Worth ×1.6: each rule marked +20% made it harder",

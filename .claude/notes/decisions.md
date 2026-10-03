@@ -436,9 +436,10 @@ through three stops in order x3.6; the most there can be is x4.2.
 - **The handicap is not difficulty, and doesn't change points.** It holds
   the leaders back so the session stays close; paying them extra for beating
   it would undo what it is for, and it applies to one player, not the race.
-- **The fewest-clicks bonus needs somebody to beat.** It is still +3 to
-  whoever is best at the measure the race isn't scored on, the winner and
-  ties included, but finishing alone no longer collects it.
+- **The fewest-clicks bonus needs somebody to beat.** It was +3 (and is +2
+  now, see "The fewest-clicks bonus is worth a place") to whoever is best at
+  the measure the race isn't scored on, the winner and ties included, but
+  finishing alone no longer collects it.
 - **Giving up, or running out of time, is still worth nothing.** Credit per
   checkpoint was considered and dropped: it rewards banking a stop and then
   quitting, and in a party game finishing is what scores.
@@ -497,11 +498,38 @@ everything is still rounded once.
   beaten yet. A winner's total grows as the others come in and is settled when
   the last one is. Counting everyone still racing would pay for beating players
   who might yet win.
-- **The fewest-clicks bonus now outweighs the gap between neighbouring places.**
-  A place is worth 2 more than the one below it, and the bonus is 3, so second
-  place with the fewest clicks outscores a first place without it by one point
+- **The fewest-clicks bonus now outweighed the gap between neighbouring places.**
+  A place was worth 2 more than the one below it, and the bonus was 3, so second
+  place with the fewest clicks outscored a first place without it by one point
   (5 against 4 in a duel, 11 against 10 in a field of five). Before, they tied.
-  Left as it was because the bonus is a different question (#41).
+  Left alone here because the bonus is a different question, and settled in #41
+  (next section).
+
+## The fewest-clicks bonus is worth a place
+
+Once a place was worth 2 more than the one below, the bonus of 3 meant the
+runner-up could outscore the winner, which neither the old tie nor the new flip
+had been designed to do (issue #41). The bonus is now **2**, the gap between
+neighbouring places, so it can lift a player level with the one above and no
+higher. The owner chose it on the issue; the multiplier from #13 scales both
+sides alike, so it does not change who is ahead.
+
+- **Level, not ahead.** Second with the fewest clicks now ties first without it
+  (4 against 4 in a duel, 10 against 10 in a field of five), and a tie in points
+  is a tie in the standings. That is the point of the bonus: the other style of
+  play is worth a place, not a win.
+- **The standings dip a little.** Every bonus pays 1 less before the multiplier,
+  and standings are rebuilt from the last 60 races, so totals fall by about that
+  much per bonus won. Nothing stored changes.
+- **Kept as a number, not tied to the per-player 2.** `POINTS_FEWEST_CLICKS` is
+  its own constant, with a comment that says what it must not exceed. Turned
+  down: defining it as `POINTS_PER_PLAYER_BEATEN`, which would have changed the
+  bonus silently the day someone changes what a beaten player pays.
+- **Turned down: leaving it at 3**, which keeps the flip, and **making it 1**,
+  which would also have stopped it but with the bonus worth half a place. The
+  issue offered all three and the owner picked 2.
+- `test_points.py` pins it: in fields of two to eight, second with the fewest
+  clicks must come out level with the winner, not past.
 
 ## The lobby points at the history, not at the last race
 

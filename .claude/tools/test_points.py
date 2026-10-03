@@ -91,8 +91,8 @@ race = with_results(NORMAL, run("Ada", 30, 6), run("Bo", 40, 3), run("Cy", 50, 9
 p = wikirace.race_scoring(race)["players"]
 check("the winner beat three, so 2 + 2 x 3 = 8, times 1.6",
       p["Ada"] == {"place": 1, "place_points": 8, "beaten": 3, "bonus": 0, "points": 13}, p.get("Ada"))
-check("second beat two and had the fewest clicks: 6 + 3, times 1.6",
-      p["Bo"] == {"place": 2, "place_points": 6, "beaten": 2, "bonus": 3, "points": 14}, p.get("Bo"))
+check("second beat two and had the fewest clicks: 6 + 2, times 1.6",
+      p["Bo"] == {"place": 2, "place_points": 6, "beaten": 2, "bonus": 2, "points": 13}, p.get("Bo"))
 check("third beat the one who gave up: 4 times 1.6", p["Cy"]["points"] == 6 and p["Cy"]["beaten"] == 1, p.get("Cy"))
 check("giving up is worth nothing", "Di" not in p, p)
 
@@ -102,7 +102,7 @@ check("rounded to the nearest point: 8 x 2.6 is 21", p["Bo"]["points"] == 21, p.
 check("and 4 x 2.6 is 10", p["Ed"]["points"] == 10, p.get("Ed"))
 check("last still gets 2 for finishing, scaled to 5",
       p["Fy"] == {"place": 5, "place_points": 2, "beaten": 0, "bonus": 0, "points": 5}, p.get("Fy"))
-check("the winner can take the bonus too", p["Ada"]["bonus"] == 3 and p["Ada"]["points"] == 34, p.get("Ada"))
+check("the winner can take the bonus too", p["Ada"]["bonus"] == 2 and p["Ada"]["points"] == 31, p.get("Ada"))
 
 print("\n2b. winning pays for the players beaten, issue #34")
 
@@ -136,12 +136,22 @@ check("a guest ahead of you isn't beaten", p["Ada"]["beaten"] == 0 and p["Ada"][
 p = wikirace.race_scoring(with_results(EASY, run("Ada", 30, 6)))["players"]
 check("finishing alone has nobody to beat for fewest clicks", p["Ada"]["bonus"] == 0 and p["Ada"]["points"] == 2, p)
 p = wikirace.race_scoring(with_results(EASY, run("Ada", 30, 6), run("Bo", 30, 2), run("Cy", 40, 2)))["players"]
-check("a tie for fewest clicks pays both", p["Bo"]["bonus"] == 3 and p["Cy"]["bonus"] == 3, p)
+check("a tie for fewest clicks pays both", p["Bo"]["bonus"] == 2 and p["Cy"]["bonus"] == 2, p)
 p = wikirace.race_scoring(with_results(dict(EASY, mode="clicks"), run("Ada", 50, 2), run("Bo", 20, 4)))["players"]
-check("a clicks race gives the bonus for the fastest time", p["Bo"]["bonus"] == 3 and p["Ada"]["bonus"] == 0, p)
+check("a clicks race gives the bonus for the fastest time", p["Bo"]["bonus"] == 2 and p["Ada"]["bonus"] == 0, p)
 p = wikirace.race_scoring(with_results(EASY, run("Gus", 10, 1, guest=True), run("Ada", 30, 6)))["players"]
 check("a guest takes their place but collects nothing", "Gus" not in p and p["Ada"]["place"] == 2
       and p["Ada"]["points"] == 2, p)
+
+print("\n2c. the fewest-clicks bonus can level a place but not pass it, issue #41")
+# Second place is quicker to the target in links than the winner. In every size
+# of field the bonus lifts them level with the winner and no higher, which is
+# what the runner-up beating the winner on points would have taken.
+for n in (2, 3, 5, 8):
+    field = [run("P0", 10, 5), run("P1", 20, 2)] + [run("P%d" % i, 10 * (i + 1), 5) for i in range(2, n)]
+    p = wikirace.race_scoring(with_results(EASY, *field))["players"]
+    check("%d players: second with the fewest clicks ties the winner, not passes" % n,
+          p["P1"]["bonus"] == 2 and p["P1"]["points"] == p["P0"]["points"], (p["P0"], p["P1"]))
 
 # -- through a server ---------------------------------------------------------
 
@@ -213,10 +223,10 @@ try:
     finish("a", ["Cheese", "Cow", "Grass", "Milk"], 3.0)
     finish("b", ["Cheese", "Milk"], 5.0)
     board = {e["name"]: e["points"] for e in get("/api/state", "a")["leaderboard"]}
-    check("the standings pay a normal race x1.6: Ada 4, Bo 2 + 3 for the clicks",
-          board == {"Ada": 6, "Bo": 8}, board)
+    check("the standings pay a normal race x1.6: Ada 4, Bo 2 + 2 for the clicks, level",
+          board == {"Ada": 6, "Bo": 6}, board)
     live = get("/api/state", "a")["race"]
-    check("the race on screen says why", live.get("scoring", {}).get("players", {}).get("Bo", {}).get("bonus") == 3,
+    check("the race on screen says why", live.get("scoring", {}).get("players", {}).get("Bo", {}).get("bonus") == 2,
           live.get("scoring"))
     old = get("/api/race?id=" + race["race_id"], "a")
     check("so does a past race", old.get("scoring", {}).get("multiplier") == 1.6, old.get("scoring"))
