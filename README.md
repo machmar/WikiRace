@@ -293,7 +293,7 @@ anything with `sudo`. Pass `-y` to skip the prompt for unattended installs.
 |---|---|
 | Finishing | 2 points |
 | Every player you beat | +2 points each |
-| Fewest clicks in the race | +3 bonus (shared on ties) |
+| Fewest clicks in the race | +2 bonus (shared on ties) |
 | Gave up | 0 |
 
 You beat everyone who finished behind you and everyone who gave up or ran out

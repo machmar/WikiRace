@@ -67,7 +67,10 @@ MAX_RACES_KEPT = 60
 # the rest are away from the table (issue #34).
 POINTS_FOR_FINISHING = 2
 POINTS_PER_PLAYER_BEATEN = 2
-POINTS_FEWEST_CLICKS = 3
+# No more than the gap between neighbouring places, which is what beating one
+# more player pays, so the bonus can lift a runner-up level with the winner but
+# never past them (issue #41). If that changes, so should this.
+POINTS_FEWEST_CLICKS = 2
 # Every rule that made a race harder adds this much to everything it pays. One
 # step for every rule, big or small, so a table can count them on its fingers
 # instead of looking up a weight.
