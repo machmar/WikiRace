@@ -81,9 +81,28 @@ Work on a feature lives on its own branch (`feature/<slug>`) and merges into
 NAS runs — an unfinished feature on `main` is an unfinished feature in the
 game.
 
-Start a chat by reading the issue it belongs to, and this file. End it by:
+Start a chat by reading the issue it belongs to, and this file.
 
-1. leaving the working tree clean, on a branch, with a PR open;
+Chats run side by side, and the main checkout has one working tree between
+them: a branch switch in one chat moves the branch for every other, and a
+half-done edit in one turns up in the rest (issue #44). So a feature chat works
+in a worktree of its own, cut from `origin/main`, and the main checkout is for
+reading:
+
+    git fetch origin
+    git worktree add --no-track .claude/worktrees/<slug> -b feature/<slug> origin/main
+    cp .claude/settings.local.json .claude/worktrees/<slug>/.claude/
+
+Never `git switch` or edit in the main checkout, and never cut a branch from
+wherever it happens to be standing. The `cp` is not optional: the file is
+gitignored, so a new worktree lacks it, and without it the `gh` hook refuses to
+open an issue or PR as `machmar-claude`. When the PR has merged, remove the
+worktree from the main checkout. [workflows.md](.claude/notes/workflows.md)
+has the rest.
+
+End a chat by:
+
+1. leaving the worktree clean, on its branch, with a PR open;
 2. writing down anything durable you learnt in `.claude/notes/`, and anything
    you decided (and rejected) in `decisions.md`;
 3. filing anything you noticed but didn't do as its own issue, rather than

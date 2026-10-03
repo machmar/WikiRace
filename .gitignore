@@ -21,3 +21,7 @@ desktop.ini
 
 # Machine-specific Claude Code settings (paths differ per machine)
 .claude/settings.local.json
+
+# A feature chat works in a worktree of its own in here (see CLAUDE.md). Without
+# this, only the machine that happened to add it to .git/info/exclude hides it.
+.claude/worktrees/
