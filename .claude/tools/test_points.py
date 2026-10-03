@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Points reflect how hard the race was, issue #13.
+"""Points reflect how hard the race was (issue #13) and how many players the
+winner beat (issue #34).
 
 The rules are checked straight off the functions, because a race dict is all
 they need; then once through a server, to see the standings and both places a
@@ -88,28 +89,59 @@ check("hard and lost through three stops in order is x3.6", s["multiplier"] == 3
 
 race = with_results(NORMAL, run("Ada", 30, 6), run("Bo", 40, 3), run("Cy", 50, 9), run("Di", 9, 1, finished=False))
 p = wikirace.race_scoring(race)["players"]
-check("the winner's 10, times 1.6", p["Ada"] == {"place": 1, "place_points": 10, "bonus": 0, "points": 16}, p.get("Ada"))
-check("second with the fewest clicks: 7 + 3, times 1.6",
-      p["Bo"] == {"place": 2, "place_points": 7, "bonus": 3, "points": 16}, p.get("Bo"))
-check("third: 5 times 1.6", p["Cy"]["points"] == 8, p.get("Cy"))
+check("the winner beat three, so 2 + 2 x 3 = 8, times 1.6",
+      p["Ada"] == {"place": 1, "place_points": 8, "beaten": 3, "bonus": 0, "points": 13}, p.get("Ada"))
+check("second beat two and had the fewest clicks: 6 + 3, times 1.6",
+      p["Bo"] == {"place": 2, "place_points": 6, "beaten": 2, "bonus": 3, "points": 14}, p.get("Bo"))
+check("third beat the one who gave up: 4 times 1.6", p["Cy"]["points"] == 6 and p["Cy"]["beaten"] == 1, p.get("Cy"))
 check("giving up is worth nothing", "Di" not in p, p)
 
 race = with_results(HARD, run("Ada", 30, 6), run("Bo", 40, 7), run("Cy", 50, 8), run("Ed", 60, 9), run("Fy", 70, 9))
 p = wikirace.race_scoring(race)["players"]
-check("rounded to the nearest point: 7 x 2.6 is 18", p["Bo"]["points"] == 18, p.get("Bo"))
-check("and 3 x 2.6 is 8", p["Ed"]["points"] == 8, p.get("Ed"))
-check("fifth and later still get 2, scaled to 5", p["Fy"] == {"place": 5, "place_points": 2, "bonus": 0, "points": 5}, p.get("Fy"))
+check("rounded to the nearest point: 8 x 2.6 is 21", p["Bo"]["points"] == 21, p.get("Bo"))
+check("and 4 x 2.6 is 10", p["Ed"]["points"] == 10, p.get("Ed"))
+check("last still gets 2 for finishing, scaled to 5",
+      p["Fy"] == {"place": 5, "place_points": 2, "beaten": 0, "bonus": 0, "points": 5}, p.get("Fy"))
 check("the winner can take the bonus too", p["Ada"]["bonus"] == 3 and p["Ada"]["points"] == 34, p.get("Ada"))
 
+print("\n2b. winning pays for the players beaten, issue #34")
+
+
+def won(*runs):
+    """What the winner and the rest of a plain easy race were paid, in order."""
+    race = with_results(EASY, *runs)
+    paid = wikirace.race_scoring(race)["players"]
+    return [paid[r["name"]]["place_points"] for r in sorted(runs, key=lambda r: r["elapsed"]) if r["name"] in paid]
+
+
+def racers(n, **kw):
+    return [run("P%d" % i, 10 * (i + 1), 5, **kw) for i in range(n)]
+
+
+check("alone, finishing is all there is: 2", won(*racers(1)) == [2], won(*racers(1)))
+check("two players: 4 and 2", won(*racers(2)) == [4, 2], won(*racers(2)))
+check("three players: 6, 4, 2", won(*racers(3)) == [6, 4, 2], won(*racers(3)))
+check("five players: 10, 8, 6, 4, 2", won(*racers(5)) == [10, 8, 6, 4, 2], won(*racers(5)))
+check("eight players: the winner's 16, with no ceiling", won(*racers(8))[0] == 16 and won(*racers(8))[-1] == 2,
+      won(*racers(8)))
+check("beating somebody who gave up counts",
+      won(run("Ada", 30, 5), run("Bo", 5, 1, finished=False), run("Cy", 5, 1, finished=False)) == [6],
+      won(run("Ada", 30, 5), run("Bo", 5, 1, finished=False), run("Cy", 5, 1, finished=False)))
+p = wikirace.race_scoring(with_results(EASY, run("Ada", 10, 5), run("Gus", 30, 5, guest=True)))["players"]
+check("beating a guest counts, though the guest is paid nothing",
+      p["Ada"]["beaten"] == 1 and p["Ada"]["place_points"] == 4 and "Gus" not in p, p)
+p = wikirace.race_scoring(with_results(EASY, run("Gus", 10, 5, guest=True), run("Ada", 30, 5)))["players"]
+check("a guest ahead of you isn't beaten", p["Ada"]["beaten"] == 0 and p["Ada"]["place_points"] == 2, p)
+
 p = wikirace.race_scoring(with_results(EASY, run("Ada", 30, 6)))["players"]
-check("finishing alone has nobody to beat for fewest clicks", p["Ada"]["bonus"] == 0 and p["Ada"]["points"] == 10, p)
+check("finishing alone has nobody to beat for fewest clicks", p["Ada"]["bonus"] == 0 and p["Ada"]["points"] == 2, p)
 p = wikirace.race_scoring(with_results(EASY, run("Ada", 30, 6), run("Bo", 30, 2), run("Cy", 40, 2)))["players"]
 check("a tie for fewest clicks pays both", p["Bo"]["bonus"] == 3 and p["Cy"]["bonus"] == 3, p)
 p = wikirace.race_scoring(with_results(dict(EASY, mode="clicks"), run("Ada", 50, 2), run("Bo", 20, 4)))["players"]
 check("a clicks race gives the bonus for the fastest time", p["Bo"]["bonus"] == 3 and p["Ada"]["bonus"] == 0, p)
 p = wikirace.race_scoring(with_results(EASY, run("Gus", 10, 1, guest=True), run("Ada", 30, 6)))["players"]
 check("a guest takes their place but collects nothing", "Gus" not in p and p["Ada"]["place"] == 2
-      and p["Ada"]["points"] == 7, p)
+      and p["Ada"]["points"] == 2, p)
 
 # -- through a server ---------------------------------------------------------
 
@@ -181,12 +213,15 @@ try:
     finish("a", ["Cheese", "Cow", "Grass", "Milk"], 3.0)
     finish("b", ["Cheese", "Milk"], 5.0)
     board = {e["name"]: e["points"] for e in get("/api/state", "a")["leaderboard"]}
-    check("the standings pay a normal race x1.6", board == {"Ada": 16, "Bo": 16}, board)
+    check("the standings pay a normal race x1.6: Ada 4, Bo 2 + 3 for the clicks",
+          board == {"Ada": 6, "Bo": 8}, board)
     live = get("/api/state", "a")["race"]
     check("the race on screen says why", live.get("scoring", {}).get("players", {}).get("Bo", {}).get("bonus") == 3,
           live.get("scoring"))
     old = get("/api/race?id=" + race["race_id"], "a")
     check("so does a past race", old.get("scoring", {}).get("multiplier") == 1.6, old.get("scoring"))
+    check("and it says how many each beat", old["scoring"]["players"]["Ada"].get("beaten") == 1
+          and old["scoring"]["players"]["Bo"].get("beaten") == 0, old.get("scoring"))
     check("and the reasons are named", sorted(old["scoring"]["hard"]) == ["no_back", "no_find", "no_tables"],
           old.get("scoring"))
 

@@ -37,10 +37,10 @@ normalised name. Guests are excluded from standings.
 
 A race's points are worked out from the race, never stored with it:
 `with_scoring` hands the browser a copy with a `scoring` field (what made it
-harder, the multiplier, and each finisher's place points, bonus and total) on
-the snapshot's race and on `/api/race`. The standings add up the same totals,
-so the sum a player is shown on Results is the sum in the standings. The
-browser draws `scoring` and never works it out itself.
+harder, the multiplier, and each finisher's place points, how many players they
+beat, bonus and total) on the snapshot's race and on `/api/race`. The standings
+add up the same totals, so the sum a player is shown on Results is the sum in
+the standings. The browser draws `scoring` and never works it out itself.
 
 ## The browser, `ui.html`
 

@@ -3412,7 +3412,7 @@ function renderResults(snap) {
     const p = scoring.players[r.name];
     if (!p) return { pts: "–", why: "A guest takes the place, not the points" };
     return { pts: String(p.points),
-             why: p.place_points + " for " + ordinal(p.place) +
+             why: p.place_points + " for " + ordinal(p.place) + (p.beaten ? " (beat " + p.beaten + ")" : "") +
                   (p.bonus ? " + " + p.bonus + " for " + bonusFor : "") + (mult > 1 ? ", ×" + mult : "") };
   };
 

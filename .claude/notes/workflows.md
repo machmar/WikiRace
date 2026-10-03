@@ -37,9 +37,9 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_past_races.py` — the list behind the lobby and the Every race screen:
   the archive beyond the working set, winners by mode, the filters, and the race
   going on now. Starts its own, on a database it seeds.
-- `test_points.py` — what makes a race harder and what each place pays, issue
-  #13. Imports `wikirace.py` for the rules, then starts its own server to see
-  the standings and both places a browser reads a race from agree.
+- `test_points.py` — what makes a race harder and what each place pays, issues
+  #13 and #34. Imports `wikirace.py` for the rules, then starts its own server
+  to see the standings and both places a browser reads a race from agree.
 - `test_cp_order.py` — checkpoint order rules. Needs a server on 8477 first.
 - `test_reveal_tip.py` — the reveal popup, issue #18. Needs a server on 8477
   first, and Playwright (`pip install playwright && playwright install

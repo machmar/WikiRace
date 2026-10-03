@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Results say why everyone got the points they got (issue #13).
+"""Results say why everyone got the points they got (issues #13 and #34).
 
 Needs a game on 8477 - see workflows.md - and Playwright with a Chromium:
 
@@ -113,9 +113,9 @@ READ = """host => {
 
 NORMAL_SEEN = {
     "heading": "Finishing order — fastest time wins · points ×1.6 for 3 things that made it harder",
-    "rows": [["Asta", "16", "10 for 1st, ×1.6"],
+    "rows": [["Asta", "13", "8 for 1st (beat 3), ×1.6"],
              ["Cleo", "–", "A guest takes the place, not the points"],
-             ["Ben", "13", "5 for 3rd + 3 for fewest clicks, ×1.6"],
+             ["Ben", "11", "4 for 3rd (beat 1) + 3 for fewest clicks, ×1.6"],
              ["machmar", "0", None]],
     "marked": ["No going back +20%", "No find on page +20%", "Tables of links hidden +20%"],
     "points": "Points: Worth ×1.6: each rule marked +20% made it harder",
@@ -165,7 +165,8 @@ with sync_playwright() as p:
     pg.wait_for_selector("#results-pane .result-row", timeout=20000)
     seen = pg.evaluate(READ, "#results-pane")
     check("easy: no multiplier in the heading", seen["heading"], "Finishing order — fastest time wins")
-    check("easy: the winner alone has no bonus to win", seen["rows"][0], ["Asta", "10", "10 for 1st"])
+    check("easy: the only finisher beat the two who gave up, and has no bonus to win",
+          seen["rows"][0], ["Asta", "6", "6 for 1st (beat 2)"])
     check("easy: nothing marked", seen["marked"], [])
     check("easy: the usual points", seen["points"], "Points: The usual points: nothing made it harder")
 
