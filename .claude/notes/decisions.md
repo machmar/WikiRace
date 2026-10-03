@@ -591,3 +591,32 @@ pill, "lost: everyone starts somewhere different", is 213px of words (issue
 - **`overflow-wrap: anywhere`** is what lets a word with no break in it (a
   long checkpoint name is enough) shrink to the strip instead of pushing it
   sideways, which turns on a horizontal scrollbar.
+
+## Each feature chat works in a worktree of its own
+
+Chats that work on a feature each started in the one checkout, and a branch
+switch in one moved the branch for all of them (issue #44, found while working
+#38). A chat's branch was cut from another chat's commit instead of from
+`main`; uncommitted edits were carried along by a switch into a chat that
+hadn't made them; and a throwaway server went on serving a `wikirace.py` that
+had changed under it. Only the first was caught, by reading the reflog.
+
+So a feature chat now starts in `.claude/worktrees/<slug>`, cut from
+`origin/main`, and the main checkout is for reading. The recipe is in
+CLAUDE.md and the traps are in `workflows.md`.
+
+- **Turned down: only saying "fetch, then cut the branch from `origin/main`".**
+  It fixes the wrong base and nothing else. Chats would still share a working
+  tree, so the carried-along edits and the stale server would happen as often
+  as before. A worktree fixes all three, and `readme-refresh` already showed
+  the convention working.
+- **`--no-track`.** `git worktree add ... origin/main` makes the new branch
+  track `origin/main`, which makes a bare `git push` look like it is aimed at
+  `main`. The first push is `git push -u origin feature/<slug>`.
+- **What it costs.** Ignored files don't follow, which is how
+  `settings.local.json` got into the recipe: the `gh` hook reads
+  `GH_CONFIG_DIR` from it, and a worktree without it can't open an issue or a
+  PR. Every worktree is a full copy of the tree, which is small here. Ports
+  8477–8479 are still shared by all of them.
+- **`.claude/worktrees/` is in `.gitignore`.** It had only been hidden by one
+  machine's `.git/info/exclude`.

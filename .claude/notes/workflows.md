@@ -1,5 +1,42 @@
 # Working on it
 
+## Work in a worktree, not the main checkout
+
+The three commands that make one are in CLAUDE.md, under "One feature, one
+chat". Everything on this page runs from the worktree's folder
+(`.claude/worktrees/<slug>`). The main checkout is for reading, and whatever
+branch it is sitting on is somebody else's business: it is often a feature that
+has already merged, and its local `main` is behind `origin/main` until someone
+pulls it. That is why a branch is cut from `origin/main` and never from `HEAD`.
+
+What a worktree does and doesn't bring with it:
+
+- **It has every tracked file and no ignored one.** There is no
+  `.claude/settings.local.json` until the recipe copies it in, and without that
+  the `gh` hook (see "Filing issues and PRs") refuses to open an issue or PR. The
+  game's own database is ignored too, which doesn't matter: the tests and the
+  throwaway server below all use folders of their own.
+- **A server started from it is its own copy.** Python reads `wikirace.py` once,
+  when the server starts, so a server keeps serving the code it began with
+  after the tree changes under it, while `ui.html` is read from disk on every
+  request and does follow the tree. Together that makes "half old, half new".
+  `test_points_ui.py` failed against such a server in issue #44 until it was
+  restarted. After switching branches, pulling or merging in a worktree,
+  restart anything you started from it.
+- **The ports are not per worktree.** 8477–8479 belong to whichever chat
+  started a server first, and what answers on 8477 may be another chat's copy
+  running another chat's code. Before trusting a suite that wants a server on
+  8477, check what is answering it; the suites that start their own server are
+  not affected, because they take a port the OS picks.
+
+When the PR has merged, from the main checkout (not from inside the worktree):
+
+    git worktree remove .claude/worktrees/<slug>
+    git branch -D feature/<slug>
+
+`-D`, because `-d` compares the branch with whatever the main checkout has out
+and calls a merged branch unmerged. Look at the PR first: `-D` doesn't check.
+
 ## Run a copy to test against
 
 Never touch a server the user is playing on. Use ports 8477–8479 and a
