@@ -56,6 +56,7 @@ Roughly in order down the file:
 | Game modes and the setup dialog | `const MODES = [`, `function openModePicker`, `function openConfigurator` |
 | A race's name, and the rules it was played under | `function raceRules`, `const raceTitle`, `function raceNameHTML` |
 | Settings menu, presets, the fold | `const PRESETS = [`, `const syncSettings` |
+| Side panel: its resizable edge, and the rules strip under Racers | `(function sideResize()`, `#side-grip`, `function renderRules` |
 | What setup's rules add to the points | `async function markSetupPoints` |
 | Checkpoints: the list, pinning, shuffle | `function renderCheckpointChips`, `function shuffleCheckpoints` |
 | Replay: one clock for every view | `const replay = {`, `function drawReplayView`, `function stepReplay` |
@@ -90,6 +91,20 @@ A race is named by its mode and its route wherever it is shown afterwards
 Results and Replay the mode is a chip that opens the rules (`raceNameHTML`).
 Those rules and the strip beside the racers both come from `raceRules`, so a
 new rule is added there once and shows up in both.
+
+### The side panel
+
+`#side` is the second column of the `#app` grid, and its width is the variable
+`--side-w` on `#app`, which `sideResize` sets and the stylesheet clamps
+(`clamp(220px, var(--side-w), 50vw)`). `#side-grip` is its edge and shares its
+grid cell, so **both are placed by hand** (`grid-column: 2; grid-row: 2`): left
+to auto-placement, whichever came second would be pushed down a row. Under 760px
+the panel is a drawer, the column is gone and the grip is `display: none`.
+
+The width is kept in `localStorage` as `wr_side`, and is only written when it
+is moved by a person: loading a width that the window is too small for neither
+rewrites it nor loses it. The rules strip, `#rules`, is `renderRules`' pills in
+a box that stops at about four rows and scrolls.
 
 ### Checkpoints
 
