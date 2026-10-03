@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """The side panel can be resized, and its rules strip stops growing (issue #35).
+At its narrowest, a rule that will not fit on a line wraps tidily (issue #38).
 
 Needs a game on 8477 - see workflows.md - and Playwright with a Chromium:
 
@@ -27,6 +28,11 @@ ASTA = "sidAsta"
 ME = "browserseat1"
 
 DEFAULT_W, MIN_W, MAX_W, KEY_STEP = 270, 220, 480, 15
+
+# A checkpoint whose pill has to break across two lines at the narrowest
+# panel, and one with a single word wider than the whole strip.
+LONG_NAME = "Wolfgang Amadeus Mozart Memorial Prize"
+UNBREAKABLE = "Pneumonoultramicroscopicsilicovolcanoconiosis"
 
 
 def post(path, sid, body=None):
@@ -108,6 +114,25 @@ def strip(pg):
       return { pills: el.querySelectorAll('.pill').length, box: el.clientHeight,
                content: el.scrollHeight, overflow: getComputedStyle(el).overflowY };
     }""")
+
+
+def pills(pg):
+    """Each pill in the rules strip as it is drawn: its words, how many lines
+    they are set in and how wide each line is, and its corner and size."""
+    return pg.evaluate("""() => [...document.querySelectorAll('#rules .pill')].map(el => {
+      const box = el.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(el);
+      const lines = {};
+      for (const r of range.getClientRects()) lines[Math.round(r.top)] = (lines[Math.round(r.top)] || 0) + r.width;
+      return { text: el.textContent, lines: Object.keys(lines).length, line_w: Object.values(lines),
+               w: box.width, h: box.height, radius: parseFloat(getComputedStyle(el).borderTopLeftRadius) };
+    })""")
+
+
+def corner(p):
+    """The corner a pill is actually drawn with: a radius bigger than half the
+    box is cut down to half of it, which is how a capsule is made."""
+    return min(p["radius"], p["h"] / 2, p["w"] / 2)
 
 
 ka = Keepalive([ASTA, ME])
@@ -196,6 +221,27 @@ with sync_playwright() as p:
     s = strip(pg)
     check("an easy race has fewer", s["pills"] < 10, True)
     check("and shows them all without scrolling", s["content"] <= s["box"] + 1, True)
+
+    # ---- the narrowest panel, and a pill that will not fit on a line (issue #38) ----
+    drag_by(pg, 2000)
+    check("narrowest", side_w(pg), MIN_W)
+
+    start_race(pg, lost=True, starts=["Karel IV.", "Praha", "Vltava", "Brno"],
+               checkpoints=["Praha", "Vltava"])
+    check("a Lost race's pills each fit on one line",
+          [p["text"] for p in pills(pg) if p["lines"] > 1], [])
+
+    start_race(pg, kind="classic", checkpoints=[LONG_NAME, UNBREAKABLE])
+    ps = pills(pg)
+    one = ps[0]
+    long = next(p for p in ps if p["text"] == "via " + LONG_NAME)
+    check("a long pill wraps", long["lines"] >= 2, True)
+    check("into lines about as long as each other", min(long["line_w"]) >= max(long["line_w"]) / 2, True)
+    check("and its corner is the one a one-line pill has",
+          abs(corner(long) - corner(one)) < 0.5, True)
+    check("a word too long to break does not push the strip sideways",
+          pg.evaluate("() => { const e = document.getElementById('rules'); return e.scrollWidth <= e.clientWidth; }"),
+          True)
 
     check("no page errors", errs, [])
     b.close()

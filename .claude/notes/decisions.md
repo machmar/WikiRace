@@ -552,6 +552,42 @@ scrollable, then scrolls inside itself.
 - **No phone version.** Under 760px the panel is a drawer of one width and the
   grip is hidden.
 - **Known and filed rather than fixed:** at the 220px minimum the Lost race's
-  longest pill wraps to two lines (#38), and `test_race_name.py` was flaky on
-  Windows on unchanged code (#37, since fixed: the page lost a class when it
-  rebuilt Results, see the race name's rules above).
+  longest pill wraps to two lines (#38, since fixed: see the next section), and
+  `test_race_name.py` was flaky on Windows on unchanged code (#37, since fixed:
+  the page lost a class when it rebuilt Results, see the race name's rules
+  above).
+
+## A pill says what is not beside it, and wraps like a box
+
+At the panel's 220px minimum the rules strip is 179px wide, and the Lost race's
+pill, "lost: everyone starts somewhere different", is 213px of words (issue
+#38). Two things were wrong, and both are fixed.
+
+- **The wording.** The strip's first pill already says "Lost", so the prefix
+  repeated what sat beside it. It is now "different starts". Cutting only the
+  prefix was not enough: "everyone starts somewhere different" is 190px, which
+  still wraps in 179. The Tip's line, the countdown's and the best-route
+  caption are written for other places and keep the full sentence.
+- **The wrapping.** Other pills wrap at that width too (a contents label such
+  as "contents: sections and subsections", a checkpoint with a long name), so a
+  shorter phrase for one rule was never going to settle it. A Pill that will
+  not fit now breaks its words evenly (`text-wrap: balance`) and keeps the
+  corner a one-line Pill has, half a line plus the padding and the border, so
+  it becomes a rounded box with the same curve as its neighbours instead of a
+  stretched capsule whose ends cut into the words. The rule is on the base
+  `.pill`, and every variant was measured to be still a capsule when it fits on
+  one line: the goal-line chips and checkpoints, the strip's pills, the mode
+  Pill with its caret, and the phone's racer list. The company pill sets its own
+  radius and is not touched.
+- **Guarded with `@supports (height: 1lh)`.** A `calc()` with a variable in it
+  is valid when the stylesheet is read and only fails when it is used, so a
+  browser without the `lh` unit would not fall back to the capsule above it; it
+  would draw square pills. Behind the guard it keeps the capsule.
+- **Turned down: an ellipsis.** It keeps every pill to one line but hides the
+  rule with no way to read it in the panel, and "nothing is cut off" is what
+  made the wrap tolerable in the first place.
+- **Tried and dropped: `max-width: 100%`.** The strip is a flex row, so a pill
+  can already shrink, and removing it changed nothing in the tests.
+- **`overflow-wrap: anywhere`** is what lets a word with no break in it (a
+  long checkpoint name is enough) shrink to the strip instead of pushing it
+  sideways, which turns on a horizontal scrollbar.
