@@ -202,11 +202,22 @@
      that class carries only what is particular to the screen. Control is the
      button, text field and select above; Panel is .panel, the dialog, below. */
 
-  /* Pill: a standalone token you read. */
+  /* Pill: a standalone token you read. When its words will not fit on a line
+     it breaks them evenly and keeps the corner a one-line pill has, so it
+     becomes a rounded box rather than a stretched capsule whose ends cut into
+     the text; a word with no break in it is broken rather than left to push
+     the strip sideways. */
   .pill {
     display: inline-flex; align-items: center; gap: var(--s-2);
     background: var(--bg-3); border: 1px solid var(--line); color: var(--fg);
     border-radius: var(--r-pill); padding: var(--s-1) var(--s-4); font-size: var(--t-sm);
+    overflow-wrap: anywhere; text-wrap: balance;
+  }
+  /* Half a line, the padding and the border: exactly a one-line pill's capsule,
+     and a rounded box with the same corner when there are two. The 1px is the
+     border's width. Where there is no lh unit the capsule above stands. */
+  @supports (height: 1lh) {
+    .pill { border-radius: calc(.5lh + var(--s-1) + 1px); }
   }
 
   /* Row: one of many. Boxed on its own; inside a card it drops the box and is
@@ -2716,7 +2727,7 @@ function raceRules(race) {
 
   const lang = (LANGS.find(l => l[0] === race.lang) || ["", race.lang || "en"])[1];
   add("Route", "Language: " + lang, lang);
-  if (race.lost) hard(add("Route", "Everyone started somewhere different", "lost: everyone starts somewhere different"), "lost");
+  if (race.lost) hard(add("Route", "Everyone started somewhere different", "different starts"), "lost");
   const stops = raceCheckpoints(race), slots = raceSlots(race);
   if (stops.length) {
     const list = stops.length > 1 ? stops.slice(0, -1).join(", ") + " and " + stops[stops.length - 1] : stops[0];

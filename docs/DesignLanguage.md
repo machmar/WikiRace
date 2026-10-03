@@ -206,6 +206,17 @@ set at `--t-sm` weight 600, a hair tighter on the caret side, and it takes the
 Control's hover. A Pill that only reports something stays a `span`, which is
 still the default.
 
+**A Pill that will not fit on a line** breaks its words evenly and keeps the
+corner a one-line Pill has, so it turns into a rounded box with the same curve
+as the capsules beside it. A fully round Pill with two lines in it is a stretched
+capsule whose ends cut into the words, and left to itself it breaks greedily,
+often leaving one word on the second line. The corner is half a line, the padding and
+the border, `calc(.5lh + var(--s-1) + 1px)`, so a Pill that changes its vertical
+padding sets its own radius, as the one in the company strip does. A word with
+no break in it is broken rather than left to push its row sideways. Better than
+any of that is fewer words: a Pill does not repeat what is already beside it, so
+a Lost race's strip says "different starts" after the Pill that says "Lost".
+
 **A Row you can press** — a finished race in the lobby or on the Every race
 screen — is the whole line, not a button tucked into it: the line is what you
 are choosing. It keeps the Row's shape, takes a pointer, colours its name with

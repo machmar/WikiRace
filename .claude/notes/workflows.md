@@ -58,7 +58,9 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_side_panel.py` — the side panel's edge and its rules strip, issue #35:
   dragging, the arrow keys, double-click, the limits, what survives a reload,
   a window too small for the saved width, a phone, and the strip stopping at
-  its cap. The same needs as `test_reveal_tip.py`.
+  its cap; and, at the narrowest panel, issue #38: a Lost race's pills each on
+  one line, and a pill that cannot be wraps in even lines with a one-line
+  pill's corner. The same needs as `test_reveal_tip.py`.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 
