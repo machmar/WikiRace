@@ -29,6 +29,7 @@ One-off fixes, the same way:
     add_race_points.py      # issue #13: what each player was paid, and why
     add_setup_points.py     # issue #33: what a race will pay, in race setup
     add_side_resize.py      # issue #35: a side panel you can resize, and a rules strip that scrolls
+    fix_rules_peek_redraw.py  # issue #37: the rules under a race's name came back open by themselves
 
 Test suites:
 

@@ -355,7 +355,12 @@ Three rules the implementation turns on:
   whoever was reading it.
 - **Putting it away means away.** Pressing the chip again, or Escape, while
   the pointer is still on it would leave the hover peek holding it open, so
-  the peek sits out until the pointer leaves.
+  the peek sits out until the pointer leaves. That memory is `raceRulesShut`,
+  beside the open state, and not a class on the element: it was a class first,
+  and the next rebuild of Results made a new element without it, so the rules
+  came back open by themselves under a pointer that had not moved (#37).
+  Turned down: waiting longer in `test_race_name.py`. The test was flaky
+  because the page was wrong, and a wait would only have hidden it.
 
 ## Finished races open on a page of their own, and the long list on a screen of its own
 
@@ -508,5 +513,6 @@ scrollable, then scrolls inside itself.
 - **No phone version.** Under 760px the panel is a drawer of one width and the
   grip is hidden.
 - **Known and filed rather than fixed:** at the 220px minimum the Lost race's
-  longest pill wraps to two lines (#38), and `test_race_name.py` is flaky on
-  Windows on unchanged code (#37).
+  longest pill wraps to two lines (#38), and `test_race_name.py` was flaky on
+  Windows on unchanged code (#37, since fixed: the page lost a class when it
+  rebuilt Results, see the race name's rules above).

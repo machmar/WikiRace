@@ -83,6 +83,16 @@ def check(label, got, want):
     print(("PASS " if ok else "FAIL ") + label + " -> " + repr(got))
 
 
+def redrawn(pg):
+    """Results is rebuilt about once a second, under a pointer that has not
+    moved. Wait for that to have happened rather than for a guessed time, then
+    let any fade finish: a check made before the rebuild cannot see what the
+    rebuild does to the rules."""
+    pg.evaluate("() => document.querySelector('.race-name').dataset.mark = '1'")
+    pg.wait_for_function("() => !document.querySelector('.race-name').dataset.mark", timeout=10000)
+    pg.wait_for_timeout(SETTLE)
+
+
 def name(pg, where):
     return pg.evaluate("""where => {
       const el = document.querySelector('.race-name[data-where="' + where + '"]');
@@ -180,6 +190,11 @@ with sync_playwright() as p:
     pg.click('.race-name[data-where="results"] .race-kind')
     pg.wait_for_timeout(SETTLE)
     check("pressing it again puts them away", name(pg, "results")["shown"], False)
+    # The pointer is still on the mode, which would peek them open again, so
+    # the page has to remember that they were put away across its own rebuilds.
+    redrawn(pg)
+    check("and they stay away when the page is redrawn under the pointer",
+          name(pg, "results")["shown"], False)
 
     pg.click('.race-name[data-where="results"] .race-kind')
     pg.click(".hub-h2")
@@ -190,7 +205,13 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape")
     pg.wait_for_timeout(SETTLE)
     check("Escape puts them away", name(pg, "results")["shown"], False)
+    redrawn(pg)
+    check("and they stay away after a redraw then too", name(pg, "results")["shown"], False)
 
+    # Put away with the pointer on the mode, they stay away until it leaves, so
+    # a hover only peeks once the pointer has gone and come back.
+    pg.mouse.move(5, 890)
+    pg.wait_for_timeout(SETTLE)
     pg.hover('.race-name[data-where="results"] .race-kind')
     pg.wait_for_timeout(SETTLE)
     check("hover peeks", name(pg, "results")["shown"], True)

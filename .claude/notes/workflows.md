@@ -52,10 +52,9 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_race_name.py` — a race's name and the rules under it, issue #11. The
   same needs as `test_reveal_tip.py`. It reads the rules after each press or
   hover only once the fade is over: visibility is part of the transition, so
-  reading it straight away catches the old state. **It is flaky on Windows**
-  (issue #37): the hover checks fail on some runs and pass on others, on
-  unchanged code, so a red run there is not evidence about your change.
-  Run it a few times on `main` before blaming a branch.
+  reading it straight away catches the old state. After putting the rules away
+  it also waits for the page to have rebuilt Results (`redrawn`) before it
+  reads again, because the rebuild is what used to bring them back (issue #37).
 - `test_side_panel.py` — the side panel's edge and its rules strip, issue #35:
   dragging, the arrow keys, double-click, the limits, what survives a reload,
   a window too small for the saved width, a phone, and the strip stopping at
@@ -143,6 +142,18 @@ Traps found the hard way:
   seen the thing — `wait_for_function` on `S.snap.race.race_id`, or
   `wait_for_selector` on what should appear — and the same test goes green
   every run. `test_reveal_tip.py` was flaky three ways before it did this.
+- Results and the Replay are rebuilt about once a second, so anything the page
+  remembers as a class on an element is gone within a second. Keep it in a
+  variable and draw it into the markup, as `raceRulesOpen` and `raceRulesShut`
+  do. A test that reads a fixed time after an action then sees the page just
+  before or just after a rebuild, depending on where that falls in the second,
+  and passes or fails on the same code (this was #37). Make the page right,
+  then wait for a rebuild (`redrawn` in `test_race_name.py` marks the element
+  and waits for the mark to go) rather than for a guessed time.
+- A check that passes can be passing by accident. `hover peeks` only ever
+  passed when a rebuild had dropped the class that was meant to stop it. When a
+  flaky test goes both ways, ask what each direction depends on before
+  adding a wait.
 
 ## Filing issues and PRs
 

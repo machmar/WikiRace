@@ -2778,10 +2778,18 @@ const raceTitle = (race) => raceKind(race) + " · " + raceRoute(race);
    the markup, or the rules would snap shut under the reader. */
 let raceRulesOpen = "";
 
+/* Which race name has had its rules put away while the pointer is still on
+   its mode, so the hover peek sits out until the pointer leaves. It is kept
+   here for the same reason as the open state: a class on the element would
+   go with the element, and Results is rebuilt about once a second, which
+   would bring the peek back under a pointer that had not moved. */
+let raceRulesShut = "";
+
 /* The name with its mode as a Pill you can press, and the rules it opens. */
 function raceNameHTML(race, where) {
-  const open = raceRulesOpen === where, id = "race-rules-" + where;
-  return '<div class="hub-sub race-name' + (open ? " open" : "") + '" data-where="' + where + '">' +
+  const open = raceRulesOpen === where, shut = raceRulesShut === where, id = "race-rules-" + where;
+  return '<div class="hub-sub race-name' + (open ? " open" : "") + (shut ? " shut" : "") +
+    '" data-where="' + where + '">' +
     '<button type="button" class="pill race-kind" aria-expanded="' + open + '" aria-controls="' + id + '">' +
     esc(raceKind(race)) + ' <span class="caret" aria-hidden="true">▾</span></button>' +
     '<span class="race-route">' + esc(raceRoute(race)) + "</span>" +
@@ -2798,8 +2806,9 @@ function setRaceRulesOpen(where) {
   document.querySelectorAll(".race-name").forEach(el => {
     const on = el.dataset.where === where;
     const chip = el.querySelector(".race-kind");
-    if (!on && el.classList.contains("open") && chip.matches(":hover")) el.classList.add("shut");
+    if (!on && el.classList.contains("open") && chip.matches(":hover")) raceRulesShut = el.dataset.where;
     el.classList.toggle("open", on);
+    el.classList.toggle("shut", raceRulesShut === el.dataset.where);
     chip.setAttribute("aria-expanded", String(on));
   });
 }
@@ -7338,7 +7347,10 @@ document.addEventListener("click", (ev) => {
 });
 document.addEventListener("pointerout", (ev) => {
   const chip = ev.target.closest && ev.target.closest(".race-kind");
-  if (chip && !chip.contains(ev.relatedTarget)) chip.closest(".race-name").classList.remove("shut");
+  if (!chip || chip.contains(ev.relatedTarget)) return;
+  const el = chip.closest(".race-name");
+  if (raceRulesShut === el.dataset.where) raceRulesShut = "";
+  el.classList.remove("shut");
 });
 
 /* Three ways to look at it: light throughout, dark throughout, or dark with
