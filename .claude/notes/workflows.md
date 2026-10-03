@@ -52,9 +52,32 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
 - `test_race_name.py` — a race's name and the rules under it, issue #11. The
   same needs as `test_reveal_tip.py`. It reads the rules after each press or
   hover only once the fade is over: visibility is part of the transition, so
-  reading it straight away catches the old state.
+  reading it straight away catches the old state. **It is flaky on Windows**
+  (issue #37): the hover checks fail on some runs and pass on others, on
+  unchanged code, so a red run there is not evidence about your change.
+  Run it a few times on `main` before blaming a branch.
+- `test_side_panel.py` — the side panel's edge and its rules strip, issue #35:
+  dragging, the arrow keys, double-click, the limits, what survives a reload,
+  a window too small for the saved width, a phone, and the strip stopping at
+  its cap. The same needs as `test_reveal_tip.py`.
 
 They print PASS/FAIL per check and exit non-zero on failure.
+
+### On Windows
+
+- `python` on the PATH here is an MSYS build (3.11) with **no pip**, and the
+  `pip` on the PATH belongs to a different Python than it. The real interpreter
+  is `py -3.13`, so say it every time: `py -3.13 wikirace.py ...`,
+  `py -3.13 -m pip install playwright`, `py -3.13 -m playwright install
+  chromium` (about 300 MB), `py -3.13 .claude/tools/test_side_panel.py`.
+- A binary pipe in PowerShell corrupts it, so `git archive HEAD ... | tar -x`
+  fails with "Unrecognized archive format". Write the tar file and unpack it:
+  `git archive main wikirace.py ui.html -o before.tar; tar -xf before.tar`.
+- The browser suites share the one server on 8477, and so does anything else
+  you ran against it. `test_reveal_tip.py` failed once straight after a
+  screenshot script that had left two seats named like its own, and passed on
+  every run after a clean restart. When a UI suite fails for no reason you can
+  see, restart the throwaway server on a fresh data folder before debugging.
 
 The ones that start their own server find `wikirace.py` from where the script
 sits, so they run from any checkout and any folder. Each run gets a fresh temp

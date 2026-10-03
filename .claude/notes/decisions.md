@@ -477,3 +477,36 @@ its row in Earlier races.
 - **Turned down: keeping the line but making it say something the history
   doesn't**, such as what the last race paid each player. It is a feature of
   its own and not what the repeat was about; it was not built.
+
+## The side panel has an edge you pull, and a rules strip that stops
+
+The panel was a fixed 330px, and the rules under Racers grew with the race: a
+Hard Advanced race is a dozen pills and six rows, enough to push the racers
+and the standings off the screen (issue #35).
+
+It is now 270px by default, between 220 and 480 and never more than half the
+window. The edge is pulled with a pointer, moved with the arrow keys (15px a
+press) or put back by double-click. The rules strip is a step tighter and
+stops at about four rows, with a bit of a fifth showing so that it reads as
+scrollable, then scrolls inside itself.
+
+- **The width stays on this machine** (`wr_side`), like the theme. A rule
+  travels with the race so that everyone plays one game; a width is about the
+  screen in front of you, and a phone and a laptop want different ones. It is
+  never sent to the server.
+- **Only a person's change is written.** A width the window is too small for
+  is clamped by the stylesheet, and is neither rewritten nor forgotten, so
+  coming back to a big window finds it again.
+- **The grip is inside the panel's column, not astride its border.** Half of a
+  grip on the border would sit on the article's scrollbar. Because it shares
+  the panel's cell in the grid, the panel is placed there by hand as well;
+  otherwise whichever came second is pushed down a row.
+- **It is not an eighth piece.** The seven are surfaces; an edge you pull is
+  an affordance on one, so `docs/DesignLanguage.md` is unchanged. The widths
+  and the 110px cap are literals, with a comment, because the scales cover
+  type, space and radius and not layout.
+- **No phone version.** Under 760px the panel is a drawer of one width and the
+  grip is hidden.
+- **Known and filed rather than fixed:** at the 220px minimum the Lost race's
+  longest pill wraps to two lines (#38), and `test_race_name.py` is flaky on
+  Windows on unchanged code (#37).
