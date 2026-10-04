@@ -104,6 +104,13 @@ can find itself racing. Give up (`post('/give_up', …)`) to get out of it.
   (a 3-second limit; the clock starts at GO) in a third, and reloads after the
   finish. Posting to the API would skip the page's own handling of an ending,
   which is what is on trial. The same needs as `test_reveal_tip.py`.
+- `test_typeahead.py` — title suggestions in race setup only show the search
+  you are waiting on, in each of the three boxes: nothing opens under a field
+  you have left (issue #50), and an answer for a search you have moved on from
+  is dropped, whether it is older than another, lands under an emptied box,
+  after you picked a title or after Escape, or is a failure (issue #52). It
+  needs Playwright but not a server on 8477: it starts its own, on a port the
+  OS picks, and stubs Wikipedia.
 
 They print PASS/FAIL per check and exit non-zero on failure.
 
@@ -199,6 +206,18 @@ Traps found the hard way:
   passed when a rebuild had dropped the class that was meant to stop it. When a
   flaky test goes both ways, ask what each direction depends on before
   adding a wait.
+- A bug that needs an answer to arrive *late*, or in the wrong order, is
+  tested by holding the answers back, not by guessing how slow a connection is.
+  `test_typeahead.py` routes Wikipedia through Playwright, leaves each search's
+  route unfulfilled, does what a player would, and only then fulfils them in
+  the order that goes wrong. Each answer carries the text it was for, so the
+  test can say whose answer is on screen. To know the page has dealt with an
+  answer, it wraps the page's own function in a counter
+  (`window.suggestTitles = ...`; the page's script is a classic one, so its
+  functions can be replaced from outside) and waits for the count to move.
+  The one sleep is the pause before the answer is let go, and it errs long:
+  too short lets a timer in the page close the list that the bug opened, and
+  the unfixed page passes.
 
 ## Filing issues and PRs
 

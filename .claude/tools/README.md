@@ -31,6 +31,8 @@ One-off fixes, the same way:
     add_side_resize.py      # issue #35: a side panel you can resize, and a rules strip that scrolls
     fix_rules_peek_redraw.py  # issue #37: the rules under a race's name came back open by themselves
     fix_giveup_after_finish.py  # issue #47: Give up stayed in the top bar after you finished
+    fix_typeahead_after_blur.py  # issue #50: title suggestions opening under a field you had left
+    fix_typeahead_stale_answers.py  # issue #52: suggestions for a search you had moved on from
 
 Test suites:
 
@@ -38,6 +40,7 @@ Test suites:
     python test_names.py             # a name is a player  (starts its own server)
     python test_past_races.py        # the past-races list (starts its own server)
     python test_points.py            # points by how hard the race was (starts its own server)
+    python test_typeahead.py         # suggestions only show the search you are waiting on (starts its own server, needs Playwright)
 
 The ones that start their own server pick a free port and a fresh temp folder,
 so they run from anywhere. `fixtures/` holds the history file the pre-SQLite
