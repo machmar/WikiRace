@@ -6146,9 +6146,13 @@ function makeDropdown(mount, options, initial, onChange) {
    spelling - and in a language they may not read fluently. */
 function attachTypeahead(input, list, getLang) {
   let timer = null, items = [], active = -1;
+  // Which search the box is waiting on. A search that is out cannot be called
+  // back, so each one remembers its number and, when it returns, drops itself
+  // if the box has moved on: typing, picking a title and Escape all do.
+  let latest = 0;
 
   const close = () => { list.hidden = true; active = -1; };
-  const choose = (t) => { input.value = t; close(); input.dispatchEvent(new Event("change")); };
+  const choose = (t) => { latest++; input.value = t; close(); input.dispatchEvent(new Event("change")); };
 
   const draw = () => {
     if (!items.length) { close(); return; }
@@ -6170,14 +6174,20 @@ function attachTypeahead(input, list, getLang) {
 
   input.addEventListener("input", () => {
     clearTimeout(timer);
-    const text = input.value;
+    const mine = ++latest, text = input.value;
     if (!text.trim()) { items = []; close(); return; }
     timer = setTimeout(async () => {
       try {
-        items = await suggestTitles(text, getLang());
+        const found = await suggestTitles(text, getLang());
+        if (mine !== latest) return;
+        // The answer can come back after the field has been left, and the
+        // blur that closes the list has already happened by then, so a list
+        // opened now would have nothing left to close it.
+        if (document.activeElement !== input) return;
+        items = found;
         active = -1;
         draw();
-      } catch (e) { close(); }
+      } catch (e) { if (mine === latest) close(); }
     }, 180);
   });
 
@@ -6186,7 +6196,7 @@ function attachTypeahead(input, list, getLang) {
     if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; draw(); }
     else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + items.length) % items.length; draw(); }
     else if (e.key === "Enter" && active >= 0) { e.preventDefault(); choose(items[active]); }
-    else if (e.key === "Escape") { close(); }
+    else if (e.key === "Escape") { latest++; close(); }
   });
 
   input.addEventListener("blur", () => setTimeout(close, 120));
