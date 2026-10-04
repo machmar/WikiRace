@@ -200,6 +200,44 @@ Traps found the hard way:
   flaky test goes both ways, ask what each direction depends on before
   adding a wait.
 
+## Pictures for the README
+
+The pictures in `README.md` are made, not captured by hand. `shoot_readme.py`
+starts its own copy of the game on a throwaway folder, seeds a few evenings of
+past races, fills the table with five made-up players and plays a sixth through a
+whole race in Chromium, on the real Wikipedia, then writes `docs/img/`. It takes
+about four minutes and needs the internet.
+
+    py -3.13 .claude/tools/shoot_readme.py [--only a,b] [--keep]
+
+`--only` keeps just those pictures (the race is still played, and the names are
+the file names), and `--keep` leaves the game running at the end. Set
+`WIKIRACE_RAW` to a folder to also keep every picture in full colour, which is
+how a different palette can be tried without playing again. It photographs the
+`ui.html` of the worktree it is run from, so run it from one cut from the
+`origin/main` that the README is about.
+
+Things it had to be taught:
+
+- It picks its own port, so another chat's server on 8477 to 8479 is not in its way.
+- The host's own name would show in the play-by-play ("marec joined"), so the
+  game is started with `--name`.
+- Players nobody asks after leave in 45 seconds, so a thread asks for each of
+  them every three seconds. Forget it and the lobby empties between pictures.
+- Race setup's suggestion lists open when a search comes back, even for a field
+  you have left, and then sit over the controls below (#50). The script waits for
+  the searches, focuses each field and leaves it again.
+- Starting a race once timed out waiting for it to appear and passed on the next
+  run, so that wait is 45 seconds and prints what the page shows if it still
+  fails. A flaky wait is worth that line.
+- The browser player's clicks go through `navigate(title, true)`, which is what a
+  click calls, so a route does not depend on a link being on this week's version
+  of the article.
+- Everyone but the browser player is posted with `/progress`, `/finish` and
+  `/give_up`, and their times are set so the winner is the browser player and
+  Ada, with the fewest clicks, is third, so Results shows the bonus on somebody
+  who did not win.
+
 ## Filing issues and PRs
 
 Anything Claude opens is filed by the machine account `machmar-claude`, not by
