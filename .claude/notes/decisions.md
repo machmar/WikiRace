@@ -718,8 +718,8 @@ stop, and keeps the reference (every setting, scoring, hosting) below it.
 - **The game is shown as it is.** A bug that is in a picture is filed, not
   hidden and not fixed in the README's branch, and the pictures are made again
   once it is fixed. Give up stayed in the top bar after you finished (#47) and
-  was in three of them until #51 put it away. A suggestion list that opens after
-  you have left its field (#50) cost the script some retries, and is still open.
+  was in three of them until #51 put it away. A suggestion list that opened after
+  you had left its field (#50) cost the script some retries until #54 fixed it.
 - **Turned down: more pictures.** My run and a frame from part-way through the
   replay were made and left out: the README already shows the Replay's four
   views, and a page of pictures is harder to read than one with fewer. So was
@@ -727,3 +727,44 @@ stop, and keeps the reference (every setting, scoring, hosting) below it.
   the race's top bar wider than the screen with Give up cut off (#48), which is
   not what the README should open with. Add it back, as a few lines in the
   script, once the phone layout is done.
+
+## Title suggestions only show the search you are waiting on
+
+Race setup's suggestions close on `blur`, but the search behind them is
+asynchronous, so an answer can land at a moment the list was never meant to
+open. Two ways, both found with Wikipedia's answers held back and let through in
+the wrong order, and both in `attachTypeahead()`, which the start, target and
+checkpoint boxes share:
+
+- **You have left the field** (issue #50). Type a title and press Add, or tab
+  away, before Wikipedia has answered, and the answer opened the list on a
+  field that had already lost focus, with no blur left to close it. It sat over
+  Game settings until you focused the field and left it again. The answer is
+  now drawn only if the input is the focused element when it arrives.
+- **You have left the search behind** (issue #52). The field is still yours, but
+  the answer is for something you have since changed: an older search answering
+  after a newer one, one landing under a box you had emptied, one landing after
+  you picked a title, or after you pressed Escape. Only the 180ms wait before a
+  search went out was ever cancelled; one already out drew whatever it found. A
+  search that *failed* did the same with its `close()`, shutting a list that a
+  newer search had drawn. `latest` is now the search the box is waiting on, each
+  search remembers its own number, and one that is not the latest when it
+  returns counts for nothing, answer or failure.
+
+The two checks are separate on purpose:
+
+- **Blur does not end a search.** Making it move `latest` on would also have
+  fixed #50, but it would drop the answer for a field you left and came back to
+  before it landed, and that is a field you are typing in and wants its
+  suggestions. `test_typeahead.py` pins that case. The list closing does not end
+  one either: blur closes it by its own timer, which comes to the same thing.
+- **What does end one:** typing (the box now says something else, or nothing),
+  picking a title, and Escape on an open list.
+- **Dropped rather than drawn closed.** The same on screen, and it leaves
+  `items` as the last list drawn instead of replacing it with one nobody saw.
+- **Turned down: aborting the request.** A search that is already on its way
+  back still has to be ignored where it lands, so the guard is needed anyway,
+  and `wiki()` already has an abort of its own for the timeout.
+- **Two found while writing the test, not in #52's list:** Escape did not stop
+  the answer still out for what you had been typing, and a failed older search
+  closed a newer list. Both are the same rule, so they are in the same change.

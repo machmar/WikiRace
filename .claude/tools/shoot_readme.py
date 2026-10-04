@@ -387,8 +387,9 @@ def main():
             pg.fill("#c-check", STOP)
             pg.click("#c-check-add")
             pg.wait_for_function("() => document.querySelectorAll('#c-chips .cp-row, #c-chips .chip').length >= 1", timeout=15000)
-            # A suggestion list opens when its search comes back, even for a field you have left, and
-            # then covers the controls below; let the searches land, then click away so they close.
+            # Before #54 a suggestion list opened when its search came back, even for a field you had
+            # left, and then covered the controls below. Let the searches land and leave each field,
+            # which is harmless now and still needed on a checkout from before that fix.
             settle(pg, 2500)
             for field in ["#c-start", "#c-target", "#c-check"]:
                 pg.focus(field)
