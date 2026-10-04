@@ -673,6 +673,61 @@ branch, so `win()` was the only gap.
   name clash or a checkpoint race the page's own check lets through, and that
   was more setup than the one line it would guard.
 
+## The README shows the real game, and a script makes the pictures
+
+The README had no pictures at all, and was a wall of 27KB of text with the
+reference material and the tour of a race mixed together. It now opens on a
+screenshot, walks one race from the lobby to the replay with a picture for each
+stop, and keeps the reference (every setting, scoring, hosting) below it.
+
+- **Made, not captured.** `.claude/tools/shoot_readme.py` starts its own copy
+  of the game, seeds a few evenings of past races, fills the table with five
+  made-up players and plays the sixth in Chromium. A hand-taken picture is out
+  of date the next time a screen moves, and nobody remembers how it was set up;
+  a script is rerun, and it is the record of how the state was reached. Turned
+  down: drawing the screens as illustrations, which would drift from the game
+  the first time one changed, and screenshots of the owner's own server, which
+  have real names and a real scoreboard in them.
+- **The real Wikipedia, not the stub.** The browser suites stub it, and a stub
+  article is three paragraphs about pulsars. In a picture the article is most
+  of what you see, so the script needs the internet and the pictures are of
+  whatever the article looks like that week.
+- **Made-up players, a real race.** The five others are posted to the game the
+  way a browser would (`/progress`, `/finish`), with times set so the winner is
+  on top; the sixth really clicks through Wikipedia, so the clock, the
+  checkpoint, the finish splash and the Watching tab are the game's own. Ada
+  finishes third with the fewest clicks, so the picture of Results shows the
+  bonus on someone who did not win.
+- **Photographed at 1280 by 800.** At 1200 the goal bar cuts the target off
+  during a race with a checkpoint (#49), and that is the picture most worth
+  having right. They are taken at twice that and kept no wider than 1920, which
+  is as much as the README can show on a dense screen.
+- **A 256-colour palette keeps them small**, and the squeeze matters. Pillow's
+  default, median cut, posterizes the photographs in an article and drops small
+  saturated areas to the nearest neighbour: the players' pink, blue and green
+  colour bars came out salmon, teal and grey. Max coverage keeps the colours
+  and speckles the photographs. An octree (`FASTOCTREE`, on a flat RGB picture,
+  not on one with an alpha channel, where it bands) keeps both. Pictures come
+  out at 20 to 300KB each, under 2MB for the set. Turned down: full-colour
+  PNGs, which were three to five times the size for no difference at the size
+  the README shows them.
+- **Headings have no emoji.** GitHub makes a heading's link from its words, and
+  a leading emoji becomes a leading hyphen (`#-quick-start`), so links like
+  `#rooms` and `#scoring` would be easy to break. The friendliness is in the
+  pictures, the short opening and the tables instead.
+- **The game is shown as it is.** A bug that is in a picture is filed, not
+  hidden and not fixed in the README's branch, and the pictures are made again
+  once it is fixed. Give up stayed in the top bar after you finished (#47) and
+  was in three of them until #51 put it away. A suggestion list that opened after
+  you had left its field (#50) cost the script some retries until #54 fixed it.
+- **Turned down: more pictures.** My run and a frame from part-way through the
+  replay were made and left out: the README already shows the Replay's four
+  views, and a page of pictures is harder to read than one with fewer. So was
+  a sheet of the game on a phone. Mobile is later work, and the picture showed
+  the race's top bar wider than the screen with Give up cut off (#48), which is
+  not what the README should open with. Add it back, as a few lines in the
+  script, once the phone layout is done.
+
 ## Title suggestions only show the search you are waiting on
 
 Race setup's suggestions close on `blur`, but the search behind them is

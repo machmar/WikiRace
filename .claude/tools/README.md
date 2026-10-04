@@ -10,6 +10,17 @@ Start a throwaway server first (see `../notes/workflows.md`), then:
     python drive_lost.py 8477        # lost mode, and its start handout
     python drive.py 8477             # the plain four-player race
 
+The pictures in the top-level README are made from the real game, not drawn:
+
+    py -3.13 shoot_readme.py         # starts its own server, plays a whole race in Chromium, writes docs/img/
+    py -3.13 shoot_readme.py --only racing,lobby   # keep just those (the race is still played)
+
+It needs the internet (the articles are the real Wikipedia) and Playwright. It
+seeds a few evenings of past races so the lobby has a history, fills the table
+with five made-up players and plays the sixth in the browser; every picture is
+made fresh, so rerun it when the game looks different enough that they're lying.
+Set `WIKIRACE_RAW` to a folder to also keep each picture in full colour.
+
 The design-language retrofit, one script per step, kept as the record of what
 moved on each screen. They have all run; running one again stops on its first
 anchor, which is the point:
