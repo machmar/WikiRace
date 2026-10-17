@@ -750,6 +750,9 @@
   .cp-box { --cp-in: calc(var(--r-box) - 1px); border: 1px solid var(--line); border-radius: var(--r-box); }
   .cp-box > div:first-child > .cp-row:first-child { border-radius: var(--cp-in) var(--cp-in) 0 0; }
   .cp-box > .cp-add:last-child { border-radius: 0 0 var(--cp-in) var(--cp-in); }
+  /* With the add box gone, the list's own last row closes the box. */
+  .cp-box.full > div:first-child > .cp-row:last-child { border-radius: 0 0 var(--cp-in) var(--cp-in); }
+  .cp-box.full > div:first-child > .cp-row:only-child { border-radius: var(--cp-in); }
   .cp-box > div:first-child:empty + .cp-add { border-top: 0; border-radius: var(--cp-in); }
   .cp-row {
     display: grid; grid-template-columns: 1fr 46px repeat(4, 28px); align-items: center; gap: var(--s-2);
@@ -772,12 +775,13 @@
   .cp-btn.on { color: var(--warn-fg); }
   .cp-btn:disabled { opacity: .25; }
   .cp-x:hover:not(:disabled) { color: var(--bad-fg); border-color: var(--bad-line); background: var(--bad-bg); }
-  .cp-add { grid-template-columns: 1fr auto auto; gap: var(--s-3); padding: var(--s-2) var(--s-3); background: var(--bg-2); }
+  .cp-add { grid-template-columns: 1fr auto; gap: var(--s-3); padding: var(--s-2) var(--s-3); background: var(--bg-2); }
   .cp-add .ta { min-width: 0; }
   .cp-add input[type=text] { border-color: transparent; background: transparent; padding-left: var(--s-1); }
   .cp-add button { font-size: var(--t-sm); }
-  .cp-add .icon { padding: var(--s-2) var(--s-3); }
-  .cp-phrase { margin: var(--s-3) 0 0; }
+  .cp-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin-top: var(--s-3); }
+  .cp-foot .icon { padding: var(--s-2) var(--s-3); font-size: var(--t-sm); }
+  .cp-phrase { margin: 0; }
   .cpn { margin-left: var(--s-2); font-size: var(--t-xs); letter-spacing: .04em; color: var(--warn-fg); }
   /* Two dropdowns side by side line up on the control, not the label. */
   .fold-body .two { align-items: end; }
@@ -6322,12 +6326,16 @@ async function markSetupPoints(ov) {
   if (total) total.textContent = hard.length ? "points +" + hard.length * step + "%" : "";
 }
 
+const MAX_CHECKPOINTS = 6;
 function renderCheckpointChips(ov) {
   const host = ov.querySelector("#c-chips");
   if (!host) return;
   markSetupPoints(ov);
   tidySlots();
   const n = cfg.checkpoints.length;
+  // A full list has no use for a box that adds another.
+  setFlag(ov.querySelector("#c-add-row"), "hidden", n >= MAX_CHECKPOINTS);
+  ov.querySelector(".cp-box").classList.toggle("full", n >= MAX_CHECKPOINTS);
   setFlag(ov.querySelector("#c-shuffle"), "hidden", n < 2);
   setText(ov.querySelector("#c-phrase"),
           n > 1 ? orderPhrase(cfg.checkpoints, cfg.checkpoint_slots) : n ? "One stop, anywhere on the way." : "");
@@ -6475,13 +6483,13 @@ function openConfigurator(kind) {
     'pin the ones that have to be made in this order)</span> <span class="c-pct" data-rule="checkpoints"></span></label>' +
     '<div class="cp-box">' +
     '<div id="c-chips"></div>' +
-    '<div class="cp-row cp-add">' +
+    '<div class="cp-row cp-add" id="c-add-row">' +
     '<div class="ta"><input type="text" id="c-check" autocomplete="off" ' +
     'placeholder="add a stop — type to search"><div class="ta-list" id="c-check-list" hidden></div></div>' +
     '<button id="c-check-add">Add</button>' +
-    '<button id="c-shuffle" class="icon" title="A new order, and a new amount of order" hidden>🎲</button>' +
     "</div></div>" +
-    '<p class="cp-phrase muted tiny" id="c-phrase"></p></div>' +
+    '<div class="cp-foot"><p class="cp-phrase muted tiny" id="c-phrase"></p>' +
+    '<button id="c-shuffle" class="icon" title="A new order, and a new amount of order" hidden>🎲</button></div></div>' +
 
 
     '<div class="field">' +
@@ -6657,7 +6665,7 @@ function openConfigurator(kind) {
   const addCheckpoint = async () => {
     const raw = q("#c-check").value.trim();
     if (!raw) return;
-    if (cfg.checkpoints.length >= 6) { toast("Six checkpoints is plenty"); return; }
+    if (cfg.checkpoints.length >= MAX_CHECKPOINTS) { toast("Six checkpoints is plenty"); return; }
     const btn = q("#c-check-add");
     btn.disabled = true;
     try {
