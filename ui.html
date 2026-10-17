@@ -1823,6 +1823,7 @@
         <input type="text" id="myname" maxlength="24" placeholder="your name">
         <button id="btn-rollname" class="ghost" title="Suggest a name" aria-label="Suggest a name">🎲</button>
         <button id="btn-savename" class="ghost">Save</button>
+        <button id="btn-cancelname" class="ghost" hidden>Cancel</button>
       </div>
       <div id="name-twin" class="note warn at-field" hidden>Someone else in the game is also called <b id="name-twin-who"></b>. Only one
         of you can race under it. <a href="#" id="name-twin-pick">Pick another name</a></div>
@@ -3116,6 +3117,14 @@ async function rollName(input, button) {
   }
 }
 
+/* The side panel's name field: whether it holds something not yet saved. */
+const nameDraft = { dirty: false };
+function syncNameDraft() {
+  const saved = S.snap && S.snap.me ? S.snap.me.name : "";
+  nameDraft.dirty = $("myname").value.trim() !== saved;
+  setFlag($("btn-cancelname"), "hidden", !nameDraft.dirty);
+}
+
 function clashMessage(name) {
   return "<b>" + esc(name) + "</b> is already in this race — only one player can race under a name. " +
          "Pick another one to join in.";
@@ -3165,7 +3174,15 @@ $("np-guest").onclick = () => submitName(true);
 $("np-name").addEventListener("input", () => { npError(""); npReady(); });
 $("np-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(false); } });
 
-$("btn-rollname").onclick = () => rollName($("myname"), $("btn-rollname"));
+$("btn-rollname").onclick = async () => {
+  await rollName($("myname"), $("btn-rollname"));
+  syncNameDraft();
+};
+$("myname").addEventListener("input", syncNameDraft);
+$("btn-cancelname").onclick = () => {
+  $("myname").value = S.snap && S.snap.me ? S.snap.me.name : "";
+  syncNameDraft();
+};
 $("name-twin-pick").onclick = e => { e.preventDefault(); setDrawer(false); openNamePicker({}); };
 $("guest-keep").onclick = async e => {
   e.preventDefault();
@@ -6769,7 +6786,11 @@ function renderSnapshot(snap) {
   const twin = (snap.peers || []).find(p => norm(p.name) === norm(snap.me.name));
   if (twin) setText($("name-twin-who"), snap.me.name);
   setFlag($("name-twin"), "hidden", !twin);
-  if (document.activeElement !== $("myname")) $("myname").value = snap.me.name;
+  // An unsaved name (typed, or rolled with the dice) is the player's to keep
+  // until they save or cancel it; a snapshot arrives every second or so and
+  // must not put the saved one back.
+  if (document.activeElement !== $("myname") && !nameDraft.dirty) $("myname").value = snap.me.name;
+  syncNameDraft();
 
   const ready = $("btn-ready");
   setFlag(ready, "hidden", !!(snap.race && S.running));
@@ -7524,6 +7545,8 @@ $("btn-savename").onclick = async () => {
   setDrawer(false);
   rememberName(res.name || v);
   conn.named = true;          // this is now the name to reclaim on reconnect
+  nameDraft.dirty = false;    // the next snapshot carries it, so let it through
+  setFlag($("btn-cancelname"), "hidden", true);
   toast("Name saved on this device");
 };
 $("myname").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-savename").click(); });
